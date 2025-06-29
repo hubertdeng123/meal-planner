@@ -1,0 +1,291 @@
+# ===========================================
+# AI-Powered Meal Planner - .gitignore
+# ===========================================
+
+# ===========================================
+# Python Backend (.venv, FastAPI, pytest)
+# ===========================================
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.env/
+
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+junit.xml
+
+# Alembic (database migrations)
+# Keep the versions directory but ignore auto-generated files
+backend/alembic/versions/*.py
+!backend/alembic/versions/README
+
+# ===========================================
+# Frontend (React, TypeScript, pnpm)
+# ===========================================
+
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing
+coverage/
+
+# Production builds
+build/
+dist/
+
+# Package manager files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Local env files (but keep .env.example)
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# TypeScript
+*.tsbuildinfo
+
+# Vite
+.vite/
+
+# ===========================================
+# Database Files
+# ===========================================
+
+# SQLite databases (if used for testing)
+*.db
+*.sqlite
+*.sqlite3
+
+# PostgreSQL dumps
+*.sql
+*.dump
+
+# Database backup files
+*.backup
+
+# ===========================================
+# Environment & Configuration
+# ===========================================
+
+# Environment files (keep .env.example)
+.env
+.env.*
+!.env.example
+
+# Local configuration
+config.local.json
+settings.local.py
+
+# Secrets and API keys
+secrets/
+.secrets
+
+# ===========================================
+# Development Tools & IDEs
+# ===========================================
+
+# VSCode
+.vscode/
+!.vscode/settings.json.example
+!.vscode/extensions.json.example
+
+# Cursor
+.cursor/
+
+# PyCharm
+.idea/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Spyder
+.spyderproject
+.spyproject
+
+# Rope
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# ===========================================
+# Logs & Temporary Files
+# ===========================================
+
+# Application logs
+*.log
+logs/
+log/
+
+# Temporary files
+*.tmp
+*.temp
+*~
+
+# Backup files
+*.bak
+*.swp
+*.swo
+
+# ===========================================
+# Operating System Files
+# ===========================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.directory
+.fuse_hidden*
+.Trash-*
+.nfs*
+
+# ===========================================
+# Docker & Containers
+# ===========================================
+
+# Docker files (if using local override)
+docker-compose.override.yml
+
+# ===========================================
+# Deployment & CI/CD
+# ===========================================
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# Ansible
+*.retry
+
+# ===========================================
+# Miscellaneous
+# ===========================================
+
+# Certificate files
+*.pem
+*.key
+*.crt
+*.cert
+
+# Archive files
+*.tar
+*.zip
+*.rar
+*.7z
+
+# Large files that shouldn't be in git
+*.iso
+*.dmg
+
+# Generated documentation
+docs/_build/
+
+# Editor swap files
+*.swp
+*.swo
+*~
+
+# Tags files
+tags
+TAGS
+
+# Local data files
+data/
+*.csv
+*.json.local
+
+# Development uploads
+uploads/
+media/local/

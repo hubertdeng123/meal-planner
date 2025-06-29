@@ -1,0 +1,39 @@
+[project]
+name = "meal-planner-backend"
+version = "1.0.0"
+description = "AI-powered meal planner backend"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "python-dotenv>=1.0.1",
+    "sqlalchemy>=2.0.36",
+    "psycopg[binary]>=3.2.0",
+    "alembic>=1.14.0",
+    "pydantic[email]>=2.10.0",
+    "pydantic-settings>=2.8.0",
+    "python-jose[cryptography]>=3.3.0",
+    "passlib[bcrypt]>=1.7.4",
+    "bcrypt>=4.0.1",
+    "python-multipart>=0.0.12",
+    "anthropic>=0.47.0",
+    "aiofiles>=23.2.1",
+    "pgvector>=0.2.4",
+    "sentence-transformers>=2.3.1",
+    "numpy>=1.24.0",
+    "httpx>=0.28.0",
+    "beautifulsoup4>=4.12.3",
+    "schedule>=1.2.2",
+    "apscheduler>=3.10.4",
+    "pytz>=2024.1",
+    "psycopg2-binary>=2.9.10",
+]
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=6.0.0",
+    "ruff>=0.8.0",
+    "pre-commit>=4.0.0",
+]

@@ -1,0 +1,33 @@
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, JSON, Time
+from sqlalchemy.orm import relationship
+from datetime import datetime, time
+from app.db.database import Base
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, unique=True, index=True, nullable=False)
+    username = Column(String, unique=True, index=True, nullable=False)
+    hashed_password = Column(String, nullable=False)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # User preferences as JSON
+    food_preferences = Column(JSON, default=dict)
+    dietary_restrictions = Column(JSON, default=list)
+
+    # Email notification preferences
+    email_notifications_enabled = Column(Boolean, default=True)
+    weekly_planning_reminder = Column(Boolean, default=True)
+    reminder_day_of_week = Column(Integer, default=0)  # 0=Monday, 6=Sunday
+    reminder_time = Column(Time, default=time(9, 0))  # 9:00 AM
+    timezone = Column(String, default="UTC")
+
+    # Relationships
+    recipes = relationship("Recipe", back_populates="user")
+    meal_plans = relationship("MealPlan", back_populates="user")
+    grocery_lists = relationship("GroceryList", back_populates="user")
+    recipe_feedback = relationship("RecipeFeedback", back_populates="user")
