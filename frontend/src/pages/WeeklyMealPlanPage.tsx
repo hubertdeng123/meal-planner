@@ -282,23 +282,40 @@ export default function WeeklyMealPlanPage() {
       hasName: !!recipe?.name,
       hasIngredients: !!recipe?.ingredients,
       hasInstructions: !!recipe?.instructions,
-      recipeKeys: recipe ? Object.keys(recipe) : 'no recipe',
+      recipeKeys: recipe ? Object.keys(recipe).join(', ') : 'no recipe',
     });
 
-    // Check if recipe has an ID (from saved recipes)
-    if (recipe?.id) {
-      console.log('🔍 Recipe has ID, redirecting to recipe page:', recipe.id);
-      // Redirect to the dedicated recipe detail page
-      navigate(`/recipes/${recipe.id}`);
-    } else {
+    if (!recipe) {
       console.log('🔍 Recipe has no ID, showing modal');
-      // Fallback to modal for recipes without IDs
-      setSelectedRecipeDetail({
-        recipe,
-        slotInfo: { date: mealSlot.date, mealType: mealSlot.meal_type },
-      });
+      setSelectedRecipeDetail(null);
+      return;
     }
+
+    setSelectedRecipeDetail({
+      recipe,
+      slotInfo: { date: mealSlot.date, mealType: mealSlot.meal_type },
+    });
     console.log('🔍 handleViewRecipeDetail completed');
+  };
+
+  const handleSelectRecipe = async (mealSlotIndex: number, recipeIndex: number) => {
+    if (!weeklyPlan) return;
+
+    try {
+      // Update local state immediately for responsive UI
+      const updatedPlan = { ...weeklyPlan };
+      updatedPlan.meal_slots[mealSlotIndex].selected_recipe_index = recipeIndex;
+      setWeeklyPlan(updatedPlan);
+
+      // Save to backend if this is a saved meal plan (has an ID)
+      if (weeklyPlan.id) {
+        await mealPlanningService.updateRecipeSelection(weeklyPlan.id, mealSlotIndex, recipeIndex);
+      }
+    } catch (error) {
+      console.error('Failed to save recipe selection:', error);
+      // Optionally show an error message to the user
+      // For now, the local state update will still work
+    }
   };
 
   const handleGenerateGroceryList = async () => {
@@ -1087,8 +1104,9 @@ export default function WeeklyMealPlanPage() {
   }
 
   if (step === 'selection' && weeklyPlan) {
-    const slotsWithSelectedRecipes = getSlotsWithSelectedRecipes();
-    const groupedSlots = groupSlotsByDay(slotsWithSelectedRecipes);
+    // For recipe selection, show ALL meal slots, not just selected ones
+    const allSlots = viewMode ? getSlotsWithSelectedRecipes() : weeklyPlan.meal_slots;
+    const groupedSlots = groupSlotsByDay(allSlots);
     const daysWithRecipes = Object.keys(groupedSlots).sort();
 
     return (
@@ -1145,467 +1163,569 @@ export default function WeeklyMealPlanPage() {
           </div>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="mb-8">
-          <nav className="flex space-x-8" aria-label="Tabs">
-            <button
-              onClick={() => setActiveTab('recipes')}
-              className={`${
-                activeTab === 'recipes'
-                  ? 'border-orange-500 text-orange-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              } whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm flex items-center`}
-            >
-              <StarIcon className="h-5 w-5 mr-2" />
-              Recipes ({getSelectedMealsCount()})
-            </button>
-            <button
-              onClick={() => setActiveTab('grocery')}
-              className={`${
-                activeTab === 'grocery'
-                  ? 'border-green-500 text-green-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              } whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm flex items-center`}
-            >
-              <ShoppingCartIcon className="h-5 w-5 mr-2" />
-              Grocery List
-              {groceryList && (
-                <span className="ml-1 bg-green-100 text-green-800 text-xs rounded-full px-2 py-1">
-                  {groceryList.items.length}
-                </span>
-              )}
-            </button>
-          </nav>
-        </div>
+        {!viewMode && (
+          <>
+            {/* Recipe Selection Interface */}
+            <div className="space-y-8">
+              {daysWithRecipes.map(date => (
+                <div
+                  key={date}
+                  className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden"
+                >
+                  <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      {new Date(date).toLocaleDateString('en-US', {
+                        weekday: 'long',
+                        month: 'long',
+                        day: 'numeric',
+                      })}
+                    </h3>
+                  </div>
+                  <div className="p-6">
+                    {groupedSlots[date].map((mealSlot, slotIndex) => {
+                      const mealSlotIndex = weeklyPlan.meal_slots.findIndex(
+                        slot => slot.date === mealSlot.date && slot.meal_type === mealSlot.meal_type
+                      );
 
-        {/* Tab Content */}
-        {activeTab === 'recipes' && (
-          <div className="space-y-8">
-            {!viewMode && (
-              <div className="mb-6">
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                  <div className="flex">
-                    <div className="flex-shrink-0">
-                      <ClockIcon className="h-5 w-5 text-amber-400" />
-                    </div>
-                    <div className="ml-3">
-                      <h3 className="text-sm font-medium text-amber-800">
-                        Recipe Selection in Progress
-                      </h3>
-                      <div className="mt-2 text-sm text-amber-700">
-                        <p>
-                          Select recipes for each meal. Only days with selected recipes will be
-                          shown here.
-                        </p>
-                      </div>
-                    </div>
+                      return (
+                        <div key={slotIndex} className="mb-8">
+                          <h4 className="text-md font-medium text-gray-900 mb-4 capitalize flex items-center">
+                            <span className="bg-orange-100 text-orange-800 text-xs font-medium px-2.5 py-0.5 rounded-full uppercase tracking-wide mr-2">
+                              {mealSlot.meal_type}
+                            </span>
+                            Choose your {mealSlot.meal_type} recipe:
+                          </h4>
+
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {mealSlot.recipe_suggestions?.map((recipe, recipeIndex) => (
+                              <div
+                                key={recipeIndex}
+                                className={`border rounded-lg p-4 cursor-pointer transition-all ${
+                                  mealSlot.selected_recipe_index === recipeIndex
+                                    ? 'border-orange-500 bg-orange-50 ring-2 ring-orange-200'
+                                    : 'border-gray-200 hover:border-orange-300 hover:bg-gray-50'
+                                }`}
+                                onClick={() => handleSelectRecipe(mealSlotIndex, recipeIndex)}
+                              >
+                                <div className="flex items-start justify-between mb-3">
+                                  <div className="flex-1">
+                                    <h5 className="font-medium text-gray-900 text-sm leading-tight mb-2">
+                                      {recipe.name}
+                                    </h5>
+                                    <p className="text-xs text-gray-600 mb-3 line-clamp-2">
+                                      {recipe.description}
+                                    </p>
+                                  </div>
+                                  {mealSlot.selected_recipe_index === recipeIndex && (
+                                    <CheckCircleIconSolid className="h-5 w-5 text-orange-500 flex-shrink-0 ml-2" />
+                                  )}
+                                </div>
+
+                                <div className="flex items-center justify-between text-xs text-gray-500 mb-3">
+                                  <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                                    {recipe.cuisine || 'Unknown'}
+                                  </span>
+                                  <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded">
+                                    {(recipe.prep_time || 0) + (recipe.cook_time || 0)} min
+                                  </span>
+                                </div>
+
+                                <div className="flex space-x-2">
+                                  <button
+                                    onClick={e => {
+                                      e.stopPropagation();
+                                      handleViewRecipeDetail(recipe, mealSlot);
+                                    }}
+                                    className="flex-1 px-3 py-2 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded transition-colors"
+                                  >
+                                    View Details
+                                  </button>
+                                  <button
+                                    onClick={e => {
+                                      e.stopPropagation();
+                                      handleSelectRecipe(mealSlotIndex, recipeIndex);
+                                    }}
+                                    className="flex-1 px-3 py-2 text-xs font-medium text-orange-700 bg-orange-100 hover:bg-orange-200 rounded transition-colors"
+                                  >
+                                    {mealSlot.selected_recipe_index === recipeIndex
+                                      ? 'Selected'
+                                      : 'Select'}
+                                  </button>
+                                </div>
+                              </div>
+                            )) || (
+                              <div className="col-span-3 text-center py-8 text-gray-500">
+                                <p>No recipe suggestions available for this meal.</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
+              ))}
+
+              {/* Action Buttons */}
+              <div className="mt-8 text-center">
+                <button
+                  onClick={() => setViewMode(true)}
+                  disabled={getSelectedMealsCount() === 0}
+                  className="btn-primary"
+                >
+                  Continue to Review ({getSelectedMealsCount()} meals selected)
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* View Mode - Show Selected Recipes */}
+        {viewMode && (
+          <>
+            {/* Tab Navigation */}
+            <div className="mb-8">
+              <nav className="flex space-x-8" aria-label="Tabs">
+                <button
+                  onClick={() => setActiveTab('recipes')}
+                  className={`${
+                    activeTab === 'recipes'
+                      ? 'border-orange-500 text-orange-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  } whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm flex items-center`}
+                >
+                  <StarIcon className="h-5 w-5 mr-2" />
+                  Recipes ({getSelectedMealsCount()})
+                </button>
+                <button
+                  onClick={() => setActiveTab('grocery')}
+                  className={`${
+                    activeTab === 'grocery'
+                      ? 'border-green-500 text-green-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  } whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm flex items-center`}
+                >
+                  <ShoppingCartIcon className="h-5 w-5 mr-2" />
+                  Grocery List
+                  {groceryList && (
+                    <span className="ml-1 bg-green-100 text-green-800 text-xs rounded-full px-2 py-1">
+                      {groceryList.items.length}
+                    </span>
+                  )}
+                </button>
+              </nav>
+            </div>
+
+            {/* Tab Content */}
+            {activeTab === 'recipes' && (
+              <div className="space-y-8">
+                {daysWithRecipes.length === 0 ? (
+                  <div className="text-center py-12">
+                    <StarIcon className="mx-auto h-12 w-12 text-gray-400" />
+                    <h3 className="mt-2 text-lg font-medium text-gray-900">No recipes selected</h3>
+                    <p className="mt-1 text-sm text-gray-500">
+                      This meal plan has no selected recipes to display.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    {/* Selected Recipes by Day */}
+                    {daysWithRecipes.map(date => (
+                      <div
+                        key={date}
+                        className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden"
+                      >
+                        <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
+                          <h3 className="text-lg font-semibold text-gray-900">
+                            {new Date(date).toLocaleDateString('en-US', {
+                              weekday: 'long',
+                              month: 'long',
+                              day: 'numeric',
+                            })}
+                          </h3>
+                        </div>
+                        <div className="p-6">
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {groupedSlots[date].map((mealSlot, slotIndex) => {
+                              const recipe =
+                                mealSlot.recipe_suggestions?.[mealSlot.selected_recipe_index!];
+
+                              return (
+                                <div
+                                  key={slotIndex}
+                                  className="border rounded-lg p-4 bg-green-50 border-green-200"
+                                >
+                                  <div className="flex items-start justify-between mb-3">
+                                    <div>
+                                      <span className="inline-block bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full uppercase tracking-wide mb-2">
+                                        {mealSlot.meal_type}
+                                      </span>
+                                      <h4 className="font-medium text-gray-900 text-sm leading-tight">
+                                        {recipe?.name || 'Untitled Recipe'}
+                                      </h4>
+                                    </div>
+                                    <CheckCircleIconSolid className="h-5 w-5 text-green-500 flex-shrink-0" />
+                                  </div>
+
+                                  <p className="text-xs text-gray-600 mb-3 line-clamp-2">
+                                    {recipe?.description || 'No description available'}
+                                  </p>
+
+                                  <div className="flex items-center justify-between text-xs text-gray-500 mb-3">
+                                    <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                                      {recipe?.cuisine || 'Unknown'}
+                                    </span>
+                                    <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded">
+                                      {(recipe?.prep_time || 0) + (recipe?.cook_time || 0)} min
+                                    </span>
+                                  </div>
+
+                                  <div className="flex space-x-2">
+                                    <button
+                                      onClick={() => handleViewRecipeDetail(recipe, mealSlot)}
+                                      className="flex-1 px-3 py-2 text-xs font-medium text-green-700 bg-green-100 hover:bg-green-200 rounded transition-colors"
+                                    >
+                                      View Details
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* Action Buttons for Recipes Tab */}
+                    <div className="mt-8 text-center space-y-4">
+                      {!groceryList && (
+                        <button
+                          onClick={handleGenerateGroceryList}
+                          disabled={getSelectedMealsCount() === 0 || groceryLoading}
+                          className="btn-primary"
+                        >
+                          {groceryLoading ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                              Generating Grocery List...
+                            </>
+                          ) : (
+                            <>
+                              <ShoppingCartIcon className="h-4 w-4 mr-2" />
+                              Generate Grocery List ({getSelectedMealsCount()} meals)
+                            </>
+                          )}
+                        </button>
+                      )}
+
+                      {groceryList && (
+                        <div className="flex justify-center space-x-4">
+                          <button
+                            onClick={() => setActiveTab('grocery')}
+                            className="btn-secondary flex items-center"
+                          >
+                            <ShoppingCartIcon className="h-4 w-4 mr-2" />
+                            View Grocery List ({groceryList.items.length} items)
+                          </button>
+                          <button
+                            onClick={() => {
+                              setNotificationType('weekly-plan');
+                              handleSendWeeklyPlanNotification();
+                            }}
+                            disabled={sendingNotification}
+                            className="btn-primary flex items-center"
+                          >
+                            {sendingNotification ? (
+                              <>
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                                Sending...
+                              </>
+                            ) : (
+                              <>
+                                <EnvelopeIcon className="h-4 w-4 mr-2" />
+                                Email Weekly Plan
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
-            {daysWithRecipes.length === 0 ? (
-              <div className="text-center py-12">
-                <StarIcon className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-lg font-medium text-gray-900">No recipes selected yet</h3>
-                <p className="mt-1 text-sm text-gray-500">
-                  {viewMode
-                    ? 'This meal plan has no selected recipes to display.'
-                    : 'Go back to recipe selection to choose your meals for the week.'}
-                </p>
-                {!viewMode && (
-                  <div className="mt-6">
-                    <button onClick={() => setStep('schedule')} className="btn-primary">
-                      Back to Recipe Selection
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <>
-                {/* Selected Recipes by Day */}
-                {daysWithRecipes.map(date => (
-                  <div
-                    key={date}
-                    className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden"
-                  >
-                    <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
-                      <h3 className="text-lg font-semibold text-gray-900">
-                        {new Date(date).toLocaleDateString('en-US', {
-                          weekday: 'long',
-                          month: 'long',
-                          day: 'numeric',
-                        })}
-                      </h3>
-                    </div>
-                    <div className="p-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {groupedSlots[date].map((mealSlot, slotIndex) => {
-                          const recipe =
-                            mealSlot.recipe_suggestions?.[mealSlot.selected_recipe_index!];
-
-                          return (
-                            <div
-                              key={slotIndex}
-                              className="border rounded-lg p-4 bg-green-50 border-green-200"
-                            >
-                              <div className="flex items-start justify-between mb-3">
-                                <div>
-                                  <span className="inline-block bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full uppercase tracking-wide mb-2">
-                                    {mealSlot.meal_type}
-                                  </span>
-                                  <h4 className="font-medium text-gray-900 text-sm leading-tight">
-                                    {recipe?.name || 'Untitled Recipe'}
-                                  </h4>
-                                </div>
-                                <CheckCircleIconSolid className="h-5 w-5 text-green-500 flex-shrink-0" />
-                              </div>
-
-                              <p className="text-xs text-gray-600 mb-3 line-clamp-2">
-                                {recipe?.description || 'No description available'}
-                              </p>
-
-                              <div className="flex items-center justify-between text-xs text-gray-500 mb-3">
-                                <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                                  {recipe?.cuisine || 'Unknown'}
-                                </span>
-                                <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded">
-                                  {(recipe?.prep_time || 0) + (recipe?.cook_time || 0)} min
-                                </span>
-                              </div>
-
-                              <div className="flex space-x-2">
-                                <button
-                                  onClick={() => handleViewRecipeDetail(recipe, mealSlot)}
-                                  className="flex-1 px-3 py-2 text-xs font-medium text-green-700 bg-green-100 hover:bg-green-200 rounded transition-colors"
-                                >
-                                  View Details
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-
-                {/* Action Buttons for Recipes Tab */}
-                <div className="mt-8 text-center space-y-4">
-                  {!groceryList && (
-                    <button
-                      onClick={handleGenerateGroceryList}
-                      disabled={getSelectedMealsCount() === 0 || groceryLoading}
-                      className="btn-primary"
-                    >
-                      {groceryLoading ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                          Generating Grocery List...
-                        </>
-                      ) : (
-                        <>
-                          <ShoppingCartIcon className="h-4 w-4 mr-2" />
-                          Generate Grocery List ({getSelectedMealsCount()} meals)
-                        </>
-                      )}
-                    </button>
-                  )}
-
-                  {groceryList && (
-                    <div className="flex justify-center space-x-4">
+            {activeTab === 'grocery' && (
+              <div>
+                {!groceryList ? (
+                  <div className="text-center py-12">
+                    <ShoppingCartIcon className="mx-auto h-12 w-12 text-gray-400" />
+                    <h3 className="mt-2 text-lg font-medium text-gray-900">
+                      No grocery list generated
+                    </h3>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Generate a grocery list from your selected recipes to start shopping.
+                    </p>
+                    <div className="mt-6">
                       <button
-                        onClick={() => setActiveTab('grocery')}
-                        className="btn-secondary flex items-center"
+                        onClick={handleGenerateGroceryList}
+                        disabled={getSelectedMealsCount() === 0 || groceryLoading}
+                        className="btn-primary"
                       >
-                        <ShoppingCartIcon className="h-4 w-4 mr-2" />
-                        View Grocery List ({groceryList.items.length} items)
-                      </button>
-                      <button
-                        onClick={() => {
-                          setNotificationType('weekly-plan');
-                          handleSendWeeklyPlanNotification();
-                        }}
-                        disabled={sendingNotification}
-                        className="btn-primary flex items-center"
-                      >
-                        {sendingNotification ? (
+                        {groceryLoading ? (
                           <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                            Sending...
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                            Generating...
                           </>
                         ) : (
                           <>
-                            <EnvelopeIcon className="h-4 w-4 mr-2" />
-                            Email Weekly Plan
+                            <ShoppingCartIcon className="h-4 w-4 mr-2" />
+                            Generate Grocery List ({getSelectedMealsCount()} meals)
                           </>
                         )}
                       </button>
                     </div>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-        )}
+                  </div>
+                ) : (
+                  <>
+                    {/* Grocery List Content */}
+                    {(() => {
+                      const groupedItems = groceryList.items.reduce(
+                        (groups, item) => {
+                          const category = item.category || 'Other';
+                          if (!groups[category]) {
+                            groups[category] = [];
+                          }
+                          groups[category].push(item);
+                          return groups;
+                        },
+                        {} as { [category: string]: GroceryItem[] }
+                      );
 
-        {activeTab === 'grocery' && (
-          <div>
-            {!groceryList ? (
-              <div className="text-center py-12">
-                <ShoppingCartIcon className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-lg font-medium text-gray-900">
-                  No grocery list generated
-                </h3>
-                <p className="mt-1 text-sm text-gray-500">
-                  Generate a grocery list from your selected recipes to start shopping.
-                </p>
-                <div className="mt-6">
-                  <button
-                    onClick={handleGenerateGroceryList}
-                    disabled={getSelectedMealsCount() === 0 || groceryLoading}
-                    className="btn-primary"
-                  >
-                    {groceryLoading ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        Generating...
-                      </>
-                    ) : (
-                      <>
-                        <ShoppingCartIcon className="h-4 w-4 mr-2" />
-                        Generate Grocery List ({getSelectedMealsCount()} meals)
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <>
-                {/* Grocery List Content */}
-                {(() => {
-                  const groupedItems = groceryList.items.reduce(
-                    (groups, item) => {
-                      const category = item.category || 'Other';
-                      if (!groups[category]) {
-                        groups[category] = [];
-                      }
-                      groups[category].push(item);
-                      return groups;
-                    },
-                    {} as { [category: string]: GroceryItem[] }
-                  );
+                      const categories = Object.keys(groupedItems).sort();
+                      const completedItems = groceryList.items.filter(item => item.checked).length;
+                      const totalItems = groceryList.items.length;
+                      const completionPercentage =
+                        totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
 
-                  const categories = Object.keys(groupedItems).sort();
-                  const completedItems = groceryList.items.filter(item => item.checked).length;
-                  const totalItems = groceryList.items.length;
-                  const completionPercentage =
-                    totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
-
-                  return (
-                    <div>
-                      <div className="text-center mb-8">
-                        <ShoppingCartIcon className="mx-auto h-12 w-12 text-green-500" />
-                        <h2 className="mt-4 text-2xl font-bold text-gray-900">Your Grocery List</h2>
-                        <p className="mt-2 text-gray-600">Generated from your weekly meal plan</p>
-                        <div className="mt-4 flex justify-center">
-                          <div className="bg-green-100 rounded-lg px-4 py-2">
-                            <span className="text-sm font-medium text-green-800">
-                              {completedItems} of {totalItems} items completed (
-                              {completionPercentage}%)
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Progress Bar */}
-                      <div className="mb-8 bg-white rounded-lg shadow p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium text-gray-700">
-                            Shopping Progress
-                          </span>
-                          <span className="text-sm text-gray-500">
-                            {completionPercentage}% complete
-                          </span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div
-                            className="bg-green-500 h-2 rounded-full transition-all duration-300"
-                            style={{ width: `${completionPercentage}%` }}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Enhanced Action Buttons */}
-                      <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                        <button
-                          onClick={() => setActiveTab('recipes')}
-                          className="btn-secondary flex items-center"
-                        >
-                          <ArrowLeftIcon className="h-4 w-4 mr-2" />
-                          Back to Recipes
-                        </button>
-
-                        <div className="flex flex-col sm:flex-row gap-3">
-                          {/* Notification Buttons */}
-                          <div className="relative">
-                            <div className="flex">
-                              {/* Main Send Button */}
-                              <button
-                                onClick={() => {
-                                  setNotificationType('weekly-plan');
-                                  handleSendWeeklyPlanNotification();
-                                }}
-                                disabled={sendingNotification}
-                                className="btn-secondary flex items-center rounded-r-none border-r-0 px-4 py-2"
-                              >
-                                {sendingNotification ? (
-                                  <>
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2" />
-                                    Sending...
-                                  </>
-                                ) : (
-                                  <>
-                                    <EnvelopeIcon className="h-4 w-4 mr-2" />
-                                    Email Weekly Plan
-                                  </>
-                                )}
-                              </button>
-
-                              {/* Dropdown Toggle Button */}
-                              <button
-                                onClick={() => setShowSendDropdown(!showSendDropdown)}
-                                disabled={sendingNotification}
-                                className="btn-secondary rounded-l-none px-2 py-2 border-l border-gray-300 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-500"
-                                title="More sending options"
-                              >
-                                <ChevronDownIcon
-                                  className={`h-4 w-4 transition-transform duration-200 ${showSendDropdown ? 'rotate-180' : ''}`}
-                                />
-                              </button>
+                      return (
+                        <div>
+                          <div className="text-center mb-8">
+                            <ShoppingCartIcon className="mx-auto h-12 w-12 text-green-500" />
+                            <h2 className="mt-4 text-2xl font-bold text-gray-900">
+                              Your Grocery List
+                            </h2>
+                            <p className="mt-2 text-gray-600">
+                              Generated from your weekly meal plan
+                            </p>
+                            <div className="mt-4 flex justify-center">
+                              <div className="bg-green-100 rounded-lg px-4 py-2">
+                                <span className="text-sm font-medium text-green-800">
+                                  {completedItems} of {totalItems} items completed (
+                                  {completionPercentage}%)
+                                </span>
+                              </div>
                             </div>
+                          </div>
 
-                            {/* Dropdown Menu */}
-                            {showSendDropdown && (
-                              <div className="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
-                                <div className="py-2">
+                          {/* Progress Bar */}
+                          <div className="mb-8 bg-white rounded-lg shadow p-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-medium text-gray-700">
+                                Shopping Progress
+                              </span>
+                              <span className="text-sm text-gray-500">
+                                {completionPercentage}% complete
+                              </span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                              <div
+                                className="bg-green-500 h-2 rounded-full transition-all duration-300"
+                                style={{ width: `${completionPercentage}%` }}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Enhanced Action Buttons */}
+                          <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                            <button
+                              onClick={() => setActiveTab('recipes')}
+                              className="btn-secondary flex items-center"
+                            >
+                              <ArrowLeftIcon className="h-4 w-4 mr-2" />
+                              Back to Recipes
+                            </button>
+
+                            <div className="flex flex-col sm:flex-row gap-3">
+                              {/* Notification Buttons */}
+                              <div className="relative">
+                                <div className="flex">
+                                  {/* Main Send Button */}
                                   <button
                                     onClick={() => {
                                       setNotificationType('weekly-plan');
-                                      setShowSendDropdown(false);
-                                      setShowNotificationModal(true);
+                                      handleSendWeeklyPlanNotification();
                                     }}
-                                    className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 flex flex-col"
+                                    disabled={sendingNotification}
+                                    className="btn-secondary flex items-center rounded-r-none border-r-0 px-4 py-2"
                                   >
-                                    <div className="flex items-center">
-                                      <span className="text-lg mr-3">📅</span>
-                                      <span className="font-medium">Send Complete Weekly Plan</span>
-                                    </div>
-                                    <span className="text-xs text-gray-500 ml-8 mt-1">
-                                      Recipe names + grocery list
-                                    </span>
+                                    {sendingNotification ? (
+                                      <>
+                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2" />
+                                        Sending...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <EnvelopeIcon className="h-4 w-4 mr-2" />
+                                        Email Weekly Plan
+                                      </>
+                                    )}
                                   </button>
+
+                                  {/* Dropdown Toggle Button */}
                                   <button
-                                    onClick={() => {
-                                      setNotificationType('grocery');
-                                      setShowSendDropdown(false);
-                                      setShowNotificationModal(true);
-                                    }}
-                                    className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 flex flex-col"
+                                    onClick={() => setShowSendDropdown(!showSendDropdown)}
+                                    disabled={sendingNotification}
+                                    className="btn-secondary rounded-l-none px-2 py-2 border-l border-gray-300 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                                    title="More sending options"
                                   >
-                                    <div className="flex items-center">
-                                      <span className="text-lg mr-3">🛒</span>
-                                      <span className="font-medium">Send Grocery List Only</span>
-                                    </div>
-                                    <span className="text-xs text-gray-500 ml-8 mt-1">
-                                      Shopping list only
-                                    </span>
+                                    <ChevronDownIcon
+                                      className={`h-4 w-4 transition-transform duration-200 ${showSendDropdown ? 'rotate-180' : ''}`}
+                                    />
                                   </button>
-                                  <div className="border-t border-gray-100 my-1"></div>
-                                  <div className="px-4 py-2 text-xs text-gray-500">
-                                    Quick send goes to your account email
-                                  </div>
                                 </div>
-                              </div>
-                            )}
 
-                            {/* Click outside to close dropdown */}
-                            {showSendDropdown && (
-                              <div
-                                className="fixed inset-0 z-0"
-                                onClick={() => setShowSendDropdown(false)}
-                              ></div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Grocery Items by Category */}
-                      {categories.length === 0 ? (
-                        <div className="text-center py-12 bg-white rounded-lg shadow">
-                          <ShoppingCartIcon className="mx-auto h-12 w-12 text-gray-400" />
-                          <h3 className="mt-2 text-sm font-medium text-gray-900">No items</h3>
-                          <p className="mt-1 text-sm text-gray-500">
-                            No grocery items were generated.
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="space-y-6">
-                          {categories.map(category => (
-                            <div key={category} className="bg-white rounded-lg shadow">
-                              <div className="px-4 py-3 border-b border-gray-200">
-                                <h3 className="text-lg font-medium text-gray-900">{category}</h3>
-                                <p className="text-sm text-gray-500">
-                                  {groupedItems[category].filter(item => item.checked).length} of{' '}
-                                  {groupedItems[category].length} completed
-                                </p>
-                              </div>
-                              <div className="divide-y divide-gray-200">
-                                {groupedItems[category].map(item => (
-                                  <div key={item.id} className="px-4 py-3 flex items-center">
-                                    <button
-                                      onClick={() => handleToggleGroceryItem(item.id)}
-                                      className={`flex-shrink-0 h-5 w-5 rounded border-2 flex items-center justify-center mr-3 transition-colors duration-200 ${
-                                        item.checked
-                                          ? 'bg-green-500 border-green-500 text-white'
-                                          : 'border-gray-300 hover:border-green-400'
-                                      }`}
-                                    >
-                                      {item.checked && <CheckCircleIconSolid className="h-3 w-3" />}
-                                    </button>
-
-                                    <div
-                                      className={`flex-1 ${item.checked ? 'line-through text-gray-500' : ''}`}
-                                    >
-                                      <div className="flex items-center">
-                                        <span className="font-medium">{item.name}</span>
-                                        {item.quantity && (
-                                          <span className="ml-2 text-sm text-gray-500">
-                                            {item.quantity} {item.unit}
+                                {/* Dropdown Menu */}
+                                {showSendDropdown && (
+                                  <div className="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+                                    <div className="py-2">
+                                      <button
+                                        onClick={() => {
+                                          setNotificationType('weekly-plan');
+                                          setShowSendDropdown(false);
+                                          setShowNotificationModal(true);
+                                        }}
+                                        className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 flex flex-col"
+                                      >
+                                        <div className="flex items-center">
+                                          <span className="text-lg mr-3">📅</span>
+                                          <span className="font-medium">
+                                            Send Complete Weekly Plan
                                           </span>
-                                        )}
+                                        </div>
+                                        <span className="text-xs text-gray-500 ml-8 mt-1">
+                                          Recipe names + grocery list
+                                        </span>
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          setNotificationType('grocery');
+                                          setShowSendDropdown(false);
+                                          setShowNotificationModal(true);
+                                        }}
+                                        className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 flex flex-col"
+                                      >
+                                        <div className="flex items-center">
+                                          <span className="text-lg mr-3">🛒</span>
+                                          <span className="font-medium">
+                                            Send Grocery List Only
+                                          </span>
+                                        </div>
+                                        <span className="text-xs text-gray-500 ml-8 mt-1">
+                                          Shopping list only
+                                        </span>
+                                      </button>
+                                      <div className="border-t border-gray-100 my-1"></div>
+                                      <div className="px-4 py-2 text-xs text-gray-500">
+                                        Quick send goes to your account email
                                       </div>
                                     </div>
-
-                                    <button
-                                      onClick={() => handleDeleteGroceryItem(item.id)}
-                                      className="p-1 text-red-600 hover:bg-red-50 rounded"
-                                    >
-                                      <TrashIcon className="h-4 w-4" />
-                                    </button>
                                   </div>
-                                ))}
+                                )}
+
+                                {/* Click outside to close dropdown */}
+                                {showSendDropdown && (
+                                  <div
+                                    className="fixed inset-0 z-0"
+                                    onClick={() => setShowSendDropdown(false)}
+                                  ></div>
+                                )}
                               </div>
                             </div>
-                          ))}
+                          </div>
+
+                          {/* Grocery Items by Category */}
+                          {categories.length === 0 ? (
+                            <div className="text-center py-12 bg-white rounded-lg shadow">
+                              <ShoppingCartIcon className="mx-auto h-12 w-12 text-gray-400" />
+                              <h3 className="mt-2 text-sm font-medium text-gray-900">No items</h3>
+                              <p className="mt-1 text-sm text-gray-500">
+                                No grocery items were generated.
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="space-y-6">
+                              {categories.map(category => (
+                                <div key={category} className="bg-white rounded-lg shadow">
+                                  <div className="px-4 py-3 border-b border-gray-200">
+                                    <h3 className="text-lg font-medium text-gray-900">
+                                      {category}
+                                    </h3>
+                                    <p className="text-sm text-gray-500">
+                                      {groupedItems[category].filter(item => item.checked).length}{' '}
+                                      of {groupedItems[category].length} completed
+                                    </p>
+                                  </div>
+                                  <div className="divide-y divide-gray-200">
+                                    {groupedItems[category].map(item => (
+                                      <div key={item.id} className="px-4 py-3 flex items-center">
+                                        <button
+                                          onClick={() => handleToggleGroceryItem(item.id)}
+                                          className={`flex-shrink-0 h-5 w-5 rounded border-2 flex items-center justify-center mr-3 transition-colors duration-200 ${
+                                            item.checked
+                                              ? 'bg-green-500 border-green-500 text-white'
+                                              : 'border-gray-300 hover:border-green-400'
+                                          }`}
+                                        >
+                                          {item.checked && (
+                                            <CheckCircleIconSolid className="h-3 w-3" />
+                                          )}
+                                        </button>
+
+                                        <div
+                                          className={`flex-1 ${item.checked ? 'line-through text-gray-500' : ''}`}
+                                        >
+                                          <div className="flex items-center">
+                                            <span className="font-medium">{item.name}</span>
+                                            {item.quantity && (
+                                              <span className="ml-2 text-sm text-gray-500">
+                                                {item.quantity} {item.unit}
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+
+                                        <button
+                                          onClick={() => handleDeleteGroceryItem(item.id)}
+                                          className="p-1 text-red-600 hover:bg-red-50 rounded"
+                                        >
+                                          <TrashIcon className="h-4 w-4" />
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  );
-                })()}
-              </>
+                      );
+                    })()}
+                  </>
+                )}
+              </div>
             )}
-          </div>
+          </>
         )}
       </div>
     );

@@ -136,6 +136,16 @@ class MealPlanningService {
     await api.post('/meal-planning/select-recipe/', selection);
   }
 
+  async updateRecipeSelection(
+    mealPlanId: number,
+    mealSlotIndex: number,
+    recipeIndex: number
+  ): Promise<void> {
+    await api.post(
+      `/meal-planning/meal-plans/${mealPlanId}/select-recipe/${mealSlotIndex}/${recipeIndex}`
+    );
+  }
+
   async getMealPlans(skip = 0, limit = 20): Promise<MealPlan[]> {
     const response = await api.get<MealPlan[]>('/meal-planning/meal-plans/', {
       params: { skip, limit },

@@ -443,6 +443,25 @@ async def create_weekly_meal_plan_stream(
                                             continue
 
                                     if suggestions:
+                                        # Create meal plan item with recipe suggestions data
+                                        from app.models.meal_plan import (
+                                            MealPlanItem as MealPlanItemModel,
+                                        )
+
+                                        meal_plan_item = MealPlanItemModel(
+                                            meal_plan_id=db_meal_plan.id,
+                                            date=current_date,
+                                            meal_type=meal_type.value,
+                                            recipe_data={
+                                                "recipe_suggestions": [
+                                                    s.dict() for s in suggestions
+                                                ],
+                                                "selected_recipe_index": None,
+                                            },
+                                        )
+                                        db.add(meal_plan_item)
+                                        db.commit()
+
                                         meal_slot = {
                                             "date": current_date.isoformat(),
                                             "meal_type": meal_type.value,
@@ -624,19 +643,38 @@ async def create_weekly_meal_plan_stream(
                                         # Skip this recipe and continue
                                         continue
 
-                                meal_slot = {
-                                    "date": current_date.isoformat(),
-                                    "meal_type": meal_type.value,
-                                    "recipe_suggestions": [
-                                        s.dict() for s in suggestions
-                                    ],
-                                    "selected_recipe_index": None,
-                                    "selected_recipe": None,
-                                }
+                                if suggestions:
+                                    # Create meal plan item with recipe suggestions data
+                                    from app.models.meal_plan import (
+                                        MealPlanItem as MealPlanItemModel,
+                                    )
 
-                                meal_slots.append(meal_slot)
+                                    meal_plan_item = MealPlanItemModel(
+                                        meal_plan_id=db_meal_plan.id,
+                                        date=current_date,
+                                        meal_type=meal_type.value,
+                                        recipe_data={
+                                            "recipe_suggestions": [
+                                                s.dict() for s in suggestions
+                                            ],
+                                            "selected_recipe_index": None,
+                                        },
+                                    )
+                                    db.add(meal_plan_item)
+                                    db.commit()
 
-                                yield f"data: {json.dumps({'type': 'status', 'message': f'✅ Generated and saved 3 recipes for {meal_type_str} on {weekday.title()}'})}\n\n"
+                                    meal_slot = {
+                                        "date": current_date.isoformat(),
+                                        "meal_type": meal_type.value,
+                                        "recipe_suggestions": [
+                                            s.dict() for s in suggestions
+                                        ],
+                                        "selected_recipe_index": None,
+                                        "selected_recipe": None,
+                                    }
+
+                                    meal_slots.append(meal_slot)
+                                    yield f"data: {json.dumps({'type': 'status', 'message': f'✅ Generated and saved 3 recipes for {meal_type_str} on {weekday.title()}'})}\n\n"
 
                             except Exception as e:
                                 yield f"data: {json.dumps({'type': 'error', 'message': f'Failed to parse recipes for {meal_type_str} on {weekday.title()}: {str(e)}'})}\n\n"
@@ -706,11 +744,7 @@ async def select_recipe_for_meal(
             status_code=status.HTTP_404_NOT_FOUND, detail="Meal plan not found"
         )
 
-    # For now, we'll store the selection in the database
-    # In a full implementation, you'd retrieve the original suggestions
-    # and store the selected recipe data
-
-    # Create or update meal plan item
+    # Find the meal plan item
     meal_item = (
         db.query(MealPlanItemModel)
         .filter(
@@ -721,20 +755,23 @@ async def select_recipe_for_meal(
         .first()
     )
 
-    if meal_item:
-        # Update existing item
+    if not meal_item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Meal slot not found"
+        )
+
+    # Update the selected recipe index in the recipe_data
+    if meal_item.recipe_data:
+        meal_item.recipe_data["selected_recipe_index"] = selection.selected_recipe_index
+    else:
         meal_item.recipe_data = {
             "selected_recipe_index": selection.selected_recipe_index
         }
-    else:
-        # Create new item
-        meal_item = MealPlanItemModel(
-            meal_plan_id=selection.meal_plan_id,
-            date=selection.meal_slot_date,
-            meal_type=selection.meal_type.value,
-            recipe_data={"selected_recipe_index": selection.selected_recipe_index},
-        )
-        db.add(meal_item)
+
+    # Mark the field as modified so SQLAlchemy knows to update it
+    from sqlalchemy.orm.attributes import flag_modified
+
+    flag_modified(meal_item, "recipe_data")
 
     db.commit()
 
@@ -803,249 +840,48 @@ async def get_meal_plan_details(
             status_code=status.HTTP_404_NOT_FOUND, detail="Meal plan not found"
         )
 
-    # Get all recipes created for this meal plan
-    meal_plan_recipes = (
-        db.query(RecipeModel)
-        .filter(
-            RecipeModel.user_id == current_user.id,
-            RecipeModel.source == "ai_generated_meal_plan",
-            RecipeModel.created_at >= meal_plan.created_at,
-            RecipeModel.created_at
-            <= meal_plan.created_at
-            + timedelta(hours=1),  # Within 1 hour of meal plan creation
-        )
-        .all()
-    )
-
-    # Get all meal plan items (selected recipes)
+    # Get all meal plan items with recipe suggestions
     meal_items = (
         db.query(MealPlanItemModel)
         .filter(MealPlanItemModel.meal_plan_id == meal_plan_id)
+        .order_by(MealPlanItemModel.date, MealPlanItemModel.meal_type)
         .all()
     )
 
-    # Create a map of selected recipes by date and meal type
-    selections_map = {}
-    for item in meal_items:
-        key = f"{item.date}_{item.meal_type}"
-        selections_map[key] = (
-            item.recipe_data.get("selected_recipe_index") if item.recipe_data else None
-        )
-
-    # Group recipes by creation order (since they were created sequentially)
-    # For simplicity, we'll group them in sets of 3 (since each meal slot has 3 suggestions)
-    recipe_groups = []
-    for i in range(0, len(meal_plan_recipes), 3):
-        recipe_groups.append(meal_plan_recipes[i : i + 3])
-
-    # Reconstruct meal slots
+    # Create meal slots from stored meal plan items
     meal_slots = []
-    group_index = 0
-
-    # We need to determine the original cooking days and meal types
-    # For now, we'll reconstruct based on available recipes and items
-    # Create a map of meal items to understand the original structure
-    meal_items_by_date = {}
     for item in meal_items:
-        date_key = item.date.isoformat()
-        if date_key not in meal_items_by_date:
-            meal_items_by_date[date_key] = []
-        meal_items_by_date[date_key].append(item)
-
-    # Try to reconstruct based on meal items first, then fill with recipe groups
-    processed_dates = set()
-
-    # First, reconstruct from meal_items (these have actual selections)
-    for item in meal_items:
-        current_date = item.date
-        meal_type = item.meal_type
-
-        date_key = f"{current_date}_{meal_type}"
-        if date_key in processed_dates:
+        if not item.recipe_data or "recipe_suggestions" not in item.recipe_data:
             continue
-        processed_dates.add(date_key)
 
-        # Find the corresponding recipe group
-        if group_index < len(recipe_groups):
-            recipes_for_slot = recipe_groups[group_index]
-            group_index += 1
-        else:
-            # If we run out of recipe groups, create empty suggestions
-            recipes_for_slot = []
+        # Load recipe suggestions from stored JSON data
+        recipe_suggestions_data = item.recipe_data.get("recipe_suggestions", [])
+        selected_recipe_index = item.recipe_data.get("selected_recipe_index")
 
-        # Convert recipes to RecipeSuggestion format
+        # Convert to RecipeSuggestion objects
         suggestions = []
-        for recipe in recipes_for_slot:
-            # Extract cuisine from tags if available
-            cuisine = "Unknown"
-            difficulty = "Medium"
-            if recipe.tags:
-                for tag in recipe.tags:
-                    if tag.lower() in [
-                        "italian",
-                        "chinese",
-                        "mexican",
-                        "indian",
-                        "thai",
-                        "japanese",
-                        "korean",
-                        "french",
-                        "mediterranean",
-                        "american",
-                    ]:
-                        cuisine = tag.title()
-                        break
-                if "easy" in [t.lower() for t in recipe.tags]:
-                    difficulty = "Easy"
-                elif "hard" in [t.lower() for t in recipe.tags]:
-                    difficulty = "Hard"
+        for recipe_data in recipe_suggestions_data:
+            try:
+                suggestion = RecipeSuggestion(**recipe_data)
+                suggestions.append(suggestion)
+            except Exception as e:
+                logger.error(f"Error parsing recipe suggestion: {e}")
+                continue
 
-            # Build nutrition object
-            nutrition = {}
-            if recipe.calories:
-                nutrition["calories"] = recipe.calories
-            if recipe.protein_g:
-                nutrition["protein_g"] = recipe.protein_g
-            if recipe.carbs_g:
-                nutrition["carbs_g"] = recipe.carbs_g
-            if recipe.fat_g:
-                nutrition["fat_g"] = recipe.fat_g
-            if recipe.fiber_g:
-                nutrition["fiber_g"] = recipe.fiber_g
-            if recipe.sugar_g:
-                nutrition["sugar_g"] = recipe.sugar_g
-            if recipe.sodium_mg:
-                nutrition["sodium_mg"] = recipe.sodium_mg
+        # Get selected recipe if any
+        selected_recipe = None
+        if selected_recipe_index is not None and 0 <= selected_recipe_index < len(
+            suggestions
+        ):
+            selected_recipe = suggestions[selected_recipe_index]
 
-            suggestion = RecipeSuggestion(
-                name=recipe.name,
-                description=recipe.description or "",
-                cuisine=cuisine,
-                ingredients=[
-                    {
-                        "name": ing.get("name", ""),
-                        "quantity": ing.get("quantity", 0),
-                        "unit": ing.get("unit", ""),
-                    }
-                    for ing in recipe.ingredients
-                ],
-                instructions=recipe.instructions,
-                prep_time=recipe.prep_time_minutes or 0,
-                cook_time=recipe.cook_time_minutes or 0,
-                servings=recipe.servings,
-                difficulty=difficulty,
-                nutrition=nutrition,
-                # Include the recipe ID so frontend can redirect to recipe detail page
-                id=recipe.id,
-            )
-            suggestions.append(suggestion)
-
-        # Check for selected recipe
-        slot_key = f"{current_date}_{meal_type}"
-        selected_index = selections_map.get(slot_key)
-        selected_recipe = (
-            suggestions[selected_index]
-            if selected_index is not None and selected_index < len(suggestions)
-            else None
-        )
-
+        # Create meal slot
         meal_slot = MealSlot(
-            date=current_date,
-            meal_type=meal_type,
+            date=item.date,
+            meal_type=item.meal_type,
             recipe_suggestions=suggestions,
-            selected_recipe_index=selected_index,
+            selected_recipe_index=selected_recipe_index,
             selected_recipe=selected_recipe,
-        )
-
-        meal_slots.append(meal_slot)
-
-    # If we have more recipe groups than meal items, add them as additional slots
-    # This handles the case where meal plan was created but no selections were made
-    for remaining_group_index in range(group_index, len(recipe_groups)):
-        recipes_for_slot = recipe_groups[remaining_group_index]
-
-        if not recipes_for_slot:
-            continue
-
-        # Estimate the date/meal_type from the meal plan timeframe
-        estimated_date = meal_plan.start_date + timedelta(
-            days=(remaining_group_index % 7)
-        )
-        estimated_meal_type = "dinner"  # Default fallback
-
-        # Convert recipes to RecipeSuggestion format
-        suggestions = []
-        for recipe in recipes_for_slot:
-            # Extract cuisine from tags if available
-            cuisine = "Unknown"
-            difficulty = "Medium"
-            if recipe.tags:
-                for tag in recipe.tags:
-                    if tag.lower() in [
-                        "italian",
-                        "chinese",
-                        "mexican",
-                        "indian",
-                        "thai",
-                        "japanese",
-                        "korean",
-                        "french",
-                        "mediterranean",
-                        "american",
-                    ]:
-                        cuisine = tag.title()
-                        break
-                if "easy" in [t.lower() for t in recipe.tags]:
-                    difficulty = "Easy"
-                elif "hard" in [t.lower() for t in recipe.tags]:
-                    difficulty = "Hard"
-
-            # Build nutrition object
-            nutrition = {}
-            if recipe.calories:
-                nutrition["calories"] = recipe.calories
-            if recipe.protein_g:
-                nutrition["protein_g"] = recipe.protein_g
-            if recipe.carbs_g:
-                nutrition["carbs_g"] = recipe.carbs_g
-            if recipe.fat_g:
-                nutrition["fat_g"] = recipe.fat_g
-            if recipe.fiber_g:
-                nutrition["fiber_g"] = recipe.fiber_g
-            if recipe.sugar_g:
-                nutrition["sugar_g"] = recipe.sugar_g
-            if recipe.sodium_mg:
-                nutrition["sodium_mg"] = recipe.sodium_mg
-
-            suggestion = RecipeSuggestion(
-                name=recipe.name,
-                description=recipe.description or "",
-                cuisine=cuisine,
-                ingredients=[
-                    {
-                        "name": ing.get("name", ""),
-                        "quantity": ing.get("quantity", 0),
-                        "unit": ing.get("unit", ""),
-                    }
-                    for ing in recipe.ingredients
-                ],
-                instructions=recipe.instructions,
-                prep_time=recipe.prep_time_minutes or 0,
-                cook_time=recipe.cook_time_minutes or 0,
-                servings=recipe.servings,
-                difficulty=difficulty,
-                nutrition=nutrition,
-                # Include the recipe ID so frontend can redirect to recipe detail page
-                id=recipe.id,
-            )
-            suggestions.append(suggestion)
-
-        meal_slot = MealSlot(
-            date=estimated_date,
-            meal_type=estimated_meal_type,
-            recipe_suggestions=suggestions,
-            selected_recipe_index=None,
-            selected_recipe=None,
         )
 
         meal_slots.append(meal_slot)
@@ -1134,3 +970,62 @@ async def delete_meal_plan(
     db.commit()
 
     return {"detail": "Meal plan deleted successfully"}
+
+
+@router.post(
+    "/meal-plans/{meal_plan_id}/select-recipe/{meal_slot_index}/{recipe_index}"
+)
+async def update_recipe_selection(
+    meal_plan_id: int,
+    meal_slot_index: int,
+    recipe_index: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    """Update the selected recipe for a meal slot by meal slot index"""
+
+    # Verify meal plan belongs to user
+    meal_plan = (
+        db.query(MealPlanModel)
+        .filter(
+            MealPlanModel.id == meal_plan_id,
+            MealPlanModel.user_id == current_user.id,
+        )
+        .first()
+    )
+
+    if not meal_plan:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Meal plan not found"
+        )
+
+    # Get all meal plan items ordered by date and meal type
+    meal_items = (
+        db.query(MealPlanItemModel)
+        .filter(MealPlanItemModel.meal_plan_id == meal_plan_id)
+        .order_by(MealPlanItemModel.date, MealPlanItemModel.meal_type)
+        .all()
+    )
+
+    # Find the meal item by index
+    if meal_slot_index < 0 or meal_slot_index >= len(meal_items):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Meal slot index out of range"
+        )
+
+    meal_item = meal_items[meal_slot_index]
+
+    # Update the selected recipe index in the recipe_data
+    if meal_item.recipe_data:
+        meal_item.recipe_data["selected_recipe_index"] = recipe_index
+    else:
+        meal_item.recipe_data = {"selected_recipe_index": recipe_index}
+
+    # Mark the field as modified so SQLAlchemy knows to update it
+    from sqlalchemy.orm.attributes import flag_modified
+
+    flag_modified(meal_item, "recipe_data")
+
+    db.commit()
+
+    return {"detail": "Recipe selection saved successfully"}
