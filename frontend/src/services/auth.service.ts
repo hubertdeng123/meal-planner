@@ -3,7 +3,7 @@ import type { UserCreate, UserLogin, UserPreferences, Token, User } from '../typ
 
 class AuthService {
   async register(userData: UserCreate, preferences: UserPreferences): Promise<User> {
-    const response = await api.post<User>('/auth/register/', {
+    const response = await api.post<User>('/auth/register', {
       user_data: userData,
       preferences,
     });
@@ -15,7 +15,7 @@ class AuthService {
     formData.append('username', credentials.email);
     formData.append('password', credentials.password);
 
-    const response = await api.post<Token>('/auth/login/', formData, {
+    const response = await api.post<Token>('/auth/login', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -29,7 +29,7 @@ class AuthService {
   }
 
   async getCurrentUser(): Promise<User> {
-    const response = await api.get<User>('/auth/me/');
+    const response = await api.get<User>('/auth/me');
     return response.data;
   }
 
