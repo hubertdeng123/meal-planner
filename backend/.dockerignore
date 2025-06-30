@@ -50,8 +50,7 @@ Thumbs.db
 .coverage
 htmlcov/
 
-# Alembic
-alembic.ini
+# Note: alembic.ini is needed for Docker builds
 
 # Logs
 *.log
