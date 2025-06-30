@@ -12,6 +12,9 @@ from app.db.database import Base
 
 # Import all models explicitly for Alembic auto-detection
 from app.core.config import settings
+from app.models.user import User
+from app.models.recipe import Recipe, RecipeFeedback
+from app.models.meal_plan import MealPlan, MealPlanItem
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

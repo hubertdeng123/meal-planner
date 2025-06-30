@@ -40,13 +40,16 @@ WORKDIR /app
 # Copy virtual environment from builder stage
 COPY --from=builder /app/.venv /app/.venv
 
+# Copy alembic configuration and directory structure
+COPY alembic.ini ./
+COPY alembic/ ./alembic/
+
 # Copy application code
-COPY . .
+COPY app/ ./app/
 
 # Clean up any unnecessary files
 RUN find /app -type f -name "*.pyc" -delete \
     && find /app -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true \
-    && rm -rf .git .pytest_cache .ruff_cache \
     && rm -rf /app/.venv/lib/python3.11/site-packages/torch/test \
     && rm -rf /app/.venv/lib/python3.11/site-packages/sentence_transformers/tests \
     && find /app/.venv -name "*.dist-info" -exec rm -rf {} + 2>/dev/null || true
