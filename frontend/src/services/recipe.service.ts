@@ -37,10 +37,15 @@ class RecipeService {
     callbacks: StreamCallbacks
   ): Promise<void> {
     try {
+      console.log('🚀 Starting recipe stream request...', request);
+      
       const token = localStorage.getItem('access_token');
       if (!token) {
         throw new Error('No authentication token found. Please log in.');
       }
+
+      console.log('🔑 Using auth token:', token.substring(0, 20) + '...');
+      console.log('📡 Stream URL:', `${api.defaults.baseURL}/recipes/generate/stream`);
 
       const response = await fetch(`${api.defaults.baseURL}/recipes/generate/stream`, {
         method: 'POST',
@@ -51,8 +56,13 @@ class RecipeService {
         body: JSON.stringify(request),
       });
 
+      console.log('📥 Response status:', response.status);
+      console.log('📥 Response headers:', Object.fromEntries(response.headers.entries()));
+
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorText = await response.text();
+        console.error('❌ HTTP error response:', errorText);
+        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
       }
 
       const reader = response.body?.getReader();
@@ -60,13 +70,16 @@ class RecipeService {
         throw new Error('Response body is not readable');
       }
 
+      console.log('📖 Starting to read stream...');
       const decoder = new TextDecoder();
       let buffer = '';
+      let messageCount = 0;
 
       while (true) {
         const { done, value } = await reader.read();
 
         if (done) {
+          console.log('✅ Stream completed. Total messages:', messageCount);
           break;
         }
 
@@ -79,16 +92,23 @@ class RecipeService {
         for (const line of lines) {
           if (line.startsWith('data: ')) {
             try {
+              messageCount++;
+              console.log(`📨 Message ${messageCount}:`, line);
               const data: StreamMessage = JSON.parse(line.substring(6));
               this.handleStreamMessage(data, callbacks);
             } catch (e) {
-              console.error('Failed to parse SSE data:', e, line);
+              console.error('❌ Failed to parse SSE data:', e, line);
             }
+          } else if (line.trim() === '') {
+            // Empty line is normal in SSE
+            continue;
+          } else {
+            console.log('⚠️ Non-SSE line received:', line);
           }
         }
       }
     } catch (error) {
-      console.error('Stream error:', error);
+      console.error('❌ Stream error:', error);
       callbacks.onError?.(error instanceof Error ? error.message : 'Unknown streaming error');
     }
   }
