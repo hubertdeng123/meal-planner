@@ -1,0 +1,27 @@
+tunnel: your-tunnel-id
+credentials-file: /etc/cloudflared/credentials.json
+
+# Ingress rules - processed in order
+ingress:
+  # Route API requests to backend
+  - hostname: meal-planner.yourdomain.com
+    path: /api/*
+    service: http://backend:8000
+
+  # Route health checks to backend
+  - hostname: meal-planner.yourdomain.com
+    path: /health
+    service: http://backend:8000/health
+
+  # Route everything else to frontend
+  - hostname: meal-planner.yourdomain.com
+    service: http://frontend:80
+
+  # Catch-all rule (required)
+  - service: http_status:404
+
+# Optional: Logging
+logLevel: info
+
+# Optional: Metrics
+metrics: 0.0.0.0:8080

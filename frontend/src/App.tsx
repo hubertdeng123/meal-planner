@@ -7,8 +7,6 @@ import RecipeDetailPage from './pages/RecipeDetailPage';
 import MealPlanHistoryPage from './pages/MealPlanHistoryPage';
 import WeeklyMealPlanPage from './pages/WeeklyMealPlanPage';
 import GenerateRecipePage from './pages/GenerateRecipePage';
-import GroceryListsPage from './pages/GroceryListsPage';
-import GroceryListDetailPage from './pages/GroceryListDetailPage';
 import SettingsPage from './pages/SettingsPage';
 import Layout from './components/Layout';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
