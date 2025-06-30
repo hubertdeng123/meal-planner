@@ -2,7 +2,6 @@ import { Link } from 'react-router-dom';
 import {
   SparklesIcon,
   BookOpenIcon,
-  ShoppingCartIcon,
   ChartBarIcon,
   CalendarIcon,
   HeartIcon,

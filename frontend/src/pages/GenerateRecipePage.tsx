@@ -34,7 +34,6 @@ export default function GenerateRecipePage() {
     comments: '',
   });
   const [ingredientInput, setIngredientInput] = useState('');
-  const [avoidInput, setAvoidInput] = useState('');
 
   // Streaming state - separate thinking from content
   const [isStreaming, setIsStreaming] = useState(false);

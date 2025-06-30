@@ -31,6 +31,16 @@ repos:
         additional_dependencies:
           - prettier@3.3.3
 
+  # TypeScript type checking
+  - repo: local
+    hooks:
+      - id: tsc
+        name: TypeScript type checking
+        entry: bash -c 'cd frontend && npm run typecheck'
+        language: system
+        files: ^frontend/.*\.(ts|tsx)$
+        pass_filenames: false
+
   # Python type checking (optional, can be slow)
   # - repo: https://github.com/pre-commit/mirrors-mypy
   #   rev: v1.7.1

@@ -678,7 +678,6 @@ function EditItemForm({
   const [name, setName] = useState(item.name);
   const [quantity, setQuantity] = useState(item.quantity || '');
   const [unit, setUnit] = useState(item.unit || '');
-  const [category, setCategory] = useState(item.category || 'Other');
 
   const handleSave = () => {
     if (!name.trim()) return;
@@ -687,7 +686,7 @@ function EditItemForm({
       name: name.trim(),
       quantity: quantity ? parseFloat(quantity.toString()) : undefined,
       unit,
-      category,
+      category: item.category || 'Other',
     });
   };
 
