@@ -31,27 +31,70 @@ env/
 .idea/
 *.swp
 *.swo
+*~
 
 # OS
 .DS_Store
 Thumbs.db
+.Trash-*
 
 # Git
 .git/
 .gitignore
+.gitattributes
 
 # Environment files
 .env
-.env.local
-.env.production
+.env.*
 
 # Testing
 .pytest_cache/
 .coverage
 htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+.hypothesis/
 
-# Alembic
-alembic.ini
+# Documentation
+docs/
+*.md
+README*
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
 
 # Logs
 *.log
+logs/
+
+# Cache directories
+.cache/
+.mypy_cache/
+.ruff_cache/
+.black_cache/
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+*.ipynb
+
+# Machine Learning
+models/
+*.pkl
+*.joblib
+*.model
+
+# Temporary files
+*.tmp
+*.temp
+/tmp/
+temp/
+
+# Development tools
+.pre-commit-config.yaml
+.editorconfig
+Makefile
+docker-compose*.yml
