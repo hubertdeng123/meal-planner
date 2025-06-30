@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   CalendarIcon,
   SparklesIcon,
-  ClockIcon,
   StarIcon,
   PlusIcon,
   ShoppingCartIcon,
