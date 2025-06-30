@@ -23,8 +23,10 @@ dependencies = [
     "numpy>=1.24.0",
     "httpx>=0.28.0",
     "beautifulsoup4>=4.12.3",
+    "schedule>=1.2.2",
     "apscheduler>=3.10.4",
     "pytz>=2024.1",
+    "psycopg2-binary>=2.9.10",
 ]
 
 [tool.uv]

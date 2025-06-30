@@ -52,7 +52,6 @@ jobs:
         tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ github.sha }},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:latest
         cache-from: type=gha
         cache-to: type=gha,mode=max
-        platforms: linux/amd64
 
   build-frontend:
     name: Build Frontend
