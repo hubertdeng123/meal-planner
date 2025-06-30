@@ -60,6 +60,6 @@ jobs:
         push: ${{ github.event_name != 'pull_request' }}
         tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ github.sha }},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:latest
         build-args: |
-          VITE_API_URL=
+          VITE_API_URL=https://mealassistant.hubertdeng.com
         cache-from: type=gha
         cache-to: type=gha,mode=max
