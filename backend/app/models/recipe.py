@@ -101,6 +101,7 @@ class RecipeFeedback(Base):
     feedback_text = Column(Text)
     made_it = Column(Boolean, default=False)  # Did they actually make it?
     would_make_again = Column(Boolean)
+    liked = Column(Boolean)  # Did they like it? (separate from rating)
     difficulty_rating = Column(Integer)  # 1-5, how hard was it actually?
     taste_rating = Column(Integer)  # 1-5, how did it taste?
 
