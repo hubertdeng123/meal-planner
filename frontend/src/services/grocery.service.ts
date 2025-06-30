@@ -14,7 +14,7 @@ class GroceryService {
   }
 
   async getGroceryList(id: number): Promise<GroceryList> {
-    const response = await api.get<GroceryList>(`/grocery/${id}/`);
+    const response = await api.get<GroceryList>(`/grocery/${id}`);
     return response.data;
   }
 
@@ -29,11 +29,11 @@ class GroceryService {
   }
 
   async deleteGroceryList(id: number): Promise<void> {
-    await api.delete(`/grocery/${id}/`);
+    await api.delete(`/grocery/${id}`);
   }
 
   async addGroceryItem(groceryListId: number, item: GroceryItemCreate): Promise<GroceryItem> {
-    const response = await api.post<GroceryItem>(`/grocery/${groceryListId}/items/`, item);
+    const response = await api.post<GroceryItem>(`/grocery/${groceryListId}/items`, item);
     return response.data;
   }
 
@@ -43,14 +43,14 @@ class GroceryService {
     updates: GroceryItemUpdate
   ): Promise<GroceryItem> {
     const response = await api.put<GroceryItem>(
-      `/grocery/${groceryListId}/items/${itemId}/`,
+      `/grocery/${groceryListId}/items/${itemId}`,
       updates
     );
     return response.data;
   }
 
   async deleteGroceryItem(groceryListId: number, itemId: number): Promise<void> {
-    await api.delete(`/grocery/${groceryListId}/items/${itemId}/`);
+    await api.delete(`/grocery/${groceryListId}/items/${itemId}`);
   }
 
   async toggleGroceryItem(

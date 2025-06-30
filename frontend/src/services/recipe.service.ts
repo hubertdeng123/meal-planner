@@ -38,7 +38,7 @@ class RecipeService {
   ): Promise<void> {
     try {
       console.log('🚀 Starting recipe stream request...', request);
-      
+
       const token = localStorage.getItem('access_token');
       if (!token) {
         throw new Error('No authentication token found. Please log in.');
@@ -151,24 +151,24 @@ class RecipeService {
   }
 
   async getRecipe(id: number): Promise<Recipe> {
-    const response = await api.get<Recipe>(`/recipes/${id}/`);
+    const response = await api.get<Recipe>(`/recipes/${id}`);
     return response.data;
   }
 
   async updateRecipe(id: number, updates: Partial<Recipe>): Promise<Recipe> {
-    const response = await api.put<Recipe>(`/recipes/${id}/`, updates);
+    const response = await api.put<Recipe>(`/recipes/${id}`, updates);
     return response.data;
   }
 
   async deleteRecipe(id: number): Promise<void> {
-    await api.delete(`/recipes/${id}/`);
+    await api.delete(`/recipes/${id}`);
   }
 
   async addFeedback(
     recipeId: number,
     feedback: Omit<RecipeFeedback, 'recipe_id'>
   ): Promise<RecipeFeedback> {
-    const response = await api.post<RecipeFeedback>(`/recipes/${recipeId}/feedback/`, feedback);
+    const response = await api.post<RecipeFeedback>(`/recipes/${recipeId}/feedback`, feedback);
     return response.data;
   }
 }

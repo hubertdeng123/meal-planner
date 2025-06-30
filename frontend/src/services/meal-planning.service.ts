@@ -154,7 +154,7 @@ class MealPlanningService {
   }
 
   async getMealPlan(id: number): Promise<MealPlan> {
-    const response = await api.get<MealPlan>(`/meal-planning/meal-plans/${id}/`);
+    const response = await api.get<MealPlan>(`/meal-planning/meal-plans/${id}`);
     return response.data;
   }
 
@@ -171,7 +171,7 @@ class MealPlanningService {
   }
 
   async deleteMealPlan(id: number): Promise<void> {
-    await api.delete(`/meal-planning/meal-plans/${id}/`);
+    await api.delete(`/meal-planning/meal-plans/${id}`);
   }
 }
 
