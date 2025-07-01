@@ -18,7 +18,7 @@ if SENTRY_DSN:
     sentry_sdk.init(
         dsn=SENTRY_DSN,
         integrations=[
-            FastApiIntegration(auto_enabling_integrations=False),
+            FastApiIntegration(),
             SqlalchemyIntegration(),
         ],
         # Set traces_sample_rate to 1.0 to capture 100%
