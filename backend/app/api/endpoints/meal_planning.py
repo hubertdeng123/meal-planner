@@ -946,7 +946,7 @@ async def generate_grocery_list_from_meal_plan(
     }
 
 
-@router.delete("/meal-plans/{meal_plan_id}/")
+@router.delete("/meal-plans/{meal_plan_id}")
 async def delete_meal_plan(
     meal_plan_id: int,
     current_user: User = Depends(get_current_active_user),
