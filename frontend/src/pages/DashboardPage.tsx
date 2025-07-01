@@ -16,10 +16,10 @@ export default function DashboardPage() {
       <div className="text-center space-y-4">
         <h1 className="text-4xl font-semibold text-gray-900 tracking-tight">
           Welcome to Your
-          <span className="text-orange-500"> Meal Assistant</span>
+          <span className="text-orange-500"> Hungry Helper</span>
         </h1>
         <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-          Plan delicious meals, track nutrition, and let AI create personalized recipes tailored to
+                      Plan delicious meals, track nutrition, and let Hungry Helper create personalized recipes tailored to
           your taste and dietary needs.
         </p>
       </div>
@@ -40,7 +40,7 @@ export default function DashboardPage() {
                 Generate New Recipe
               </h3>
               <p className="mt-2 text-sm text-gray-600 leading-relaxed">
-                Let AI create personalized recipes based on your preferences, ingredients, and
+                Let Hungry Helper create personalized recipes based on your preferences, ingredients, and
                 dietary requirements.
               </p>
             </div>
@@ -167,7 +167,7 @@ export default function DashboardPage() {
               </div>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-600">AI Suggestions</p>
+              <p className="text-sm font-medium text-gray-600">Hungry Helper Suggestions</p>
               <p className="mt-1 text-2xl font-semibold text-gray-900">3</p>
               <p className="text-xs text-gray-500 mt-1">New recipes ready</p>
             </div>

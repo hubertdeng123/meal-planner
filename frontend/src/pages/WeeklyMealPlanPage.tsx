@@ -789,7 +789,7 @@ export default function WeeklyMealPlanPage() {
           <SparklesIcon className="mx-auto h-16 w-16 text-orange-500 animate-pulse" />
           <h2 className="mt-4 text-xl font-semibold text-gray-900">🍽️ Weekly Meal Planning</h2>
           <p className="mt-2 text-gray-600">
-            Our AI chef is crafting your personalized weekly meal plan...
+            Our Hungry Helper chef is crafting your personalized weekly meal plan...
           </p>
         </div>
 

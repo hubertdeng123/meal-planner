@@ -1,7 +1,7 @@
 [project]
 name = "meal-planner-backend"
 version = "1.0.0"
-description = "AI-powered meal planner backend"
+description = "Hungry Helper meal planner backend"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115.0",

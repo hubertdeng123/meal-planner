@@ -180,7 +180,7 @@ export default function GenerateRecipePage() {
     <div className="max-w-7xl mx-auto">
       <h1 className="text-3xl font-bold text-gray-900">Generate New Recipe</h1>
       <p className="mt-2 text-gray-600">
-        Let AI create a personalized recipe based on your preferences
+                      Let Hungry Helper create a personalized recipe based on your preferences
       </p>
 
       <div className={`mt-8 ${isStreaming ? 'grid grid-cols-1 lg:grid-cols-2 gap-6' : ''}`}>
@@ -359,7 +359,7 @@ export default function GenerateRecipePage() {
                 </span>
               </label>
               <p className="mt-1 text-sm text-gray-500">
-                AI will search cooking websites for inspiration before creating your recipe
+                Hungry Helper will search cooking websites for inspiration before creating your recipe
               </p>
             </div>
 
@@ -373,11 +373,11 @@ export default function GenerateRecipePage() {
                 onChange={e => setFormData({ ...formData, comments: e.target.value })}
                 rows={3}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                placeholder="Add any special requests, cooking preferences, or notes for the AI (e.g., 'make it kid-friendly', 'use Mediterranean flavors', 'include a protein sauce')"
+                placeholder="Add any special requests, cooking preferences, or notes for Hungry Helper (e.g., 'make it kid-friendly', 'use Mediterranean flavors', 'include a protein sauce')"
                 disabled={loading}
               />
               <p className="mt-1 text-sm text-gray-500">
-                Optional: Add specific instructions or preferences to help the AI create exactly
+                Optional: Add specific instructions or preferences to help Hungry Helper create exactly
                 what you want
               </p>
             </div>

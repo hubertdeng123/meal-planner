@@ -26,10 +26,10 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = ""
     SMTP_USE_TLS: bool = True
     FROM_EMAIL: str = "noreply@mealassistant.com"
-    FROM_NAME: str = "Meal Assistant"
+    FROM_NAME: str = "Hungry Helper"
 
     # App settings
-    APP_NAME: str = "Meal Assistant"
+    APP_NAME: str = "Hungry Helper"
     APP_VERSION: str = "1.0.0"
     API_PREFIX: str = "/api/v1"
     BASE_URL: str = "http://localhost:3000"  # Frontend URL for email links

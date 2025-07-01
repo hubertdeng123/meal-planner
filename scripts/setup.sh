@@ -2,7 +2,7 @@
 
 set -e
 
-echo "🍽️  Setting up AI-Powered Meal Planner..."
+echo "🍽️  Setting up Hungry Helper..."
 
 # Check prerequisites
 echo "Checking prerequisites..."

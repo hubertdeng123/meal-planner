@@ -74,7 +74,7 @@ class EmailService:
 <body>
     <div class="container">
         <div class="header">
-            <div class="logo">🍳 Meal Assistant</div>
+                            <div class="logo">🍳 Hungry Helper</div>
             <div class="subtitle">Your weekly meal planning reminder</div>
         </div>
 
@@ -130,7 +130,7 @@ class EmailService:
 
         <div class="footer">
             <p>Happy cooking!</p>
-            <p>The Meal Assistant Team</p>
+                            <p>The Hungry Helper Team</p>
             <div class="unsubscribe">
                 <a href="{{ base_url }}/settings" style="color: #999;">Update notification preferences</a>
             </div>
@@ -494,7 +494,7 @@ class EmailService:
         </div>
 
         <div class="footer">
-            <p class="footer-brand">The Meal Assistant Team</p>
+            <p class="footer-brand">The Hungry Helper Team</p>
             <p>Happy cooking and shopping! 🌟</p>
         </div>
     </div>
@@ -859,7 +859,7 @@ class EmailService:
         </div>
 
         <div class="footer">
-            <p class="footer-brand">The Meal Assistant Team</p>
+            <p class="footer-brand">The Hungry Helper Team</p>
             <p>Happy shopping! 🌟</p>
             {% if additional_recipient %}
             <div class="shared-note">

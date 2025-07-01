@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# AI-Powered Meal Planner - Test Runner Script
+# Hungry Helper - Test Runner Script
 # This script demonstrates the automated testing setup
 
 echo "🧪 Running Meal Planner Tests..."

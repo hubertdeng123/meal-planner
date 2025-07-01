@@ -43,7 +43,7 @@ export default function Layout({ children }: LayoutProps) {
                       <div className="h-8 w-8 rounded-lg gradient-primary flex items-center justify-center">
                         <SparklesIcon className="h-5 w-5 text-white" />
                       </div>
-                      <h1 className="text-xl font-semibold text-gray-900">Meal Assistant</h1>
+                      <h1 className="text-xl font-semibold text-gray-900">Hungry Helper</h1>
                     </Link>
                   </div>
                 </div>

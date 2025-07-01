@@ -106,7 +106,7 @@ class MealPlanningService {
         callbacks.onStatus?.(data.message || '');
         break;
       case 'thinking_start':
-        callbacks.onThinkingStart?.(data.message || 'Meal Assistant is thinking...');
+        callbacks.onThinkingStart?.(data.message || 'Hungry Helper is thinking...');
         break;
       case 'thinking':
         callbacks.onThinking?.(data.chunk || '');

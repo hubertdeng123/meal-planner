@@ -133,9 +133,9 @@ export default function MealPlanHistoryPage() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8 text-sm">
               <div className="flex flex-col items-center p-3 bg-gray-50 rounded-lg">
                 <div className="h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center mb-2">
-                  <span className="text-blue-600 font-semibold text-xs">AI</span>
+                  <span className="text-blue-600 font-semibold text-xs">HH</span>
                 </div>
-                <span className="text-gray-700 font-medium">AI-Generated Recipes</span>
+                <span className="text-gray-700 font-medium">Hungry Helper-Generated Recipes</span>
               </div>
               <div className="flex flex-col items-center p-3 bg-gray-50 rounded-lg">
                 <div className="h-8 w-8 bg-green-100 rounded-full flex items-center justify-center mb-2">

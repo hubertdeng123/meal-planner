@@ -2,13 +2,13 @@
 
 # Default target
 help: ## Show this help message
-	@echo "🍽️  AI-Powered Meal Planner - Development Commands"
+	@echo "🍽️  Hungry Helper - Development Commands"
 	@echo ""
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 # Setup and Installation
 setup: ## Complete project setup (run once)
-	@echo "🚀 Setting up AI-Powered Meal Planner..."
+	@echo "🚀 Setting up Hungry Helper..."
 	@./scripts/setup.sh
 
 install: ## Install dependencies for both frontend and backend

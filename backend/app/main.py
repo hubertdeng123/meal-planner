@@ -48,7 +48,7 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    logger.info("🚀 Starting Meal Assistant API...")
+    logger.info("🚀 Starting Hungry Helper API...")
     logger.info("📧 Starting email notification scheduler...")
     scheduler_service.start()
 
@@ -57,7 +57,7 @@ async def lifespan(app: FastAPI):
     # Shutdown
     logger.info("🛑 Shutting down email notification scheduler...")
     scheduler_service.stop()
-    logger.info("👋 Meal Assistant API shutdown complete")
+    logger.info("👋 Hungry Helper API shutdown complete")
 
 
 app = FastAPI(
@@ -109,7 +109,7 @@ app.include_router(
 
 @app.get("/")
 def root():
-    return {"message": "Meal Assistant API", "version": settings.APP_VERSION}
+    return {"message": "Hungry Helper API", "version": settings.APP_VERSION}
 
 
 @app.get("/health")

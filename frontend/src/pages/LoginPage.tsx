@@ -48,7 +48,7 @@ export default function LoginPage() {
           </div>
           <div>
             <h2 className="text-3xl font-semibold text-gray-900">Welcome back</h2>
-            <p className="mt-2 text-gray-600">Sign in to your Meal Assistant account</p>
+            <p className="mt-2 text-gray-600">Sign in to your Hungry Helper account</p>
           </div>
         </div>
 
@@ -132,12 +132,12 @@ export default function LoginPage() {
         {/* Features Preview */}
         <div className="mt-8 card p-6 space-y-4">
           <h3 className="text-lg font-semibold text-gray-900 text-center">
-            What you'll get with Meal Assistant
+            What you'll get with Hungry Helper
           </h3>
           <div className="space-y-3">
             <div className="flex items-center space-x-3">
               <div className="w-2 h-2 bg-orange-500 rounded-full" />
-              <p className="text-sm text-gray-600">Personalized AI-generated recipes</p>
+                              <p className="text-sm text-gray-600">Personalized Hungry Helper-generated recipes</p>
             </div>
             <div className="flex items-center space-x-3">
               <div className="w-2 h-2 bg-blue-500 rounded-full" />

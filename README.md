@@ -1,10 +1,10 @@
-# AI-Powered Meal Planner
+# Hungry Helper
 
-A smart meal planning application that uses AI to create personalized recipes, compile grocery lists, and learn from your preferences.
+A smart meal planning application that uses intelligent assistance to create personalized recipes, compile grocery lists, and learn from your preferences.
 
 ## Features
 
-- 🤖 AI-powered recipe planning based on user preferences
+- 🤖 Hungry Helper-powered recipe planning based on user preferences
 - 🔍 Web search integration for recipe discovery
 - 📊 Nutrition facts estimation
 - 🛒 Automated grocery list compilation
