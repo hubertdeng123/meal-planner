@@ -108,7 +108,7 @@ async def delete_grocery_list(
     return {"detail": "Grocery list deleted successfully"}
 
 
-@router.post("/{grocery_list_id}/items/", response_model=GroceryItem)
+@router.post("/{grocery_list_id}/items", response_model=GroceryItem)
 async def add_grocery_item(
     grocery_list_id: int,
     item: GroceryItemCreate,
@@ -146,7 +146,7 @@ async def add_grocery_item(
     return _format_grocery_item_response(db_item)
 
 
-@router.put("/{grocery_list_id}/items/{item_id}/", response_model=GroceryItem)
+@router.put("/{grocery_list_id}/items/{item_id}", response_model=GroceryItem)
 async def update_grocery_item(
     grocery_list_id: int,
     item_id: int,
@@ -194,7 +194,7 @@ async def update_grocery_item(
     return _format_grocery_item_response(item)
 
 
-@router.delete("/{grocery_list_id}/items/{item_id}/")
+@router.delete("/{grocery_list_id}/items/{item_id}")
 async def delete_grocery_item(
     grocery_list_id: int,
     item_id: int,
