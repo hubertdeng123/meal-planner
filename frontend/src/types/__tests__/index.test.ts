@@ -269,10 +269,10 @@ describe('Type Definitions', () => {
 
   describe('Meal type constants', () => {
     it('should have correct MealType union type', () => {
-      const breakfastType: 'breakfast' = 'breakfast';
-      const lunchType: 'lunch' = 'lunch';
-      const dinnerType: 'dinner' = 'dinner';
-      const snackType: 'snack' = 'snack';
+      const breakfastType = 'breakfast' as const;
+      const lunchType = 'lunch' as const;
+      const dinnerType = 'dinner' as const;
+      const snackType = 'snack' as const;
 
       // These should not cause TypeScript errors
       expect(breakfastType).toBe('breakfast');

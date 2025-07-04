@@ -112,18 +112,17 @@ describe('Layout', () => {
   });
 
   it('calls logout when sign out is clicked', async () => {
-    const mockLogout = vi.fn();
-
     // Create a custom wrapper that provides the mock logout function
     const TestWrapper = ({ children }: { children: React.ReactNode }) => {
       return <div>{children}</div>;
     };
 
     render(
-      <Layout>
-        <div>Test Content</div>
-      </Layout>,
-      { wrapper: TestWrapper }
+      <TestWrapper>
+        <Layout>
+          <div>Test Content</div>
+        </Layout>
+      </TestWrapper>
     );
 
     const profileButton = screen.getByLabelText('Open user menu');
@@ -198,9 +197,7 @@ describe('Layout', () => {
 
     expect(screen.getByText('Meal Planner')).toBeInTheDocument();
     // Check for the sparkles icon which should be present in the brand
-    const sparklesIcons = document.querySelectorAll('[data-testid="sparkles-icon"]');
-    // Note: Heroicons don't have built-in test IDs, so this might need adjustment
-    // based on how the icon is actually rendered
+    // Note: Heroicons don't have built-in test IDs, so we just verify the brand text is present
   });
 
   it('renders responsive layout', () => {
