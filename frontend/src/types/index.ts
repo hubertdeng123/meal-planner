@@ -198,7 +198,7 @@ export interface MealPlanItem {
   date: string;
   meal_type: MealType;
   servings: number;
-  recipe_data?: any;
+  recipe_data?: RecipeSuggestion;
   recipe?: Recipe;
 }
 
@@ -207,4 +207,14 @@ export interface RecipeSelectionRequest {
   meal_slot_date: string;
   meal_type: MealType;
   selected_recipe_index: number;
+}
+
+export interface APIError {
+  code?: string;
+  response?: {
+    status?: number;
+    data?: {
+      detail?: string;
+    };
+  };
 }

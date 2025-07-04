@@ -26,8 +26,9 @@ export default function MealPlanHistoryPage() {
       setLoading(true);
       const plans = await mealPlanningService.getMealPlans();
       setMealPlans(plans);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load meal plans');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load meal plans';
+      setError(errorMessage);
       console.error('Failed to load meal plans:', err);
     } finally {
       setLoading(false);
@@ -42,8 +43,9 @@ export default function MealPlanHistoryPage() {
     try {
       await mealPlanningService.deleteMealPlan(planId);
       setMealPlans(plans => plans.filter(plan => plan.id !== planId));
-    } catch (err: any) {
-      alert(`Failed to delete meal plan: ${err.message}`);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete meal plan';
+      alert(`Failed to delete meal plan: ${errorMessage}`);
     }
   };
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ClockIcon,
@@ -23,23 +23,26 @@ export default function RecipeDetailPage() {
   const [notes, setNotes] = useState('');
   const [savingFeedback, setSavingFeedback] = useState(false);
 
+  const loadRecipe = useCallback(
+    async (recipeId: number) => {
+      try {
+        const data = await recipeService.getRecipe(recipeId);
+        setRecipe(data);
+      } catch (error) {
+        console.error('Failed to load recipe:', error);
+        navigate('/recipes');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [navigate]
+  );
+
   useEffect(() => {
     if (id) {
       loadRecipe(parseInt(id));
     }
-  }, [id]);
-
-  const loadRecipe = async (recipeId: number) => {
-    try {
-      const data = await recipeService.getRecipe(recipeId);
-      setRecipe(data);
-    } catch (error) {
-      console.error('Failed to load recipe:', error);
-      navigate('/recipes');
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [id, loadRecipe]);
 
   const handleDelete = async () => {
     if (!recipe) {

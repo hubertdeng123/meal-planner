@@ -15,7 +15,7 @@ import type {
   NotificationUpdate,
   ReminderSchedule,
 } from '../services/notification.service';
-import type { User } from '../types';
+import type { User, APIError } from '../types';
 
 const WEEKDAYS = [
   { value: 0, label: 'Monday' },
@@ -64,7 +64,10 @@ export default function SettingsPage() {
     }
   };
 
-  const handlePreferenceChange = (field: keyof NotificationUpdate, value: any) => {
+  const handlePreferenceChange = (
+    field: keyof NotificationUpdate,
+    value: boolean | string | number
+  ) => {
     if (!preferences) return;
 
     setPreferences({
@@ -108,28 +111,29 @@ export default function SettingsPage() {
         type: 'success',
         text: `Test reminder sent to ${result.email}! Check your inbox.`,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const apiError = error as APIError;
       console.error('Failed to send test reminder:', error);
 
       // Handle different types of errors with specific messages
       let errorMessage = 'Failed to send test reminder.';
 
-      if (error.response?.status === 400) {
+      if (apiError.response?.status === 400) {
         // User-related errors (like disabled notifications, invalid email)
         errorMessage =
-          error.response.data?.detail ||
+          apiError.response.data?.detail ||
           'Please check your notification settings and email address.';
-      } else if (error.response?.status === 503) {
+      } else if (apiError.response?.status === 503) {
         // Service unavailable (SMTP configuration, connection, authentication issues)
         errorMessage =
-          error.response.data?.detail ||
+          apiError.response.data?.detail ||
           'Email service is currently unavailable. Please try again later or contact support.';
-      } else if (error.response?.status === 500) {
+      } else if (apiError.response?.status === 500) {
         // Internal server errors (template errors, unexpected issues)
         errorMessage =
-          error.response.data?.detail ||
+          apiError.response?.data?.detail ||
           'An internal error occurred. Please try again or contact support.';
-      } else if (error.code === 'NETWORK_ERROR' || !error.response) {
+      } else if (apiError.code === 'NETWORK_ERROR' || !apiError.response) {
         // Network connectivity issues
         errorMessage =
           'Network connection error. Please check your internet connection and try again.';

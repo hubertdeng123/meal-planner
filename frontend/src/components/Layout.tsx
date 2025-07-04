@@ -8,7 +8,7 @@ import {
   Cog6ToothIcon,
 } from '@heroicons/react/24/outline';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 
 function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(' ');

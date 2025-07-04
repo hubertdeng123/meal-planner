@@ -9,7 +9,8 @@ import WeeklyMealPlanPage from './pages/WeeklyMealPlanPage';
 import GenerateRecipePage from './pages/GenerateRecipePage';
 import SettingsPage from './pages/SettingsPage';
 import Layout from './components/Layout';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { AuthProvider } from './contexts/AuthContextProvider';
+import { useAuth } from './hooks/useAuth';
 
 function AppRoutes() {
   const { isAuthenticated, loading } = useAuth();

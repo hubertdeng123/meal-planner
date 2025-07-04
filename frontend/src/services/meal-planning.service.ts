@@ -4,6 +4,7 @@ import type {
   WeeklyMealPlan,
   MealPlan,
   RecipeSelectionRequest,
+  GroceryList,
 } from '../types';
 
 // Use the same interface as recipe service for consistency
@@ -163,7 +164,7 @@ class MealPlanningService {
     return response.data;
   }
 
-  async generateGroceryListFromMealPlan(mealPlanId: number): Promise<any> {
+  async generateGroceryListFromMealPlan(mealPlanId: number): Promise<GroceryList> {
     const response = await api.post(
       `/meal-planning/meal-plans/${mealPlanId}/generate-grocery-list/`
     );

@@ -40,6 +40,12 @@ repos:
         language: system
         files: ^frontend/.*\.(ts|tsx)$
         pass_filenames: false
+      - id: eslint
+        name: ESLint
+        entry: bash -c 'cd frontend && npm run lint'
+        language: system
+        files: ^frontend/.*\.(ts|tsx|js|jsx)$
+        pass_filenames: false
 
   # Python type checking (optional, can be slow)
   # - repo: https://github.com/pre-commit/mirrors-mypy

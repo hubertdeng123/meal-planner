@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ExclamationCircleIcon, SparklesIcon } from '@heroicons/react/24/outline';
 import authService from '../services/auth.service';
-import { useAuth } from '../contexts/AuthContext';
-import type { UserLogin } from '../types';
+import { useAuth } from '../hooks/useAuth';
+import type { UserLogin, APIError } from '../types';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -24,8 +24,9 @@ export default function LoginPage() {
       await authService.login(formData);
       login(); // Update the auth context state
       navigate('/dashboard');
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Login failed. Please try again.');
+    } catch (err: unknown) {
+      const apiError = err as APIError;
+      setError(apiError.response?.data?.detail || 'Login failed. Please try again.');
     } finally {
       setLoading(false);
     }
