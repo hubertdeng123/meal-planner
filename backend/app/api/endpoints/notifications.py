@@ -305,6 +305,10 @@ async def send_grocery_list_notification(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
 
+    except HTTPException:
+        # Re-raise HTTPException as-is
+        raise
+
     except Exception as e:
         logger.error(f"Unexpected error in grocery list notification: {str(e)}")
         raise EmailServiceError(f"Failed to send grocery list notification: {str(e)}")
