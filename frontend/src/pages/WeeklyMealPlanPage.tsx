@@ -50,6 +50,7 @@ export default function WeeklyMealPlanPage() {
     type: 'success' | 'error';
     text: string;
   } | null>(null);
+  const [showSendDropdown, setShowSendDropdown] = useState(false);
 
   // Streaming state - using same pattern as GenerateRecipePage
   const [isStreaming, setIsStreaming] = useState(false);
@@ -530,73 +531,6 @@ export default function WeeklyMealPlanPage() {
   };
 
   // Notification functions
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleSendNotification = async (emails: string[] = []) => {
-    if (!groceryList) return;
-
-    setSendingNotification(true);
-    setNotificationMessage(null);
-
-    try {
-      const validEmails = emails.filter(email => email.trim() !== '');
-      const result = await notificationService.sendGroceryNotification(
-        groceryList.id,
-        validEmails.length > 0 ? validEmails : undefined
-      );
-
-      let successMessage = result.detail;
-
-      if (result.failed && result.failed.length > 0) {
-        const failedEmails = result.failed.map(f => f.email).join(', ');
-        successMessage += ` (Failed to send to: ${failedEmails})`;
-      }
-
-      setNotificationMessage({
-        type: 'success',
-        text: successMessage,
-      });
-
-      // Clear message after 5 seconds
-      setTimeout(() => {
-        setNotificationMessage(null);
-      }, 5000);
-    } catch (error: unknown) {
-      console.error('Failed to send notification:', error);
-      const apiError = error as APIError;
-
-      // Handle different types of errors with specific messages
-      let errorMessage = 'Failed to send grocery notification';
-
-      if (apiError.response?.status === 400) {
-        errorMessage =
-          apiError.response.data?.detail ||
-          'Please check your notification settings and email address.';
-      } else if (apiError.response?.status === 503) {
-        errorMessage =
-          apiError.response.data?.detail ||
-          'Email service is currently unavailable. Please try again later or contact support.';
-      } else if (apiError.response?.status === 500) {
-        errorMessage =
-          apiError.response.data?.detail ||
-          'An internal error occurred. Please try again or contact support.';
-      } else if (apiError.code === 'NETWORK_ERROR' || !apiError.response) {
-        errorMessage =
-          'Network connection error. Please check your internet connection and try again.';
-      }
-
-      setNotificationMessage({
-        type: 'error',
-        text: errorMessage,
-      });
-
-      // Clear error message after 5 seconds
-      setTimeout(() => {
-        setNotificationMessage(null);
-      }, 5000);
-    } finally {
-      setSendingNotification(false);
-    }
-  };
 
   const handleSendWeeklyPlanNotification = async (emails: string[] = []) => {
     if (!weeklyPlan) return;
@@ -708,12 +642,6 @@ export default function WeeklyMealPlanPage() {
     } finally {
       setSendingNotification(false);
     }
-  };
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const validateEmail = (email: string) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
   };
 
   // Loading state for existing meal plan
@@ -1373,10 +1301,7 @@ export default function WeeklyMealPlanPage() {
                             View Grocery List ({groceryList.items.length} items)
                           </button>
                           <button
-                            onClick={() => {
-                              setNotificationType('weekly-plan');
-                              handleSendWeeklyPlanNotification();
-                            }}
+                            onClick={() => handleSendWeeklyPlanNotification()}
                             disabled={sendingNotification}
                             className="btn-primary flex items-center"
                           >
@@ -1507,10 +1432,7 @@ export default function WeeklyMealPlanPage() {
                                 <div className="flex">
                                   {/* Main Send Button */}
                                   <button
-                                    onClick={() => {
-                                      setNotificationType('weekly-plan');
-                                      handleSendWeeklyPlanNotification();
-                                    }}
+                                    onClick={() => handleSendWeeklyPlanNotification()}
                                     disabled={sendingNotification}
                                     className="btn-secondary flex items-center rounded-r-none border-r-0 px-4 py-2"
                                   >
@@ -1546,9 +1468,8 @@ export default function WeeklyMealPlanPage() {
                                     <div className="py-2">
                                       <button
                                         onClick={() => {
-                                          setNotificationType('weekly-plan');
                                           setShowSendDropdown(false);
-                                          setShowNotificationModal(true);
+                                          // TODO: Implement additional recipients modal
                                         }}
                                         className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 flex flex-col"
                                       >
@@ -1564,9 +1485,8 @@ export default function WeeklyMealPlanPage() {
                                       </button>
                                       <button
                                         onClick={() => {
-                                          setNotificationType('grocery');
                                           setShowSendDropdown(false);
-                                          setShowNotificationModal(true);
+                                          // TODO: Implement grocery list modal
                                         }}
                                         className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 flex flex-col"
                                       >

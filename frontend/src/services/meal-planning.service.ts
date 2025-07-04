@@ -4,6 +4,7 @@ import type {
   WeeklyMealPlan,
   MealPlan,
   RecipeSelectionRequest,
+  GroceryList,
 } from '../types';
 
 // Use the same interface as recipe service for consistency

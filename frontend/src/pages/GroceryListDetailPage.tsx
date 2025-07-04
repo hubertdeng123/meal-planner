@@ -49,12 +49,6 @@ export default function GroceryListDetailPage() {
   });
   const [showSendDropdown, setShowSendDropdown] = useState(false);
 
-  useEffect(() => {
-    if (id) {
-      loadGroceryList();
-    }
-  }, [id, loadGroceryList]);
-
   const loadGroceryList = useCallback(async () => {
     if (!id) return;
 
@@ -68,6 +62,12 @@ export default function GroceryListDetailPage() {
       setLoading(false);
     }
   }, [id, navigate]);
+
+  useEffect(() => {
+    if (id) {
+      loadGroceryList();
+    }
+  }, [id, loadGroceryList]);
 
   const handleToggleItem = async (item: GroceryItem) => {
     if (!groceryList) return;

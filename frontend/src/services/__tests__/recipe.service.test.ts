@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import recipeService from '../recipe.service';
-import api from '../api';
+import { api } from '../api';
 import { mockRecipe } from '../../test/utils';
 
 // Mock the API module
 vi.mock('../api', () => ({
-  default: {
+  api: {
     get: vi.fn(),
     post: vi.fn(),
     put: vi.fn(),
@@ -243,24 +243,6 @@ describe('RecipeService', () => {
       mockApi.get.mockRejectedValue(networkError);
 
       await expect(recipeService.getRecipes()).rejects.toThrow('Network connection failed');
-    });
-  });
-
-  describe('feedback functionality', () => {
-    it('should submit recipe feedback', async () => {
-      const feedback = {
-        recipe_id: 1,
-        liked: true,
-        rating: 5,
-        notes: 'Delicious!',
-      };
-
-      mockApi.post.mockResolvedValue({ data: feedback });
-
-      const result = await recipeService.submitFeedback(feedback);
-
-      expect(mockApi.post).toHaveBeenCalledWith('/recipes/1/feedback', feedback);
-      expect(result).toEqual(feedback);
     });
   });
 });

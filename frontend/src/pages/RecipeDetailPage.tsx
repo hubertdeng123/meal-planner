@@ -23,12 +23,6 @@ export default function RecipeDetailPage() {
   const [notes, setNotes] = useState('');
   const [savingFeedback, setSavingFeedback] = useState(false);
 
-  useEffect(() => {
-    if (id) {
-      loadRecipe(parseInt(id));
-    }
-  }, [id, loadRecipe]);
-
   const loadRecipe = useCallback(
     async (recipeId: number) => {
       try {
@@ -43,6 +37,12 @@ export default function RecipeDetailPage() {
     },
     [navigate]
   );
+
+  useEffect(() => {
+    if (id) {
+      loadRecipe(parseInt(id));
+    }
+  }, [id, loadRecipe]);
 
   const handleDelete = async () => {
     if (!recipe) {
