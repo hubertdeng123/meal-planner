@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ShoppingCartIcon,
@@ -14,7 +14,13 @@ import {
 import { CheckIcon as CheckIconSolid } from '@heroicons/react/24/solid';
 import groceryService from '../services/grocery.service';
 import notificationService from '../services/notification.service';
-import type { GroceryList, GroceryItem, GroceryItemCreate, GroceryItemUpdate } from '../types';
+import type {
+  GroceryList,
+  GroceryItem,
+  GroceryItemCreate,
+  GroceryItemUpdate,
+  APIError,
+} from '../types';
 
 interface GroupedItems {
   [category: string]: GroceryItem[];
@@ -47,9 +53,9 @@ export default function GroceryListDetailPage() {
     if (id) {
       loadGroceryList();
     }
-  }, [id]);
+  }, [id, loadGroceryList]);
 
-  const loadGroceryList = async () => {
+  const loadGroceryList = useCallback(async () => {
     if (!id) return;
 
     try {
@@ -61,7 +67,7 @@ export default function GroceryListDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, navigate]);
 
   const handleToggleItem = async (item: GroceryItem) => {
     if (!groceryList) return;
@@ -160,28 +166,29 @@ export default function GroceryListDetailPage() {
       setTimeout(() => {
         setNotificationMessage(null);
       }, 5000);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to send notification:', error);
 
       // Handle different types of errors with specific messages
       let errorMessage = 'Failed to send grocery notification.';
+      const apiError = error as APIError;
 
-      if (error.response?.status === 400) {
+      if (apiError.response?.status === 400) {
         // User-related errors (like disabled notifications, invalid email)
         errorMessage =
-          error.response.data?.detail ||
+          apiError.response?.data?.detail ||
           'Please check your notification settings and email address.';
-      } else if (error.response?.status === 503) {
+      } else if (apiError.response?.status === 503) {
         // Service unavailable (SMTP configuration, connection, authentication issues)
         errorMessage =
-          error.response.data?.detail ||
+          apiError.response?.data?.detail ||
           'Email service is currently unavailable. Please try again later or contact support.';
-      } else if (error.response?.status === 500) {
+      } else if (apiError.response?.status === 500) {
         // Internal server errors (template errors, unexpected issues)
         errorMessage =
-          error.response.data?.detail ||
+          apiError.response?.data?.detail ||
           'An internal error occurred. Please try again or contact support.';
-      } else if (error.code === 'NETWORK_ERROR' || !error.response) {
+      } else if (('code' in apiError && apiError.code === 'NETWORK_ERROR') || !apiError.response) {
         // Network connectivity issues
         errorMessage =
           'Network connection error. Please check your internet connection and try again.';

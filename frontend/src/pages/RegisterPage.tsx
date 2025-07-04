@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ExclamationCircleIcon } from '@heroicons/react/24/outline';
 import authService from '../services/auth.service';
-import type { UserCreate, UserPreferences } from '../types';
+import type { UserCreate, UserPreferences, APIError } from '../types';
 
 const CUISINES = [
   'Italian',
@@ -63,8 +63,9 @@ export default function RegisterPage() {
       await authService.register(userData, preferences);
       await authService.login({ email: userData.email, password: userData.password });
       navigate('/dashboard');
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Registration failed. Please try again.');
+    } catch (err: unknown) {
+      const apiError = err as APIError;
+      setError(apiError.response?.data?.detail || 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
     }

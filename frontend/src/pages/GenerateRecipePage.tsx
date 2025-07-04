@@ -150,8 +150,10 @@ export default function GenerateRecipePage() {
 
     try {
       await recipeService.generateRecipeStream(formData, callbacks);
-    } catch (err: any) {
-      setError(err.message || 'Failed to generate recipe. Please try again.');
+    } catch (err: unknown) {
+      const errorMessage =
+        err instanceof Error ? err.message : 'Failed to generate recipe. Please try again.';
+      setError(errorMessage);
       setLoading(false);
       setIsStreaming(false);
       setIsThinking(false);

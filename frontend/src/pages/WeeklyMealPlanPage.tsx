@@ -4,7 +4,6 @@ import {
   CalendarIcon,
   SparklesIcon,
   StarIcon,
-  PlusIcon,
   ShoppingCartIcon,
   ArrowLeftIcon,
   TrashIcon,
@@ -26,6 +25,7 @@ import type {
   MealType,
   GroceryList,
   GroceryItem,
+  APIError,
 } from '../types';
 
 export default function WeeklyMealPlanPage() {
@@ -50,13 +50,6 @@ export default function WeeklyMealPlanPage() {
     type: 'success' | 'error';
     text: string;
   } | null>(null);
-  const [showNotificationModal, setShowNotificationModal] = useState(false);
-  const [additionalEmails, setAdditionalEmails] = useState<string[]>(['']);
-  const [emailErrors, setEmailErrors] = useState<string[]>([]);
-  const [showSendDropdown, setShowSendDropdown] = useState(false);
-  const [notificationType, setNotificationType] = useState<'grocery' | 'weekly-plan'>(
-    'weekly-plan'
-  );
 
   // Streaming state - using same pattern as GenerateRecipePage
   const [isStreaming, setIsStreaming] = useState(false);
@@ -259,11 +252,11 @@ export default function WeeklyMealPlanPage() {
 
       await mealPlanningService.createWeeklyMealPlanStreamWithCallbacks(scheduleForm, callbacks);
       console.log('🏁 Stream processing completed');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to create meal plan:', error);
       console.error('Error type:', typeof error);
-      console.error('Error stack:', error.stack);
-      const errorMsg = error.message || error.toString() || 'Unknown error occurred';
+      const errorMsg =
+        error instanceof Error ? error.message : error?.toString() || 'Unknown error occurred';
       alert(
         `Failed to create meal plan: ${errorMsg}\n\nPlease check the browser console for more details.`
       );
@@ -537,6 +530,7 @@ export default function WeeklyMealPlanPage() {
   };
 
   // Notification functions
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleSendNotification = async (emails: string[] = []) => {
     if (!groceryList) return;
 
@@ -566,25 +560,26 @@ export default function WeeklyMealPlanPage() {
       setTimeout(() => {
         setNotificationMessage(null);
       }, 5000);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to send notification:', error);
+      const apiError = error as APIError;
 
       // Handle different types of errors with specific messages
-      let errorMessage = 'Failed to send grocery notification.';
+      let errorMessage = 'Failed to send grocery notification';
 
-      if (error.response?.status === 400) {
+      if (apiError.response?.status === 400) {
         errorMessage =
-          error.response.data?.detail ||
+          apiError.response.data?.detail ||
           'Please check your notification settings and email address.';
-      } else if (error.response?.status === 503) {
+      } else if (apiError.response?.status === 503) {
         errorMessage =
-          error.response.data?.detail ||
+          apiError.response.data?.detail ||
           'Email service is currently unavailable. Please try again later or contact support.';
-      } else if (error.response?.status === 500) {
+      } else if (apiError.response?.status === 500) {
         errorMessage =
-          error.response.data?.detail ||
+          apiError.response.data?.detail ||
           'An internal error occurred. Please try again or contact support.';
-      } else if (error.code === 'NETWORK_ERROR' || !error.response) {
+      } else if (apiError.code === 'NETWORK_ERROR' || !apiError.response) {
         errorMessage =
           'Network connection error. Please check your internet connection and try again.';
       }
@@ -677,25 +672,26 @@ export default function WeeklyMealPlanPage() {
       setTimeout(() => {
         setNotificationMessage(null);
       }, 5000);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to send weekly plan notification:', error);
+      const apiError = error as APIError;
 
       // Handle different types of errors with specific messages
       let errorMessage = 'Failed to send weekly meal plan notification.';
 
-      if (error.response?.status === 400) {
+      if (apiError.response?.status === 400) {
         errorMessage =
-          error.response.data?.detail ||
+          apiError.response.data?.detail ||
           'Please check your notification settings and email address.';
-      } else if (error.response?.status === 503) {
+      } else if (apiError.response?.status === 503) {
         errorMessage =
-          error.response.data?.detail ||
+          apiError.response.data?.detail ||
           'Email service is currently unavailable. Please try again later or contact support.';
-      } else if (error.response?.status === 500) {
+      } else if (apiError.response?.status === 500) {
         errorMessage =
-          error.response.data?.detail ||
+          apiError.response.data?.detail ||
           'An internal error occurred. Please try again or contact support.';
-      } else if (error.code === 'NETWORK_ERROR' || !error.response) {
+      } else if (apiError.code === 'NETWORK_ERROR' || !apiError.response) {
         errorMessage =
           'Network connection error. Please check your internet connection and try again.';
       }
@@ -714,60 +710,10 @@ export default function WeeklyMealPlanPage() {
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
-  };
-
-  const handleEmailChange = (index: number, value: string) => {
-    const newEmails = [...additionalEmails];
-    newEmails[index] = value;
-    setAdditionalEmails(newEmails);
-
-    // Clear error for this field
-    const newErrors = [...emailErrors];
-    newErrors[index] = '';
-    setEmailErrors(newErrors);
-  };
-
-  const addEmailField = () => {
-    setAdditionalEmails([...additionalEmails, '']);
-    setEmailErrors([...emailErrors, '']);
-  };
-
-  const removeEmailField = (index: number) => {
-    const newEmails = additionalEmails.filter((_, i) => i !== index);
-    const newErrors = emailErrors.filter((_, i) => i !== index);
-    setAdditionalEmails(newEmails);
-    setEmailErrors(newErrors);
-  };
-
-  const handleSendWithEmails = () => {
-    // Validate all email fields
-    const newErrors = additionalEmails.map(email => {
-      if (email.trim() === '') return '';
-      if (!validateEmail(email.trim())) return 'Invalid email address';
-      return '';
-    });
-
-    setEmailErrors(newErrors);
-
-    // Check if there are any validation errors
-    const hasErrors = newErrors.some(error => error !== '');
-    if (hasErrors) return;
-
-    // Send notification
-    const validEmails = additionalEmails.filter(email => email.trim() !== '');
-    if (notificationType === 'grocery') {
-      handleSendNotification(validEmails);
-    } else if (notificationType === 'weekly-plan') {
-      handleSendWeeklyPlanNotification(validEmails);
-    }
-    setShowNotificationModal(false);
-
-    // Reset form
-    setAdditionalEmails(['']);
-    setEmailErrors([]);
   };
 
   // Loading state for existing meal plan
@@ -1856,99 +1802,6 @@ export default function WeeklyMealPlanPage() {
             <button onClick={() => setSelectedRecipeDetail(null)} className="btn-secondary">
               Close
             </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  {
-    /* Send Notification Modal */
-  }
-  {
-    showNotificationModal && (
-      <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-        <div className="relative top-20 mx-auto p-5 border w-11/12 max-w-md shadow-lg rounded-md bg-white">
-          <div className="mt-3">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">
-              {notificationType === 'weekly-plan' ? 'Send Weekly Meal Plan' : 'Send Grocery List'}
-            </h3>
-
-            <p className="text-sm text-gray-600 mb-4">
-              {notificationType === 'weekly-plan'
-                ? 'Send your complete weekly meal plan with recipe names and grocery list to additional email addresses.'
-                : 'Send your grocery list to additional email addresses. The email will include all unchecked items organized by category.'}
-            </p>
-
-            <div className="space-y-3">
-              <label className="block text-sm font-medium text-gray-700">
-                Additional Recipients (optional)
-              </label>
-
-              {additionalEmails.map((email, index) => (
-                <div key={index} className="flex items-center space-x-2">
-                  <div className="flex-1">
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={e => handleEmailChange(index, e.target.value)}
-                      className={`input w-full ${emailErrors[index] ? 'border-red-300' : ''}`}
-                      placeholder="email@example.com"
-                    />
-                    {emailErrors[index] && (
-                      <p className="text-red-500 text-xs mt-1">{emailErrors[index]}</p>
-                    )}
-                  </div>
-                  {additionalEmails.length > 1 && (
-                    <button
-                      onClick={() => removeEmailField(index)}
-                      className="p-2 text-red-600 hover:bg-red-50 rounded"
-                      title="Remove email field"
-                    >
-                      <XMarkIcon className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
-              ))}
-
-              <button
-                onClick={addEmailField}
-                className="text-sm text-blue-600 hover:text-blue-800 flex items-center"
-              >
-                <PlusIcon className="h-4 w-4 mr-1" />
-                Add another email
-              </button>
-            </div>
-
-            <div className="mt-6 flex justify-end space-x-3">
-              <button
-                onClick={() => {
-                  setShowNotificationModal(false);
-                  setAdditionalEmails(['']);
-                  setEmailErrors([]);
-                }}
-                className="btn-secondary"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSendWithEmails}
-                disabled={sendingNotification}
-                className="btn-primary flex items-center"
-              >
-                {sendingNotification ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                    Sending...
-                  </>
-                ) : (
-                  <>
-                    <EnvelopeIcon className="h-4 w-4 mr-2" />
-                    {notificationType === 'weekly-plan' ? 'Send Plan' : 'Send List'}
-                  </>
-                )}
-              </button>
-            </div>
           </div>
         </div>
       </div>

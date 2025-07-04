@@ -108,6 +108,28 @@ pnpm run dev
 
 ## Development Commands
 
+### Pre-commit Hooks
+
+This project uses pre-commit hooks to ensure code quality and catch issues before they reach CI/CD:
+
+- **Python**: Ruff formatting and linting
+- **TypeScript**: Type checking with `tsc --noEmit` (catches unused imports, type errors, etc.)
+- **General**: Prettier formatting, YAML/JSON validation, trailing whitespace removal
+
+**Setup:**
+```bash
+# Install pre-commit hooks (one-time setup)
+cd backend && uv run pre-commit install
+
+# Run on all files (useful for testing)
+uv run pre-commit run --all-files
+
+# Run on specific files
+uv run pre-commit run --files frontend/src/App.tsx
+```
+
+The hooks will automatically run when you commit. If they fail, the commit will be blocked until you fix the issues.
+
 ### Using Makefile (Recommended)
 
 The project includes a focused Makefile for development and database operations:
