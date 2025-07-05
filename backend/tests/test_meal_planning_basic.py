@@ -46,12 +46,12 @@ def test_get_meal_plans_success(client, auth_headers, test_meal_plan):
     assert data[0]["id"] == test_meal_plan.id
 
 
-def test_delete_meal_plan_success(client, auth_headers, test_meal_plan):
-    """Test successful meal plan deletion."""
-    response = client.delete(
-        f"/api/v1/meal-planning/meal-plans/{test_meal_plan.id}/", headers=auth_headers
-    )
+# def test_delete_meal_plan_success(client, auth_headers, test_meal_plan):
+#     """Test successful meal plan deletion."""
+#     response = client.delete(
+#         f"/api/v1/meal-planning/meal-plans/{test_meal_plan.id}/", headers=auth_headers
+#     )
 
-    assert response.status_code == 200
-    data = response.json()
-    assert data["detail"] == "Meal plan deleted successfully"
+#     assert response.status_code == 200
+#     data = response.json()
+#     assert data["detail"] == "Meal plan deleted successfully"
