@@ -393,7 +393,7 @@ class TestGroceryNotificationIntegration:
             mock_send_email.return_value = True
 
             response = client.post(
-                "/api/notifications/send-grocery-notification/",
+                "/api/v1/notifications/send-grocery-notification/",
                 json={
                     "grocery_list_id": grocery_list.id,
                     "additional_emails": ["friend@example.com"],
@@ -413,7 +413,7 @@ class TestGroceryNotificationIntegration:
     ):
         """Test email validation in grocery notification API"""
         response = client.post(
-            "/api/notifications/send-grocery-notification/",
+            "/api/v1/notifications/send-grocery-notification/",
             json={
                 "additional_emails": [
                     "invalid-email",

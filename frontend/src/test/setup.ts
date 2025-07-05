@@ -47,3 +47,10 @@ global.confirm = vi.fn(() => true);
 
 // Mock fetch
 global.fetch = vi.fn();
+
+// Mock ResizeObserver for Headless UI components
+global.ResizeObserver = vi.fn().mockImplementation(() => ({
+  observe: vi.fn(),
+  unobserve: vi.fn(),
+  disconnect: vi.fn(),
+}));

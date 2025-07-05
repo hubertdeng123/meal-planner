@@ -1,6 +1,7 @@
 from pydantic import BaseModel, field_validator
 from typing import List, Optional, Dict, Any, Union
 from datetime import date, datetime
+from app.schemas.recipe import Recipe as RecipeSchema
 from enum import Enum
 
 
@@ -149,9 +150,6 @@ class RecipeSelectionRequest(BaseModel):
                 raise ValueError("Invalid date format. Use YYYY-MM-DD")
         return v
 
-
-# Import Recipe schema at the end to avoid circular imports
-from app.schemas.recipe import Recipe as RecipeSchema
 
 MealPlanItem.model_rebuild()
 MealPlan.model_rebuild()

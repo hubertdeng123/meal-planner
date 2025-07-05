@@ -47,19 +47,52 @@ def client(db):
         finally:
             pass
 
-    # Create a minimal test app without scheduler issues
+    # Create test app with same configuration as main app but without lifecycle events
     from fastapi import FastAPI
-    from app.api.endpoints import meal_planning, auth, recipes, grocery, notifications
+    from fastapi.middleware.cors import CORSMiddleware
+    from app.core.config import settings
+    from app.api.endpoints import auth, recipes, grocery, meal_planning, notifications
 
-    test_app = FastAPI(title="Test Meal Planner API")
-    test_app.include_router(
-        meal_planning.router, prefix="/api/meal-planning", tags=["meal-planning"]
+    test_app = FastAPI(
+        title=settings.APP_NAME,
+        version=settings.APP_VERSION,
+        openapi_url=f"{settings.API_PREFIX}/openapi.json",
+        # No lifespan to avoid scheduler issues in tests
     )
-    test_app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
-    test_app.include_router(recipes.router, prefix="/api/recipes", tags=["recipes"])
-    test_app.include_router(grocery.router, prefix="/api/grocery", tags=["grocery"])
+
+    # Add CORS middleware (same as main app)
+    test_app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[
+            "http://localhost:3000",
+            "http://localhost:5173",
+            "http://localhost:5174",
+            settings.BASE_URL,
+        ],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    # Include routers with exact same configuration as main app
     test_app.include_router(
-        notifications.router, prefix="/api/notifications", tags=["notifications"]
+        auth.router, prefix=f"{settings.API_PREFIX}/auth", tags=["authentication"]
+    )
+    test_app.include_router(
+        recipes.router, prefix=f"{settings.API_PREFIX}/recipes", tags=["recipes"]
+    )
+    test_app.include_router(
+        grocery.router, prefix=f"{settings.API_PREFIX}/grocery", tags=["grocery"]
+    )
+    test_app.include_router(
+        meal_planning.router,
+        prefix=f"{settings.API_PREFIX}/meal-planning",
+        tags=["meal-planning"],
+    )
+    test_app.include_router(
+        notifications.router,
+        prefix=f"{settings.API_PREFIX}/notifications",
+        tags=["notifications"],
     )
 
     test_app.dependency_overrides[get_db] = override_get_db

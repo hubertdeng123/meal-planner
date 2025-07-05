@@ -1,3 +1,4 @@
+import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -5,14 +6,17 @@ import { render } from '../../test/utils';
 import LoginPage from '../LoginPage';
 
 // Mock the auth service
-const mockLogin = vi.fn();
 vi.mock('../../services/auth.service', () => ({
   default: {
-    login: mockLogin,
+    login: vi.fn(),
     isAuthenticated: vi.fn(() => false),
     logout: vi.fn(),
   },
 }));
+
+import authService from '../../services/auth.service';
+const mockAuthService = vi.mocked(authService);
+const mockLogin = mockAuthService.login;
 
 // Mock react-router-dom
 const mockNavigate = vi.fn();
@@ -43,7 +47,7 @@ describe('LoginPage', () => {
     render(<LoginPage />);
 
     expect(screen.getByText('Welcome back')).toBeInTheDocument();
-    expect(screen.getByText('Sign in to your account')).toBeInTheDocument();
+    expect(screen.getByText('Sign in to your Hungry Helper account')).toBeInTheDocument();
     expect(screen.getByLabelText(/email address/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
@@ -67,7 +71,7 @@ describe('LoginPage', () => {
   });
 
   it('submits form with correct data', async () => {
-    mockLogin.mockResolvedValue({});
+    mockLogin.mockResolvedValue({ access_token: 'test-token', token_type: 'bearer' });
 
     render(<LoginPage />);
 
@@ -88,7 +92,7 @@ describe('LoginPage', () => {
   });
 
   it('navigates to dashboard on successful login', async () => {
-    mockLogin.mockResolvedValue({});
+    mockLogin.mockResolvedValue({ access_token: 'test-token', token_type: 'bearer' });
 
     render(<LoginPage />);
 

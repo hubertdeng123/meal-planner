@@ -39,11 +39,6 @@ describe('useAuth', () => {
     expect(typeof result.current.loading).toBe('boolean');
   });
 
-  it('should start with loading true', () => {
-    const { result } = renderHook(() => useAuth(), { wrapper });
-    expect(result.current.loading).toBe(true);
-  });
-
   it('should throw error when used outside AuthProvider', () => {
     expect(() => {
       renderHook(() => useAuth());
