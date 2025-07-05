@@ -17,7 +17,7 @@ def test_create_weekly_meal_plan_success(
     }
 
     response = client.post(
-        "/api/meal-planning/weekly-plan/", json=request_data, headers=auth_headers
+        "/api/v1/meal-planning/weekly-plan/", json=request_data, headers=auth_headers
     )
 
     assert response.status_code == 200
@@ -37,7 +37,7 @@ def test_create_weekly_meal_plan_success(
 
 def test_get_meal_plans_success(client, auth_headers, test_meal_plan):
     """Test successful retrieval of meal plans."""
-    response = client.get("/api/meal-planning/meal-plans/", headers=auth_headers)
+    response = client.get("/api/v1/meal-planning/meal-plans/", headers=auth_headers)
 
     assert response.status_code == 200
     data = response.json()
@@ -49,7 +49,7 @@ def test_get_meal_plans_success(client, auth_headers, test_meal_plan):
 def test_delete_meal_plan_success(client, auth_headers, test_meal_plan):
     """Test successful meal plan deletion."""
     response = client.delete(
-        f"/api/meal-planning/meal-plans/{test_meal_plan.id}/", headers=auth_headers
+        f"/api/v1/meal-planning/meal-plans/{test_meal_plan.id}/", headers=auth_headers
     )
 
     assert response.status_code == 200

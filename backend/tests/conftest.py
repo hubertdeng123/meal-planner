@@ -53,13 +53,13 @@ def client(db):
 
     test_app = FastAPI(title="Test Meal Planner API")
     test_app.include_router(
-        meal_planning.router, prefix="/api/meal-planning", tags=["meal-planning"]
+        meal_planning.router, prefix="/api/v1/meal-planning", tags=["meal-planning"]
     )
-    test_app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
-    test_app.include_router(recipes.router, prefix="/api/recipes", tags=["recipes"])
-    test_app.include_router(grocery.router, prefix="/api/grocery", tags=["grocery"])
+    test_app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
+    test_app.include_router(recipes.router, prefix="/api/v1/recipes", tags=["recipes"])
+    test_app.include_router(grocery.router, prefix="/api/v1/grocery", tags=["grocery"])
     test_app.include_router(
-        notifications.router, prefix="/api/notifications", tags=["notifications"]
+        notifications.router, prefix="/api/v1/notifications", tags=["notifications"]
     )
 
     test_app.dependency_overrides[get_db] = override_get_db

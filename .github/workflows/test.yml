@@ -92,7 +92,7 @@ jobs:
       working-directory: ./backend
       env:
         DATABASE_URL: postgresql://postgres:password@localhost:5432/meal_planner
-        SECRET_KEY: test_secret_key_for_ci
+        JWT_SECRET_KEY: test_secret_key_for_ci
         ANTHROPIC_API_KEY: test_api_key
       run: uv run pytest -v --tb=short -m "not slow and not integration"
 
