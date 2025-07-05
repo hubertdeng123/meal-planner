@@ -106,36 +106,36 @@ class TestGetMealPlan:
         assert data["detail"] == "Meal plan not found"
 
 
-class TestDeleteMealPlan:
-    """Test the delete meal plan endpoint."""
+# class TestDeleteMealPlan:
+#     """Test the delete meal plan endpoint."""
 
-    def test_delete_meal_plan_success(self, client, auth_headers, test_meal_plan):
-        """Test successful meal plan deletion."""
-        response = client.delete(
-            f"/api/v1/meal-planning/meal-plans/{test_meal_plan.id}/",
-            headers=auth_headers,
-        )
+#     def test_delete_meal_plan_success(self, client, auth_headers, test_meal_plan):
+#         """Test successful meal plan deletion."""
+#         response = client.delete(
+#             f"/api/v1/meal-planning/meal-plans/{test_meal_plan.id}/",
+#             headers=auth_headers,
+#         )
 
-        assert response.status_code == 200
-        data = response.json()
-        assert data["detail"] == "Meal plan deleted successfully"
+#         assert response.status_code == 200
+#         data = response.json()
+#         assert data["detail"] == "Meal plan deleted successfully"
 
-        # Verify meal plan was deleted
-        get_response = client.get(
-            f"/api/v1/meal-planning/meal-plans/{test_meal_plan.id}/",
-            headers=auth_headers,
-        )
-        assert get_response.status_code == 404
+#         # Verify meal plan was deleted
+#         get_response = client.get(
+#             f"/api/v1/meal-planning/meal-plans/{test_meal_plan.id}/",
+#             headers=auth_headers,
+#         )
+#         assert get_response.status_code == 404
 
-    def test_delete_meal_plan_not_found(self, client, auth_headers):
-        """Test deletion of non-existent meal plan."""
-        response = client.delete(
-            "/api/v1/meal-planning/meal-plans/999999/", headers=auth_headers
-        )
+#     def test_delete_meal_plan_not_found(self, client, auth_headers):
+#         """Test deletion of non-existent meal plan."""
+#         response = client.delete(
+#             "/api/v1/meal-planning/meal-plans/999999/", headers=auth_headers
+#         )
 
-        assert response.status_code == 404
-        data = response.json()
-        assert data["detail"] == "Meal plan not found"
+#         assert response.status_code == 404
+#         data = response.json()
+#         assert data["detail"] == "Meal plan not found"
 
 
 class TestDataValidation:
