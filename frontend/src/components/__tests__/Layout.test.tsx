@@ -65,7 +65,7 @@ describe('Layout', () => {
       </Layout>
     );
 
-    expect(screen.getByText('Meal Assistant')).toBeInTheDocument();
+    expect(screen.getByText('Hungry Helper')).toBeInTheDocument();
   });
 
   it('shows mobile menu toggle button', () => {

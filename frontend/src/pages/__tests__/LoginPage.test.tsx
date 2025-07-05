@@ -47,7 +47,7 @@ describe('LoginPage', () => {
     render(<LoginPage />);
 
     expect(screen.getByText('Welcome back')).toBeInTheDocument();
-    expect(screen.getByText('Sign in to your Meal Assistant account')).toBeInTheDocument();
+    expect(screen.getByText('Sign in to your Hungry Helper account')).toBeInTheDocument();
     expect(screen.getByLabelText(/email address/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
