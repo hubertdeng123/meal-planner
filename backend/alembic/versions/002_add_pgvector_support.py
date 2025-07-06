@@ -33,26 +33,26 @@ def upgrade() -> None:
             "CREATE INDEX recipes_embedding_idx ON recipes USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100)"
         )
 
-        # Convert JSON arrays to PostgreSQL ARRAY types for better performance
+        # Create a helper function to convert json to text array
         op.execute("""
-            ALTER TABLE recipes
-            ALTER COLUMN tags TYPE text[]
-            USING CASE
-                WHEN tags IS NULL THEN NULL
-                WHEN jsonb_typeof(tags) = 'array' THEN ARRAY(SELECT jsonb_array_elements_text(tags))
-                ELSE ARRAY[]::text[]
-            END
+            CREATE OR REPLACE FUNCTION json_to_text_array(p_json json)
+            RETURNS text[] AS $$
+            BEGIN
+                IF json_typeof(p_json) = 'array' THEN
+                    RETURN ARRAY(SELECT json_array_elements_text(p_json));
+                ELSE
+                    RETURN ARRAY[]::text[];
+                END IF;
+            END;
+            $$ LANGUAGE plpgsql;
         """)
 
-        op.execute("""
-            ALTER TABLE recipes
-            ALTER COLUMN source_urls TYPE text[]
-            USING CASE
-                WHEN source_urls IS NULL THEN NULL
-                WHEN jsonb_typeof(source_urls) = 'array' THEN ARRAY(SELECT jsonb_array_elements_text(source_urls))
-                ELSE ARRAY[]::text[]
-            END
-        """)
+        # Convert JSON arrays to PostgreSQL ARRAY types for better performance
+        op.execute("ALTER TABLE recipes ALTER COLUMN tags TYPE text[] USING json_to_text_array(tags)")
+        op.execute("ALTER TABLE recipes ALTER COLUMN source_urls TYPE text[] USING json_to_text_array(source_urls)")
+
+        # Drop the helper function
+        op.execute("DROP FUNCTION json_to_text_array(json)")
 
 
 def downgrade() -> None:

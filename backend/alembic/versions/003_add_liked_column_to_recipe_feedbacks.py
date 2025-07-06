@@ -13,7 +13,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = "3eacbf670302"
+revision: str = "003_add_liked_column_to_recipe_feedbacks"
 down_revision: Union[str, Sequence[str], None] = "002_add_pgvector_support"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None

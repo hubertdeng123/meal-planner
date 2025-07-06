@@ -1,7 +1,7 @@
 """Add enhanced meal plan context and user rule preferences
 
-Revision ID: 729e4ef57a3e
-Revises: 3eacbf670302
+Revision ID: 004_add_enhanced_meal_plan_context_and_user_preferences
+Revises: 003_add_liked_column_to_recipe_feedbacks
 Create Date: 2025-01-27 00:37:27.247967
 
 """
@@ -13,8 +13,8 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = "729e4ef57a3e"
-down_revision: Union[str, None] = "3eacbf670302"
+revision: str = "004_add_enhanced_meal_plan_context_and_user_preferences"
+down_revision: Union[str, None] = "003_add_liked_column_to_recipe_feedbacks"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

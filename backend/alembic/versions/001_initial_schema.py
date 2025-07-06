@@ -17,6 +17,11 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # Increase the size of the version_num column in the alembic_version table
+    op.alter_column('alembic_version', 'version_num',
+                    existing_type=sa.String(length=32),
+                    type_=sa.String(length=255),
+                    existing_nullable=False)
     # Create users table
     op.create_table(
         "users",
