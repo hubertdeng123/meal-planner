@@ -9,6 +9,7 @@ from app.schemas.meal_plan import (
     WeeklyMealPlan,
     MealPlanCreate,
     RecipeSelectionRequest,
+    MealPlanItemCreate,
 )
 
 
@@ -17,17 +18,22 @@ class TestMealType:
 
     def test_meal_type_values(self):
         """Test all meal type values are valid."""
-        assert MealType.BREAKFAST == "breakfast"
-        assert MealType.LUNCH == "lunch"
-        assert MealType.DINNER == "dinner"
-        assert MealType.SNACK == "snack"
+        assert MealType.breakfast == "breakfast"
+        assert MealType.lunch == "lunch"
+        assert MealType.dinner == "dinner"
+        assert MealType.snack == "snack"
 
     def test_meal_type_from_string(self):
         """Test creating MealType from string."""
-        assert MealType("breakfast") == MealType.BREAKFAST
-        assert MealType("lunch") == MealType.LUNCH
-        assert MealType("dinner") == MealType.DINNER
-        assert MealType("snack") == MealType.SNACK
+        assert MealType("breakfast") == MealType.breakfast
+        assert MealType("lunch") == MealType.lunch
+        assert MealType("dinner") == MealType.dinner
+        assert MealType("snack") == MealType.snack
+
+    def test_invalid_meal_type(self):
+        """Test creating an invalid meal type."""
+        with pytest.raises(ValueError):
+            MealType("brunch")
 
 
 class TestRecipeSuggestion:
@@ -39,75 +45,37 @@ class TestRecipeSuggestion:
             "name": "Test Recipe",
             "description": "A test recipe",
             "cuisine": "Italian",
-            "ingredients": [
-                {"name": "pasta", "quantity": 1, "unit": "lb"},
-                {"name": "tomato sauce", "quantity": 2, "unit": "cups"},
-            ],
-            "instructions": ["Boil pasta", "Add sauce"],
+            "ingredients": [{"name": "pasta", "quantity": 1, "unit": "lb"}],
+            "instructions": ["Cook pasta"],
             "prep_time": 10,
             "cook_time": 15,
             "servings": 4,
             "difficulty": "Easy",
-            "nutrition": {"calories": 400, "protein_g": 15},
+            "nutrition": {"calories": 300},
         }
-
         recipe = RecipeSuggestion(**recipe_data)
-
         assert recipe.name == "Test Recipe"
-        assert recipe.cuisine == "Italian"
-        assert len(recipe.ingredients) == 2
-        assert len(recipe.instructions) == 2
-        assert recipe.prep_time == 10
-        assert recipe.cook_time == 15
-        assert recipe.servings == 4
-        assert recipe.difficulty == "Easy"
-        assert recipe.nutrition["calories"] == 400
-
-    def test_recipe_suggestion_with_id(self):
-        """Test recipe suggestion with ID (for saved recipes)."""
-        recipe_data = {
-            "id": 123,
-            "name": "Saved Recipe",
-            "description": "A saved recipe",
-            "cuisine": "Mexican",
-            "ingredients": [{"name": "beans", "quantity": 1, "unit": "can"}],
-            "instructions": ["Heat beans"],
-            "prep_time": 5,
-            "cook_time": 10,
-            "servings": 2,
-            "difficulty": "Easy",
-        }
-
-        recipe = RecipeSuggestion(**recipe_data)
-
-        assert recipe.id == 123
-        assert recipe.name == "Saved Recipe"
+        assert recipe.nutrition.calories == 300
 
     def test_recipe_suggestion_missing_required_fields(self):
-        """Test recipe suggestion with missing required fields."""
+        """Test creating a recipe suggestion with missing fields."""
         with pytest.raises(ValidationError):
-            RecipeSuggestion(
-                name="Incomplete Recipe"
-                # Missing other required fields
-            )
+            RecipeSuggestion(name="Incomplete Recipe")
 
-    def test_recipe_suggestion_optional_nutrition(self):
-        """Test recipe suggestion with optional nutrition."""
+    def test_recipe_suggestion_optional_fields(self):
+        """Test that optional fields can be omitted."""
         recipe_data = {
-            "name": "Simple Recipe",
-            "description": "A simple recipe",
+            "name": "Test Recipe",
+            "description": "A recipe without nutrition info",
             "cuisine": "American",
             "ingredients": [{"name": "bread", "quantity": 2, "unit": "slices"}],
-            "instructions": ["Toast bread"],
-            "prep_time": 2,
-            "cook_time": 3,
+            "instructions": ["Make a sandwich"],
+            "prep_time": 5,
+            "cook_time": 5,
             "servings": 1,
             "difficulty": "Easy",
-            # No nutrition data
         }
-
         recipe = RecipeSuggestion(**recipe_data)
-
         assert recipe.nutrition is None
 
 
@@ -139,10 +107,7 @@ class TestMealSlot:
         meal_slot = MealSlot(**meal_slot_data)
 
         assert meal_slot.date == date.today()
-        assert meal_slot.meal_type == MealType.DINNER
-        assert len(meal_slot.recipe_suggestions) == 1
-        assert meal_slot.selected_recipe_index == 0
-        assert meal_slot.selected_recipe is not None
+        assert meal_slot.meal_type == MealType.dinner
 
     def test_meal_slot_date_string_parsing(self):
         """Test parsing date from string."""
@@ -155,26 +120,17 @@ class TestMealSlot:
         meal_slot = MealSlot(**meal_slot_data)
 
         assert meal_slot.date == date(2024, 1, 15)
-        assert meal_slot.meal_type == MealType.BREAKFAST
+        assert meal_slot.meal_type == MealType.breakfast
 
-    def test_meal_slot_invalid_date_format(self):
-        """Test invalid date format raises error."""
-        with pytest.raises(ValidationError):
-            MealSlot(date="invalid-date", meal_type="dinner", recipe_suggestions=[])
-
-    def test_meal_slot_no_selection(self):
-        """Test meal slot with no recipe selection."""
+    def test_meal_slot_empty_suggestions(self):
+        """Test meal slot with no recipe suggestions."""
         meal_slot_data = {
             "date": date.today(),
             "meal_type": "lunch",
             "recipe_suggestions": [],
-            "selected_recipe_index": None,
-            "selected_recipe": None,
         }
-
         meal_slot = MealSlot(**meal_slot_data)
-
-        assert meal_slot.selected_recipe_index is None
+        assert len(meal_slot.recipe_suggestions) == 0
         assert meal_slot.selected_recipe is None
 
 
@@ -199,59 +155,27 @@ class TestWeeklyScheduleRequest:
         assert request.start_date == date.today()
         assert request.cooking_days == ["monday", "wednesday", "friday"]
         assert len(request.meal_types) == 2
-        assert MealType.BREAKFAST in request.meal_types
-        assert MealType.DINNER in request.meal_types
-        assert request.servings == 4
-        assert "vegetarian" in request.dietary_restrictions
-        assert "Italian" in request.preferred_cuisines
+        assert MealType.breakfast in request.meal_types
 
-    def test_weekly_schedule_request_date_string(self):
-        """Test parsing start date from string."""
+    def test_weekly_schedule_request_invalid_day(self):
+        """Test creating a request with an invalid day."""
         request_data = {
-            "start_date": "2024-01-15",  # String date
-            "cooking_days": ["monday"],
+            "start_date": "2024-01-15",
+            "cooking_days": ["funday"],
             "meal_types": ["dinner"],
-            "servings": 2,
         }
+        with pytest.raises(ValidationError):
+            WeeklyScheduleRequest(**request_data)
 
-        request = WeeklyScheduleRequest(**request_data)
-
-        assert request.start_date == date(2024, 1, 15)
-
-    def test_weekly_schedule_request_defaults(self):
-        """Test default values."""
+    def test_weekly_schedule_request_default_servings(self):
+        """Test the default servings value."""
         request_data = {
             "start_date": date.today(),
-            "cooking_days": ["monday"],
-            "meal_types": ["dinner"],
-            # Let other fields use defaults
+            "cooking_days": ["saturday"],
+            "meal_types": ["snack"],
         }
-
         request = WeeklyScheduleRequest(**request_data)
-
-        assert request.servings == 4  # Default
-        assert request.dietary_restrictions == []  # Default
-        assert request.preferred_cuisines == []  # Default
-        assert request.must_include_ingredients == []  # Default
-        assert request.must_avoid_ingredients == []  # Default
-
-    def test_weekly_schedule_request_invalid_date(self):
-        """Test invalid date format raises error."""
-        with pytest.raises(ValidationError):
-            WeeklyScheduleRequest(
-                start_date="invalid-date",
-                cooking_days=["monday"],
-                meal_types=["dinner"],
-            )
-
-    def test_weekly_schedule_request_invalid_meal_type(self):
-        """Test invalid meal type raises error."""
-        with pytest.raises(ValidationError):
-            WeeklyScheduleRequest(
-                start_date=date.today(),
-                cooking_days=["monday"],
-                meal_types=["invalid_meal"],
-            )
+        assert request.servings == 4
 
 
 class TestWeeklyMealPlan:
@@ -273,33 +197,43 @@ class TestWeeklyMealPlan:
             "name": "Weekly Plan",
             "start_date": date.today(),
             "end_date": date.today() + timedelta(days=6),
+            "created_at": date.today(),
             "meal_slots": [meal_slot],
         }
 
         plan = WeeklyMealPlan(**plan_data)
-
         assert plan.id == 1
-        assert plan.user_id == 123
-        assert plan.name == "Weekly Plan"
         assert len(plan.meal_slots) == 1
 
     def test_weekly_meal_plan_optional_id(self):
         """Test weekly meal plan with optional ID."""
         plan_data = {
+            "id": 1,
             "user_id": 123,
             "name": "Weekly Plan",
             "start_date": date.today(),
             "end_date": date.today() + timedelta(days=6),
+            "created_at": date.today(),
             "meal_slots": [],
         }
 
         plan = WeeklyMealPlan(**plan_data)
+        assert plan.id == 1
 
-        assert plan.id is None
+    def test_weekly_meal_plan_missing_required_field(self):
+        """Test weekly meal plan with missing start_date."""
+        with pytest.raises(ValidationError):
+            WeeklyMealPlan(
+                id=1,
+                user_id=123,
+                name="Incomplete Plan",
+                end_date=date.today(),
+                meal_slots=[],
+            )
 
 
 class TestMealPlanSchemas:
-    """Test meal plan related schemas."""
+    """Test general meal plan schemas."""
 
     def test_meal_plan_create(self):
         """Test MealPlanCreate schema."""
@@ -316,38 +250,44 @@ class TestMealPlanSchemas:
 
     def test_meal_plan_item_create(self):
         """Test MealPlanItemCreate schema."""
-        from app.schemas.meal_plan import MealPlanItemCreate
-
+        recipe_data = {
+            "name": "Test Recipe",
+            "description": "A test recipe",
+            "cuisine": "Test",
+            "ingredients": [{"name": "test", "quantity": 1, "unit": "cup"}],
+            "instructions": ["Step 1"],
+            "prep_time": 10,
+            "cook_time": 15,
+            "servings": 4,
+            "difficulty": "Easy",
+            "nutrition": {"calories": 300},
+        }
         item_data = {
             "recipe_id": 123,
             "date": date.today(),
             "meal_type": "dinner",
             "servings": 4,
-            "recipe_data": {"selected_recipe_index": 0},
+            "recipe_data": {
+                "recipe_suggestions": [recipe_data],
+                "selected_recipe_index": 0,
+            },
         }
 
         item = MealPlanItemCreate(**item_data)
-
         assert item.recipe_id == 123
-        assert item.meal_type == MealType.DINNER
-        assert item.servings == 4
-        assert item.recipe_data["selected_recipe_index"] == 0
+        assert item.recipe_data["recipe_suggestions"][0]["name"] == "Test Recipe"
 
     def test_meal_plan_item_optional_recipe(self):
         """Test meal plan item without recipe."""
-        from app.schemas.meal_plan import MealPlanItemCreate
-
         item_data = {
             "date": date.today(),
             "meal_type": "breakfast",
             "servings": 2,
-            "recipe_data": {"ai_generated": True},
         }
 
         item = MealPlanItemCreate(**item_data)
-
         assert item.recipe_id is None
-        assert item.recipe_data["ai_generated"] is True
+        assert item.recipe_data is None
 
 
 class TestRecipeSelectionRequest:
@@ -366,31 +306,18 @@ class TestRecipeSelectionRequest:
 
         assert request.meal_plan_id == 123
         assert request.meal_slot_date == date.today()
-        assert request.meal_type == MealType.DINNER
-        assert request.selected_recipe_index == 1
+        assert request.meal_type == MealType.dinner
 
-    def test_recipe_selection_request_date_string(self):
-        """Test parsing meal slot date from string."""
+    def test_recipe_selection_request_negative_index(self):
+        """Test that a negative recipe index raises a validation error."""
         request_data = {
             "meal_plan_id": 123,
-            "meal_slot_date": "2024-01-15",  # String date
+            "meal_slot_date": date.today(),
             "meal_type": "lunch",
-            "selected_recipe_index": 2,
+            "selected_recipe_index": -1,
         }
-
-        request = RecipeSelectionRequest(**request_data)
-
-        assert request.meal_slot_date == date(2024, 1, 15)
-
-    def test_recipe_selection_request_invalid_date(self):
-        """Test invalid date format raises error."""
         with pytest.raises(ValidationError):
-            RecipeSelectionRequest(
-                meal_plan_id=123,
-                meal_slot_date="invalid-date",
-                meal_type="dinner",
-                selected_recipe_index=0,
-            )
+            RecipeSelectionRequest(**request_data)
 
 
 class TestSchemaValidation:

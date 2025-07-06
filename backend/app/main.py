@@ -4,7 +4,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.core.config import settings
-from app.api.endpoints import auth, recipes, grocery, meal_planning, notifications
+from app.api.endpoints import (
+    auth,
+    recipes,
+    grocery,
+    meal_planning,
+    notifications,
+    users,
+)
 from app.services.scheduler_service import scheduler_service
 
 # Initialize Sentry for error tracking
@@ -104,6 +111,12 @@ app.include_router(
     notifications.router,
     prefix=f"{settings.API_PREFIX}/notifications",
     tags=["notifications"],
+)
+
+app.include_router(
+    users.router,
+    prefix=f"{settings.API_PREFIX}/users",
+    tags=["users"],
 )
 
 

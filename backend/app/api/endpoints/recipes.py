@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-from typing import List
 import json
 from app.db.database import get_db
 from app.api.deps import get_current_active_user
@@ -43,6 +42,7 @@ async def generate_recipe_stream(
             accumulated_content = ""
             accumulated_thinking = ""
 
+            # Enhanced user preferences are automatically extracted and used by the RecipeAgent
             stream_gen = recipe_agent.generate_recipe_stream(request, current_user, db)
             recipe_json_text = ""
 
@@ -75,26 +75,13 @@ async def generate_recipe_stream(
                     recipe_json_text if recipe_json_text else accumulated_content
                 )
 
-                # Add debugging info
                 if not json_to_parse or not json_to_parse.strip():
                     yield f"data: {json.dumps({'type': 'error', 'message': 'Empty JSON content received from recipe generation'})}\n\n"
                     return
 
-                # Log what we're trying to parse
-                print(
-                    f"🔧 DEBUG: Attempting to parse JSON text (length: {len(json_to_parse)})"
-                )
-                print(f"🔧 DEBUG: First 300 chars: {json_to_parse[:300]}...")
-
-                recipe_data = recipe_agent._extract_json_from_response(json_to_parse)
+                recipe_data = recipe_agent._parse_recipe_json(json_to_parse)
 
                 if recipe_data:
-                    # Add debugging info about what we parsed
-                    print(
-                        f"✅ DEBUG: Successfully parsed recipe data with keys: {list(recipe_data.keys())}"
-                    )
-
-                    # Validate required fields
                     required_fields = ["name", "ingredients", "instructions"]
                     missing_fields = [
                         field for field in required_fields if field not in recipe_data
@@ -131,10 +118,8 @@ async def generate_recipe_stream(
                     db.commit()
                     db.refresh(db_recipe)
 
-                    # Send completion message with recipe ID
                     yield f"data: {json.dumps({'type': 'complete', 'recipe_id': db_recipe.id, 'message': 'Recipe generated and saved successfully!', 'thinking_length': len(accumulated_thinking)})}\n\n"
                 else:
-                    # More detailed error message
                     yield f"data: {json.dumps({'type': 'error', 'message': f'Could not extract valid recipe from generated content. Content length: {len(json_to_parse)}. Please try generating again.'})}\n\n"
 
             except Exception as e:
@@ -149,7 +134,7 @@ async def generate_recipe_stream(
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",  # Disable nginx buffering
+            "X-Accel-Buffering": "no",
             "Access-Control-Allow-Origin": "*",
             "Access-Control-Allow-Headers": "*",
         },
@@ -164,9 +149,9 @@ async def generate_recipe(
 ):
     """Generate a new recipe using AI based on user preferences"""
     try:
+        # Enhanced user preferences are automatically extracted and used by the RecipeAgent
         recipe_data = recipe_agent.generate_recipe(request, current_user, db)
 
-        # Save the generated recipe
         db_recipe = RecipeModel(
             user_id=current_user.id,
             name=recipe_data["name"],
@@ -179,7 +164,6 @@ async def generate_recipe(
             tags=recipe_data.get("tags", []),
             source=recipe_data["source"],
             source_urls=recipe_data.get("source_urls", []),
-            # Nutrition
             calories=recipe_data["nutrition"].get("calories"),
             protein_g=recipe_data["nutrition"].get("protein_g"),
             carbs_g=recipe_data["nutrition"].get("carbs_g"),
@@ -201,7 +185,7 @@ async def generate_recipe(
         )
 
 
-@router.get("/", response_model=List[Recipe])
+@router.get("/", response_model=list[Recipe])
 async def get_recipes(
     skip: int = 0,
     limit: int = 20,
@@ -289,18 +273,12 @@ async def delete_recipe(
         )
 
     try:
-        # Import here to avoid circular imports
         from app.models.meal_plan import MealPlanItem
 
-        # Delete related meal plan items first
         db.query(MealPlanItem).filter(MealPlanItem.recipe_id == recipe_id).delete()
-
-        # Delete related feedback
         db.query(RecipeFeedbackModel).filter(
             RecipeFeedbackModel.recipe_id == recipe_id
         ).delete()
-
-        # Delete the recipe
         db.delete(recipe)
         db.commit()
 
@@ -322,14 +300,12 @@ async def add_recipe_feedback(
     db: Session = Depends(get_db),
 ):
     """Add feedback for a recipe"""
-    # Check if recipe exists
     recipe = db.query(RecipeModel).filter(RecipeModel.id == recipe_id).first()
     if not recipe:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Recipe not found"
         )
 
-    # Check if feedback already exists
     existing = (
         db.query(RecipeFeedbackModel)
         .filter(
@@ -340,7 +316,6 @@ async def add_recipe_feedback(
     )
 
     if existing:
-        # Update existing feedback
         existing.liked = feedback.liked
         existing.rating = feedback.rating
         existing.notes = feedback.notes
@@ -348,7 +323,6 @@ async def add_recipe_feedback(
         db.refresh(existing)
         return existing
 
-    # Create new feedback
     db_feedback = RecipeFeedbackModel(
         user_id=current_user.id,
         recipe_id=recipe_id,

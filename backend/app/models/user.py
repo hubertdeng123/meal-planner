@@ -19,6 +19,21 @@ class User(Base):
     food_preferences = Column(JSON, default=dict)
     dietary_restrictions = Column(JSON, default=list)
 
+    # Enhanced rule preferences
+    ingredient_rules = Column(
+        JSON, default=dict
+    )  # Must include/avoid ingredients with reasons
+    food_type_rules = Column(
+        JSON, default=dict
+    )  # Preferences for protein types, cooking methods, etc.
+    nutritional_rules = Column(JSON, default=dict)  # Calorie targets, macro preferences
+    scheduling_rules = Column(
+        JSON, default=dict
+    )  # Meal timing preferences, prep time constraints
+    dietary_rules = Column(
+        JSON, default=dict
+    )  # Detailed dietary restrictions and preferences
+
     # Email notification preferences
     email_notifications_enabled = Column(Boolean, default=True)
     weekly_planning_reminder = Column(Boolean, default=True)

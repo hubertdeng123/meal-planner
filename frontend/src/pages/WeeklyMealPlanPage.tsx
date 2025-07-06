@@ -140,6 +140,15 @@ export default function WeeklyMealPlanPage() {
     preferred_cuisines: [],
     must_include_ingredients: [],
     must_avoid_ingredients: [],
+    // Enhanced contextual fields
+    theme: '',
+    description: '',
+    occasion: '',
+    budget_target: undefined,
+    prep_time_preference: undefined,
+    special_notes: {},
+    week_dietary_restrictions: [],
+    week_food_preferences: {},
   });
 
   const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -887,6 +896,98 @@ export default function WeeklyMealPlanPage() {
               </div>
             </div>
 
+            {/* Enhanced Context Section */}
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Plan Context (Optional)</h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Theme */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Theme</label>
+                  <input
+                    type="text"
+                    placeholder="e.g., Italian Week, Quick & Easy, Healthy Reset"
+                    value={scheduleForm.theme || ''}
+                    onChange={e => setScheduleForm({ ...scheduleForm, theme: e.target.value })}
+                    className="input w-full"
+                  />
+                </div>
+
+                {/* Occasion */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Special Occasion
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g., Birthday week, Holiday prep, Date night"
+                    value={scheduleForm.occasion || ''}
+                    onChange={e => setScheduleForm({ ...scheduleForm, occasion: e.target.value })}
+                    className="input w-full"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                {/* Budget Target */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Budget Target (optional)
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="e.g., 150"
+                    value={scheduleForm.budget_target || ''}
+                    onChange={e =>
+                      setScheduleForm({
+                        ...scheduleForm,
+                        budget_target: e.target.value ? parseFloat(e.target.value) : undefined,
+                      })
+                    }
+                    className="input w-full"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Total budget for the week (optional)</p>
+                </div>
+
+                {/* Prep Time Preference */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Prep Time Preference
+                  </label>
+                  <select
+                    value={scheduleForm.prep_time_preference || ''}
+                    onChange={e => {
+                      const value = e.target.value;
+                      setScheduleForm({
+                        ...scheduleForm,
+                        prep_time_preference: value
+                          ? (value as 'quick' | 'moderate' | 'relaxed')
+                          : undefined,
+                      });
+                    }}
+                    className="input w-full"
+                  >
+                    <option value="">No preference</option>
+                    <option value="quick">Quick (under 30 minutes)</option>
+                    <option value="moderate">Moderate (30-60 minutes)</option>
+                    <option value="relaxed">Relaxed (over 60 minutes)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Description */}
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                <textarea
+                  placeholder="Additional context about your meal planning goals this week..."
+                  value={scheduleForm.description || ''}
+                  onChange={e => setScheduleForm({ ...scheduleForm, description: e.target.value })}
+                  rows={3}
+                  className="input w-full"
+                />
+              </div>
+            </div>
+
             {/* Preferences */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Preferred Cuisines */}
@@ -1047,10 +1148,11 @@ export default function WeeklyMealPlanPage() {
                 >
                   <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
                     <h3 className="text-lg font-semibold text-gray-900">
-                      {new Date(date).toLocaleDateString('en-US', {
+                      {new Date(date.replace(/-/g, '/')).toLocaleDateString('en-US', {
                         weekday: 'long',
                         month: 'long',
                         day: 'numeric',
+                        timeZone: 'UTC',
                       })}
                     </h3>
                   </div>
@@ -1210,10 +1312,11 @@ export default function WeeklyMealPlanPage() {
                       >
                         <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
                           <h3 className="text-lg font-semibold text-gray-900">
-                            {new Date(date).toLocaleDateString('en-US', {
+                            {new Date(date.replace(/-/g, '/')).toLocaleDateString('en-US', {
                               weekday: 'long',
                               month: 'long',
                               day: 'numeric',
+                              timeZone: 'UTC',
                             })}
                           </h3>
                         </div>
@@ -1625,10 +1728,11 @@ export default function WeeklyMealPlanPage() {
                 {recipe?.name || 'Untitled Recipe'}
               </h3>
               <p className="text-sm text-gray-500">
-                {new Date(slotInfo.date).toLocaleDateString('en-US', {
+                {new Date(slotInfo.date.replace(/-/g, '/')).toLocaleDateString('en-US', {
                   weekday: 'long',
                   month: 'long',
                   day: 'numeric',
+                  timeZone: 'UTC',
                 })}{' '}
                 - {slotInfo.mealType}
               </p>

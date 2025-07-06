@@ -3,7 +3,7 @@ PostgreSQL + pgvector integration for semantic recipe search and user preference
 """
 
 import numpy as np
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Optional
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from sqlalchemy import text, and_, or_, desc, func
@@ -29,7 +29,7 @@ class RecipeVectorStore:
             hasattr(Recipe, "embedding") and Recipe.embedding is not None
         )
 
-    def create_recipe_embedding_text(self, recipe: Dict[str, Any]) -> str:
+    def create_recipe_embedding_text(self, recipe: Dict[str, str | list | int]) -> str:
         """Create text representation of recipe for embedding"""
         # Combine relevant fields for semantic search
         text_parts = [
@@ -125,7 +125,7 @@ class RecipeVectorStore:
         max_prep_time: Optional[int] = None,
         n_results: int = 10,
         min_similarity: float = 0.7,
-    ) -> List[Dict[str, Any]]:
+    ) -> List[Dict[str, str | int]]:
         """Search for similar recipes using semantic search with filters"""
         if not self.has_embedding_support:
             # Fallback to basic search when embeddings not available
@@ -223,7 +223,7 @@ class RecipeVectorStore:
         dietary_restrictions: Optional[List[str]] = None,
         max_prep_time: Optional[int] = None,
         n_results: int = 10,
-    ) -> List[Dict[str, Any]]:
+    ) -> List[Dict[str, str | int]]:
         """Fallback search using basic text matching when embeddings not available"""
         try:
             # Build query with text search
@@ -292,7 +292,7 @@ class RecipeVectorStore:
             return []
 
     def build_search_query_from_preferences(
-        self, meal_type: str, preferences: Dict[str, Any]
+        self, meal_type: str, preferences: Dict[str, str | int]
     ) -> str:
         """Build semantic search query from user preferences"""
         query_parts = [f"{meal_type} recipe"]
@@ -358,7 +358,7 @@ class RecipeVectorStore:
         meal_type: Optional[str] = None,
         n_results: int = 10,
         exclude_recent_days: int = 7,
-    ) -> List[Dict[str, Any]]:
+    ) -> List[Dict[str, str | int]]:
         """Get personalized recipe recommendations based on user preferences"""
         if not self.has_embedding_support:
             # Fallback to popular recipes
@@ -454,7 +454,7 @@ class RecipeVectorStore:
 
     def get_popular_recipes(
         self, meal_type: Optional[str] = None, n_results: int = 10
-    ) -> List[Dict[str, Any]]:
+    ) -> List[Dict[str, str | int]]:
         """Get popular recipes based on ratings and usage"""
         try:
             # Query recipes with their average ratings
@@ -519,7 +519,7 @@ class HistoricalDataSummarizer:
     def __init__(self, db: Session = None):
         self.db = db or next(get_db())
 
-    async def summarize_user_history(self, user_id: int) -> Dict[str, Any]:
+    async def summarize_user_history(self, user_id: int) -> Dict[str, str | list]:
         """Generate a comprehensive summary of user's meal planning history"""
 
         # Get last 30 days of meal plans
@@ -597,7 +597,7 @@ class HistoricalDataSummarizer:
 
         return summary
 
-    def create_preference_context(self, user_summary: Dict[str, Any]) -> str:
+    def create_preference_context(self, user_summary: Dict[str, str | list]) -> str:
         """Create a concise context string for API calls"""
         context_parts = []
 
@@ -642,9 +642,9 @@ class OptimizedMealPlanningService:
         self,
         user_id: int,
         meal_type: str,
-        preferences: Dict[str, Any],
+        preferences: Dict[str, str | int | float | dict | list],
         n_suggestions: int = 3,
-    ) -> List[Dict[str, Any]]:
+    ) -> List[Dict[str, str | int]]:
         """Generate meal suggestions using vector search first"""
 
         # Step 1: Get user history summary

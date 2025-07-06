@@ -44,11 +44,15 @@ dev: ## Start both backend and frontend in development mode
 
 dev-backend: ## Start backend development server
 	@echo "🐍 Starting backend server..."
-	@cd backend && uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+	@cd backend && PYTHONUNBUFFERED=1 uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 --log-level info
 
 dev-frontend: ## Start frontend development server
 	@echo "🌐 Starting frontend server..."
 	@cd frontend && pnpm run dev
+
+dev-backend-verbose: ## Start backend with verbose logging
+	@echo "🐍 Starting backend server with verbose logging..."
+	@cd backend && PYTHONUNBUFFERED=1 uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 --log-level debug --access-log
 
 # Database Operations
 db-up: ## Start database with Docker
