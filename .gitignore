@@ -61,7 +61,6 @@ junit.xml
 
 # Alembic (database migrations)
 # Keep the versions directory but ignore auto-generated files
-backend/alembic/versions/*.py
 !backend/alembic/versions/README
 
 # ===========================================
