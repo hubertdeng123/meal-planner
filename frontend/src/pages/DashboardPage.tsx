@@ -19,8 +19,8 @@ export default function DashboardPage() {
           <span className="text-orange-500"> Hungry Helper</span>
         </h1>
         <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-                      Plan delicious meals, track nutrition, and let Hungry Helper create personalized recipes tailored to
-          your taste and dietary needs.
+          Plan delicious meals, track nutrition, and let Hungry Helper create personalized recipes
+          tailored to your taste and dietary needs.
         </p>
       </div>
 
@@ -40,8 +40,8 @@ export default function DashboardPage() {
                 Generate New Recipe
               </h3>
               <p className="mt-2 text-sm text-gray-600 leading-relaxed">
-                Let Hungry Helper create personalized recipes based on your preferences, ingredients, and
-                dietary requirements.
+                Let Hungry Helper create personalized recipes based on your preferences,
+                ingredients, and dietary requirements.
               </p>
             </div>
           </div>
@@ -83,30 +83,6 @@ export default function DashboardPage() {
               </h3>
               <p className="mt-2 text-sm text-gray-600 leading-relaxed">
                 Plan your weekly meals, balance nutrition, and organize your cooking schedule.
-              </p>
-            </div>
-          </div>
-        </Link>
-      </div>
-
-      {/* Secondary Actions */}
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-1">
-        <Link to="/recipes" className="group card card-hover p-6 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
-          <div className="relative">
-            <div className="flex items-center justify-between">
-              <div className="p-3 bg-blue-100 rounded-xl group-hover:bg-blue-200 transition-colors duration-200">
-                <BookOpenIcon className="h-6 w-6 text-blue-500" />
-              </div>
-              <ArrowRightIcon className="h-5 w-5 text-gray-400 group-hover:text-blue-500 group-hover:translate-x-1 transition-all duration-200" />
-            </div>
-            <div className="mt-4">
-              <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-500 transition-colors duration-200">
-                My Recipes
-              </h3>
-              <p className="mt-2 text-sm text-gray-600 leading-relaxed">
-                Browse your saved recipes, rate your favorites, and find inspiration for your next
-                meal.
               </p>
             </div>
           </div>

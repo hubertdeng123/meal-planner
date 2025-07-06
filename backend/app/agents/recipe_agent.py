@@ -1,25 +1,22 @@
 import anthropic
 import json
 import logging
-from typing import List, Dict, Optional
-from app.core.config import settings
 from app.schemas.recipe import RecipeGenerationRequest, Ingredient, NutritionFacts
 from app.models import User, RecipeFeedback
+from app.agents.unified_culinary_agent import UnifiedCulinaryAgent
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 
 
-class RecipeAgent:
+class RecipeAgent(UnifiedCulinaryAgent):
     def __init__(self):
-        self.client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+        super().__init__()
 
     def generate_recipe_stream(
         self, request: RecipeGenerationRequest, user: User, db: Session
     ):
         """Generate a recipe with streaming response from Claude, with optional web search"""
-
-        # Get user's past feedback to personalize recommendations
         liked_recipes = (
             db.query(RecipeFeedback)
             .filter(
@@ -31,37 +28,22 @@ class RecipeAgent:
             .all()
         )
 
-        # Build the prompt
         system_prompt = self._build_system_prompt()
         user_prompt = self._build_user_prompt(request, user, liked_recipes)
 
-        # Debug: Print cuisine request
+        # Always extract and add user preferences for enhanced personalization
+        user_preferences = self._extract_user_preferences(user)
+        if user_preferences:  # Only add if there are any preferences
+            user_prompt += self._build_enhanced_preferences_prompt(user_preferences)
+
         logger.info(
             f"🍳 Streaming {request.cuisine or 'any'} cuisine recipe for {request.meal_type or 'meal'}"
         )
 
-        # Set up tools for web search if enabled
         tools = None
         if hasattr(request, "search_online") and request.search_online:
-            tools = [
-                {
-                    "type": "web_search_20250305",
-                    "name": "web_search",
-                    "max_uses": 3,
-                    "allowed_domains": [
-                        "allrecipes.com",
-                        "foodnetwork.com",
-                        "seriouseats.com",
-                        "simplyrecipes.com",
-                        "food.com",
-                        "tasteofhome.com",
-                        "delish.com",
-                        "cookinglight.com",
-                    ],
-                }
-            ]
+            tools = self._build_web_search_tools(max_uses=3)
 
-            # Add search instruction to the prompt
             search_query = (
                 f"{request.cuisine or ''} {request.meal_type or ''} recipe".strip()
             )
@@ -70,96 +52,58 @@ class RecipeAgent:
 {user_prompt}"""
 
         try:
-            # Create streaming response
-            stream_args = {
-                "model": "claude-sonnet-4-20250514",
-                "max_tokens": 10000,
-                "temperature": 1.0,  # Must be 1.0 when thinking is enabled
-                "system": system_prompt,
-                "thinking": {"type": "enabled", "budget_tokens": 5000},
-                "messages": [{"role": "user", "content": user_prompt}],
-            }
-            if tools is not None:
-                stream_args["tools"] = tools
+            # Use inherited streaming method from UnifiedCulinaryAgent
+            accumulated_text = ""
+            for chunk in self._stream_claude_response(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                max_tokens=10000,
+                temperature=1.0,
+                thinking_budget=5000,
+                tools=tools,
+            ):
+                # Handle special recipe streaming logic
+                if "data:" in chunk and "type" in chunk:
+                    # Update thinking message for recipe context
+                    if "thinking_start" in chunk:
+                        yield f"data: {json.dumps({'type': 'thinking_start', 'message': 'Hungry Helper is thinking...'})}\n\n"
+                    else:
+                        yield chunk
+                elif "RECIPE_COMPLETE" in chunk:
+                    yield f"data: {json.dumps({'type': 'status', 'message': 'Recipe analysis complete! Finalizing and saving...'})}\n\n"
 
-            with self.client.messages.stream(**stream_args) as stream:
-                accumulated_text = ""
-                accumulated_thinking = ""
-                current_content_type = None  # Track current content block type
-                stop_streaming = False  # Flag to stop when we hit RECIPE_COMPLETE
+                    # Extract JSON after marker
+                    recipe_json_text = chunk.split("RECIPE_COMPLETE", 1)[1].strip()
 
-                for chunk in stream:
-                    if stop_streaming:
-                        # Continue accumulating for JSON parsing but don't stream to user
-                        if chunk.type == "content_block_delta" and hasattr(
-                            chunk.delta, "text"
-                        ):
-                            accumulated_text += chunk.delta.text
-                        continue
+                    if not self._validate_recipe_json(recipe_json_text):
+                        error_msg = "Generated recipe failed validation checks"
+                        logger.error(f"❌ {error_msg}")
+                        yield json.dumps({"error": error_msg})
+                        return
 
-                    if chunk.type == "content_block_start":
-                        # Check if this is a thinking block
-                        if hasattr(chunk, "content_block") and hasattr(
-                            chunk.content_block, "type"
-                        ):
-                            current_content_type = chunk.content_block.type
-                            if chunk.content_block.type == "thinking":
-                                yield f"data: {json.dumps({'type': 'thinking_start', 'message': 'Hungry Helper is thinking...'})}\n\n"
+                    if not recipe_json_text.strip():
+                        error_msg = "Empty recipe response received from AI"
+                        logger.error(f"❌ {error_msg}")
+                        yield json.dumps({"error": error_msg})
+                        return
 
-                    elif chunk.type == "content_block_delta":
-                        if hasattr(chunk.delta, "text"):
-                            text_chunk = chunk.delta.text
-                            accumulated_text += text_chunk
-
-                            # Check if we've hit the completion marker
-                            if "RECIPE_COMPLETE" in accumulated_text:
-                                # Send a completion status and stop streaming content to user
-                                yield f"data: {json.dumps({'type': 'status', 'message': 'Recipe analysis complete! Finalizing and saving...'})}\n\n"
-                                stop_streaming = True
-                                continue
-
-                            # Use the stored content type to determine stream type
-                            if current_content_type == "thinking":
-                                accumulated_thinking += text_chunk
-                                yield f"data: {json.dumps({'type': 'thinking', 'chunk': text_chunk})}\n\n"
-                            else:
-                                # Stream content to user
-                                yield f"data: {json.dumps({'type': 'content', 'chunk': text_chunk})}\n\n"
-
-                    elif chunk.type == "content_block_stop":
-                        # Signal end of a content block
-                        if current_content_type == "thinking":
-                            yield f"data: {json.dumps({'type': 'thinking_stop', 'message': 'Thinking complete'})}\n\n"
-                        current_content_type = None  # Reset for next block
-
-                # Extract JSON from after RECIPE_COMPLETE marker
-                recipe_json_text = ""
-                if "RECIPE_COMPLETE" in accumulated_text:
-                    recipe_json_text = accumulated_text.split("RECIPE_COMPLETE", 1)[
-                        1
-                    ].strip()
+                    logger.info("📝 Complete recipe generated")
+                    yield recipe_json_text
+                    return
                 else:
-                    recipe_json_text = accumulated_text
+                    # Accumulate text for final parsing
+                    accumulated_text += chunk
 
-                # Log the final accumulated response for debugging
-                logger.info(
-                    f"📝 Complete recipe generated, content length: {len(accumulated_text)}, thinking length: {len(accumulated_thinking)}"
-                )
-                logger.debug(f"🔧 JSON text to parse: {recipe_json_text[:200]}...")
-
-                # Validate the recipe format before returning
-                if not self._validate_recipe_json(recipe_json_text):
+            # If we didn't find the completion marker, validate and return the full text
+            if accumulated_text and "RECIPE_COMPLETE" not in accumulated_text:
+                if not self._validate_recipe_json(accumulated_text):
                     error_msg = "Generated recipe failed validation checks"
                     logger.error(f"❌ {error_msg}")
-                    return json.dumps({"error": error_msg})
+                    yield json.dumps({"error": error_msg})
+                    return
 
-                if not recipe_json_text.strip():
-                    error_msg = "Empty recipe response received from AI"
-                    logger.error(f"❌ {error_msg}")
-                    return json.dumps({"error": error_msg})
-
-                # Yield the extracted JSON text for processing by the endpoint
-                yield recipe_json_text
+                logger.info("📝 Complete recipe generated (no marker found)")
+                yield accumulated_text
 
         except anthropic.APIError as e:
             error_msg = f"Claude API error: {str(e)}"
@@ -172,10 +116,9 @@ class RecipeAgent:
 
     def generate_recipe(
         self, request: RecipeGenerationRequest, user: User, db: Session
-    ) -> Dict:
+    ) -> dict[str, str | list | int | dict]:
         """Generate a recipe based on user preferences and request parameters (non-streaming version)"""
 
-        # Get user's past feedback to personalize recommendations
         liked_recipes = (
             db.query(RecipeFeedback)
             .filter(
@@ -187,35 +130,22 @@ class RecipeAgent:
             .all()
         )
 
-        # Build the prompt
         system_prompt = self._build_system_prompt()
         user_prompt = self._build_user_prompt(request, user, liked_recipes)
 
-        # Debug: Print cuisine request
+        # Always extract and add user preferences for enhanced personalization
+        user_preferences = self._extract_user_preferences(user)
+        if user_preferences:  # Only add if there are any preferences
+            user_prompt += self._build_enhanced_preferences_prompt(user_preferences)
+
         logger.info(
             f"🍳 Generating {request.cuisine or 'any'} cuisine recipe for {request.meal_type or 'meal'}"
         )
 
-        # Set up tools for web search if enabled
         tools = None
         if hasattr(request, "search_online") and request.search_online:
-            tools = [
-                {
-                    "type": "web_search_20250305",
-                    "name": "web_search",
-                    "max_uses": 5,
-                    "allowed_domains": [
-                        "maangchi.com",
-                        "omnivorescookbook.com",
-                        "hot-thai-kitchen.com",
-                        "budgetbytes.com",
-                        "seriouseats.com",
-                        "americastestkitchen.com",
-                    ],
-                }
-            ]
+            tools = self._build_web_search_tools(max_uses=5)
 
-            # Add search instruction to the prompt
             search_query = (
                 f"{request.cuisine or ''} {request.meal_type or ''} recipe".strip()
             )
@@ -225,10 +155,10 @@ class RecipeAgent:
             logger.info(f"🔍 Web search enabled for query: {search_query}")
 
         try:
-            request_args = {
+            request_args: dict[str, str | int | float | dict | list] = {
                 "model": "claude-sonnet-4-20250514",
                 "max_tokens": 10000,
-                "temperature": 1.0,  # Lower temperature for more focused responses
+                "temperature": 1.0,
                 "system": system_prompt,
                 "thinking": {"type": "enabled", "budget_tokens": 5000},
                 "messages": [{"role": "user", "content": user_prompt}],
@@ -238,8 +168,7 @@ class RecipeAgent:
 
             response = self.client.messages.create(**request_args)
 
-            # Extract text content from the response (skip thinking blocks)
-            recipe_text = None
+            recipe_text: str | None = None
             for content_block in response.content:
                 if hasattr(content_block, "text"):
                     recipe_text = content_block.text
@@ -248,18 +177,15 @@ class RecipeAgent:
             if not recipe_text:
                 raise Exception("No text content found in Claude response")
 
-            # Debug print to see what we got
             logger.debug(f"Recipe text received: {recipe_text[:200]}...")
 
-            # Clean and extract JSON from the response
-            recipe_data = self._extract_json_from_response(recipe_text)
+            recipe_data = self._parse_recipe_json(recipe_text)
 
             if not recipe_data:
                 raise Exception("No valid JSON found in Claude response")
 
             result = self._format_recipe_response(recipe_data)
 
-            # Add metadata about web search if it was used
             if tools:
                 result["web_search_enabled"] = True
 
@@ -274,22 +200,34 @@ class RecipeAgent:
 
     def _build_system_prompt(self) -> str:
         return """You are a professional chef and nutritionist AI assistant.
-        Generate detailed, delicious recipes based on user preferences.
+        Generate detailed, delicious recipes based on user preferences and requirements.
 
         THINKING PROCESS:
         When thinking through your response, write in clear, complete sentences that flow naturally.
         Do not use markdown formatting, bullet points, or special characters in your thinking.
         Think aloud as if you're explaining your reasoning to a colleague in simple, conversational language.
 
-        Before creating the recipe, think through:
-        1. The user's specific requirements and constraints
-        2. How to balance flavors, textures, and nutritional content
-        3. The cooking techniques that would work best
-        4. Timing and preparation logistics
-        5. How to make the dish authentic to the specified cuisine
-        6. Ways to incorporate user preferences and feedback
+        IMPORTANT: Pay special attention to any user preferences provided and discuss how you're incorporating them.
 
-        Express your thinking in natural, flowing sentences like: "I'm considering what would work best for this cuisine type. The user wants something that takes less than 30 minutes, so I should focus on techniques that are quick but still authentic."
+        Before creating the recipe, think through:
+        1. The user's specific requirements, dietary restrictions, and personal preferences
+        2. How their food preferences (favorite ingredients, cuisines, spice levels) influence your choice
+        3. Any nutritional goals or restrictions they have (calories, protein targets, sodium limits)
+        4. Their cooking constraints (time limits, skill level, available equipment)
+        5. How to balance flavors, textures, and nutritional content within their preferences
+        6. The cooking techniques that would work best for their skill level and time constraints
+        7. How to make the dish authentic to the specified cuisine while respecting their preferences
+        8. Ways to incorporate their liked ingredients and avoid disliked ones
+
+        Express your thinking in natural, flowing sentences like: "Looking at the user's preferences, I see they love garlic and prefer medium spice levels, so I'll incorporate roasted garlic and use moderate amounts of chili. Since they want to keep sodium under 400mg per serving, I'll use herbs and citrus for flavor instead of salt."
+
+        PERSONALIZATION REQUIREMENTS:
+        - ALWAYS acknowledge and discuss user preferences when provided
+        - Explain how you're incorporating their dietary restrictions and nutritional goals
+        - Mention why you're choosing specific ingredients based on their preferences
+        - Address any cooking time or skill level constraints they have
+        - Show how you're avoiding ingredients they dislike or must avoid
+        - Explain how the recipe meets their nutritional targets
 
         CRITICAL INSTRUCTIONS:
         - If the user specifies a cuisine type, you MUST create a recipe from that cuisine ONLY
@@ -343,11 +281,10 @@ class RecipeAgent:
         self,
         request: RecipeGenerationRequest,
         user: User,
-        liked_recipes: List[RecipeFeedback],
+        liked_recipes: list[RecipeFeedback],
     ) -> str:
         prompt_parts = []
 
-        # Start with cuisine preference if specified (make it prominent)
         if request.cuisine:
             if request.meal_type:
                 prompt_parts.append(
@@ -359,13 +296,11 @@ class RecipeAgent:
                 f"IMPORTANT: This MUST be a {request.cuisine} dish with authentic {request.cuisine} flavors and ingredients."
             )
         else:
-            # Basic request info
             if request.meal_type:
                 prompt_parts.append(f"Create a {request.meal_type} recipe")
             else:
                 prompt_parts.append("Create a recipe")
 
-        # Add difficulty requirement if specified
         if request.difficulty:
             difficulty_instructions = {
                 "easy": "Make this an EASY recipe with simple techniques, minimal prep work, and common ingredients. Perfect for beginners or busy weeknights.",
@@ -375,12 +310,10 @@ class RecipeAgent:
             if request.difficulty.lower() in difficulty_instructions:
                 prompt_parts.append(difficulty_instructions[request.difficulty.lower()])
 
-        # Add instruction for natural thinking process
         prompt_parts.append(
             "\nThink through your recipe choice naturally, explaining your reasoning in conversational sentences as you would to a fellow chef. Then provide the JSON recipe after saying 'RECIPE_COMPLETE'."
         )
 
-        # User preferences
         if user.food_preferences:
             prefs = user.food_preferences
             if prefs.get("cuisines"):
@@ -392,7 +325,6 @@ class RecipeAgent:
                     f"User's favorite ingredients: {', '.join(prefs['favorite_ingredients'])}"
                 )
 
-        # Specific request parameters
         if request.max_time_minutes:
             prompt_parts.append(
                 f"Maximum total time: {request.max_time_minutes} minutes"
@@ -406,7 +338,6 @@ class RecipeAgent:
                 f"Must avoid these ingredients: {', '.join(request.ingredients_to_avoid)}"
             )
 
-        # Dietary restrictions
         all_restrictions = list(
             set(user.dietary_restrictions + request.dietary_restrictions)
         )
@@ -415,15 +346,12 @@ class RecipeAgent:
 
         prompt_parts.append(f"Servings: {request.servings}")
 
-        # Additional comments or special requests
         if request.comments and request.comments.strip():
             prompt_parts.append(
                 f"Special requests or notes: {request.comments.strip()}"
             )
 
-        # Past preferences with ratings
         if liked_recipes:
-            # Group by rating level
             highly_rated = []
             liked_only = []
 
@@ -444,7 +372,6 @@ class RecipeAgent:
                     f"User liked these recipes: {', '.join(liked_only[:5])}"
                 )
 
-            # Include any specific feedback notes
             feedback_with_notes = [f for f in liked_recipes if f.notes and f.recipe]
             if feedback_with_notes:
                 prompt_parts.append("User feedback on past recipes:")
@@ -453,14 +380,43 @@ class RecipeAgent:
 
         return "\n".join(prompt_parts)
 
-    def _format_recipe_response(self, recipe_data: Dict) -> Dict:
+    def _extract_user_preferences(self, user: User) -> dict:
+        """Extract comprehensive user preferences from User model"""
+        preferences = {}
+
+        # Basic user preferences
+        if hasattr(user, "food_preferences") and user.food_preferences:
+            preferences["food_preferences"] = user.food_preferences
+
+        if hasattr(user, "dietary_restrictions") and user.dietary_restrictions:
+            preferences["dietary_restrictions"] = user.dietary_restrictions
+
+        if hasattr(user, "ingredient_rules") and user.ingredient_rules:
+            preferences["ingredient_rules"] = user.ingredient_rules
+
+        if hasattr(user, "food_type_rules") and user.food_type_rules:
+            preferences["food_type_rules"] = user.food_type_rules
+
+        if hasattr(user, "nutritional_rules") and user.nutritional_rules:
+            preferences["nutritional_rules"] = user.nutritional_rules
+
+        if hasattr(user, "scheduling_rules") and user.scheduling_rules:
+            preferences["scheduling_rules"] = user.scheduling_rules
+
+        if hasattr(user, "dietary_rules") and user.dietary_rules:
+            preferences["dietary_rules"] = user.dietary_rules
+
+        return preferences
+
+    def _format_recipe_response(self, recipe_data: dict) -> dict:
         """Format the AI response to match our schema"""
         return {
             "name": recipe_data.get("name"),
             "description": recipe_data.get("description"),
             "instructions": recipe_data.get("instructions", []),
             "ingredients": [
-                Ingredient(**ing).dict() for ing in recipe_data.get("ingredients", [])
+                Ingredient(**ing).model_dump()
+                for ing in recipe_data.get("ingredients", [])
             ],
             "prep_time_minutes": recipe_data.get("prep_time_minutes"),
             "cook_time_minutes": recipe_data.get("cook_time_minutes"),
@@ -471,7 +427,7 @@ class RecipeAgent:
             "source_urls": recipe_data.get("source_urls", []),
         }
 
-    def estimate_nutrition(self, ingredients: List[Dict]) -> NutritionFacts:
+    def estimate_nutrition(self, ingredients: list[dict]) -> NutritionFacts:
         """Estimate nutrition facts for a recipe based on ingredients"""
         prompt = f"""Estimate the nutritional content per serving for a recipe with these ingredients:
         {json.dumps(ingredients)}
@@ -494,128 +450,39 @@ class RecipeAgent:
         if not json_text or not json_text.strip():
             return False
 
-        # Check for basic recipe indicators
         json_lower = json_text.lower()
         recipe_indicators = ["name", "ingredients", "instructions", "servings"]
 
-        # Must contain at least 3 of the 4 key recipe fields
-        found_indicators = sum(
-            1 for indicator in recipe_indicators if indicator in json_lower
-        )
-        return found_indicators >= 3
-
-    def _extract_json_from_response(self, response_text: str) -> Optional[Dict]:
-        """Extract JSON from Claude's response, handling various formats"""
-        if not response_text or not response_text.strip():
-            logger.warning("Empty response text provided")
-            return None
+        if not all(f'"{indicator}"' in json_lower for indicator in recipe_indicators):
+            logger.warning(
+                f"Validation failed: One or more indicators not found in JSON text. Indicators: {recipe_indicators}"
+            )
+            return False
 
         try:
-            # First, try to parse the entire response as JSON
-            return json.loads(response_text.strip())
+            data = json.loads(json_text)
+            if not isinstance(data, dict):
+                return False
+            if not all(key in data for key in ["name", "ingredients", "instructions"]):
+                return False
         except json.JSONDecodeError:
-            pass
+            return False
 
-        # Remove markdown code blocks if present
-        cleaned_text = response_text.strip()
-        if "```json" in cleaned_text:
-            start = cleaned_text.find("```json") + 7
-            end = cleaned_text.find("```", start)
-            if end != -1:
-                try:
-                    return json.loads(cleaned_text[start:end].strip())
-                except json.JSONDecodeError:
-                    pass
+        return True
 
-        if cleaned_text.startswith("```"):
-            start = cleaned_text.find("\n") + 1
-            end = cleaned_text.rfind("```")
-            if start > 0 and end > start:
-                try:
-                    return json.loads(cleaned_text[start:end].strip())
-                except json.JSONDecodeError:
-                    pass
-
-        # Look for text between curly braces - more comprehensive search
-        import re
-
-        # First try to find a complete JSON object spanning multiple lines
-        brace_count = 0
-        start_pos = -1
-
-        for i, char in enumerate(cleaned_text):
-            if char == "{":
-                if brace_count == 0:
-                    start_pos = i
-                brace_count += 1
-            elif char == "}":
-                brace_count -= 1
-                if brace_count == 0 and start_pos != -1:
-                    # Found a complete JSON object
-                    potential_json = cleaned_text[start_pos : i + 1]
-                    try:
-                        parsed = json.loads(potential_json)
-                        # Validate it has required recipe fields
-                        if (
-                            isinstance(parsed, dict)
-                            and "name" in parsed
-                            and ("ingredients" in parsed or "instructions" in parsed)
-                        ):
-                            logger.info(
-                                f"✅ Successfully extracted JSON from position {start_pos} to {i + 1}"
-                            )
-                            return parsed
-                    except json.JSONDecodeError:
-                        continue
-
-        # If still no JSON found, try regex patterns
-        json_pattern = r"\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}"
-        json_matches = re.findall(json_pattern, cleaned_text, re.DOTALL)
-
-        for match in json_matches:
-            try:
-                # Try to parse each potential JSON object
-                parsed = json.loads(match)
-                # Validate it has required recipe fields
-                if (
-                    isinstance(parsed, dict)
-                    and "name" in parsed
-                    and "ingredients" in parsed
-                ):
-                    logger.info("✅ Found valid recipe JSON via regex")
-                    return parsed
-            except json.JSONDecodeError:
-                continue
-
-        # Last resort: try to find JSON-like structure line by line
-        lines = cleaned_text.split("\n")
-        json_lines = []
-        in_json = False
-
-        for line in lines:
-            stripped = line.strip()
-            if stripped.startswith("{"):
-                in_json = True
-                json_lines = [line]
-            elif in_json:
-                json_lines.append(line)
-                if stripped.endswith("}"):
-                    # Try to parse the accumulated JSON
-                    try:
-                        potential_json = "\n".join(json_lines)
-                        parsed = json.loads(potential_json)
-                        if isinstance(parsed, dict) and "name" in parsed:
-                            logger.info(
-                                "✅ Found valid recipe JSON via line-by-line parsing"
-                            )
-                            return parsed
-                    except json.JSONDecodeError:
-                        pass
-                    in_json = False
-                    json_lines = []
-
-        logger.warning(
-            f"⚠️ Could not extract valid JSON from response. Response length: {len(response_text)}"
-        )
-        logger.debug(f"Response preview: {response_text[:500]}...")
-        return None
+    def _parse_recipe_json(self, response_text: str) -> dict | None:
+        """Parse recipe JSON from Claude response"""
+        try:
+            json_text = self._extract_json_from_text(response_text)
+            if json_text:
+                data = json.loads(json_text)
+                if isinstance(data, dict):
+                    # Fix and validate the recipe
+                    fixed_recipe = self._fix_recipe(data)
+                    if fixed_recipe and self._validate_recipe(fixed_recipe):
+                        return fixed_recipe
+            return None
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to decode recipe JSON: {e}")
+            logger.debug(f"Response text that failed parsing: {response_text}")
+            return None

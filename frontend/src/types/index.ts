@@ -7,12 +7,67 @@ export interface User {
   updated_at: string;
   food_preferences: FoodPreferences;
   dietary_restrictions: string[];
+  ingredient_rules: IngredientRules;
+  food_type_rules: FoodTypeRules;
+  nutritional_rules: NutritionalRules;
+  scheduling_rules: SchedulingRules;
+  dietary_rules: DietaryRules;
 }
 
 export interface FoodPreferences {
   cuisines: string[];
   favorite_ingredients: string[];
   cooking_methods: string[];
+  preferred_spice_level?: 'none' | 'mild' | 'medium' | 'hot' | 'very_hot';
+  flavor_profiles?: string[];
+  loved_ingredients?: string[];
+  disliked_ingredients?: string[];
+}
+
+export interface IngredientRules {
+  must_include: Array<{ ingredient: string; reason: string }>;
+  must_avoid: Array<{ ingredient: string; reason: string }>;
+  preferred: Array<{ ingredient: string; reason: string }>;
+  disliked: Array<{ ingredient: string; reason: string }>;
+}
+
+export interface FoodTypeRules {
+  protein_preferences: string[];
+  protein_frequency: Record<string, number>;
+  cooking_methods_preferred: string[];
+  cooking_methods_avoided: string[];
+  meal_complexity_preference: 'simple' | 'medium' | 'complex';
+  cuisine_rotation: Record<string, number>;
+}
+
+export interface NutritionalRules {
+  daily_calorie_target?: number;
+  daily_calorie_range?: { min: number; max: number };
+  macro_targets?: { protein_g?: number; carbs_g?: number; fat_g?: number };
+  max_sodium_mg?: number;
+  min_fiber_g?: number;
+  max_sugar_g?: number;
+  special_nutritional_needs: string[];
+}
+
+export interface SchedulingRules {
+  max_prep_time_weekdays?: number;
+  max_prep_time_weekends?: number;
+  max_cook_time_weekdays?: number;
+  max_cook_time_weekends?: number;
+  preferred_cooking_days: string[];
+  batch_cooking_preference: boolean;
+  leftover_tolerance: 'low' | 'medium' | 'high';
+  meal_prep_style: 'daily' | 'batch' | 'mixed';
+}
+
+export interface DietaryRules {
+  strict_restrictions: string[];
+  flexible_restrictions: string[];
+  religious_dietary_laws: string[];
+  ethical_choices: string[];
+  health_conditions: string[];
+  allergy_severity: Record<string, 'mild' | 'moderate' | 'severe'>;
 }
 
 export interface UserCreate {
@@ -29,6 +84,23 @@ export interface UserLogin {
 export interface UserPreferences {
   food_preferences: FoodPreferences;
   dietary_restrictions: string[];
+  ingredient_rules: IngredientRules;
+  food_type_rules: FoodTypeRules;
+  nutritional_rules: NutritionalRules;
+  scheduling_rules: SchedulingRules;
+  dietary_rules: DietaryRules;
+}
+
+export interface UserUpdate {
+  email?: string;
+  username?: string;
+  food_preferences?: FoodPreferences;
+  dietary_restrictions?: string[];
+  ingredient_rules?: IngredientRules;
+  food_type_rules?: FoodTypeRules;
+  nutritional_rules?: NutritionalRules;
+  scheduling_rules?: SchedulingRules;
+  dietary_rules?: DietaryRules;
 }
 
 export interface Token {
@@ -49,7 +121,7 @@ export interface Recipe {
   tags: string[];
   nutrition: NutritionFacts;
   source: string;
-  source_urls: string[]; // Changed from source_url to support multiple sources
+  source_urls: string[];
   image_url?: string;
   created_at: string;
 }
@@ -130,9 +202,10 @@ export interface GroceryListCreate {
 }
 
 export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
+export type PrepTimePreference = 'quick' | 'moderate' | 'relaxed';
 
 export interface RecipeSuggestion {
-  id?: number; // Optional ID for saved recipes
+  id?: number;
   name: string;
   description: string;
   cuisine: string;
@@ -169,6 +242,14 @@ export interface WeeklyScheduleRequest {
   preferred_cuisines?: string[];
   must_include_ingredients?: string[];
   must_avoid_ingredients?: string[];
+  theme?: string;
+  description?: string;
+  occasion?: string;
+  budget_target?: number;
+  prep_time_preference?: PrepTimePreference;
+  special_notes?: Record<string, string | number | boolean | null>;
+  week_dietary_restrictions?: string[];
+  week_food_preferences?: Record<string, string[]>;
 }
 
 export interface WeeklyMealPlan {
@@ -179,6 +260,14 @@ export interface WeeklyMealPlan {
   end_date: string;
   meal_slots: MealSlot[];
   created_at?: string;
+  description?: string;
+  theme?: string;
+  occasion?: string;
+  budget_target?: number;
+  prep_time_preference?: string;
+  special_notes?: Record<string, string | number | boolean | null>;
+  week_dietary_restrictions?: string[];
+  week_food_preferences?: Record<string, string[]>;
 }
 
 export interface MealPlan {
@@ -189,6 +278,14 @@ export interface MealPlan {
   end_date: string;
   created_at: string;
   items: MealPlanItem[];
+  description?: string;
+  theme?: string;
+  occasion?: string;
+  budget_target?: number;
+  prep_time_preference?: string;
+  special_notes?: Record<string, string | number | boolean | null>;
+  week_dietary_restrictions?: string[];
+  week_food_preferences?: Record<string, string[]>;
 }
 
 export interface MealPlanItem {

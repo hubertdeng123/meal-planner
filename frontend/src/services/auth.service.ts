@@ -1,5 +1,5 @@
 import { api } from './api';
-import type { UserCreate, UserLogin, UserPreferences, Token, User } from '../types';
+import type { UserCreate, UserLogin, UserPreferences, UserUpdate, Token, User } from '../types';
 
 class AuthService {
   async register(userData: UserCreate, preferences: UserPreferences): Promise<User> {
@@ -30,6 +30,21 @@ class AuthService {
 
   async getCurrentUser(): Promise<User> {
     const response = await api.get<User>('/auth/me');
+    return response.data;
+  }
+
+  async updateCurrentUser(userUpdate: UserUpdate): Promise<User> {
+    const response = await api.put<User>('/auth/me', userUpdate);
+    return response.data;
+  }
+
+  async getUserPreferences(): Promise<UserPreferences> {
+    const response = await api.get<UserPreferences>('/auth/me/preferences');
+    return response.data;
+  }
+
+  async updateUserPreferences(preferences: UserPreferences): Promise<UserPreferences> {
+    const response = await api.put<UserPreferences>('/auth/me/preferences', preferences);
     return response.data;
   }
 

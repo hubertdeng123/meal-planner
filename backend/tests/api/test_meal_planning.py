@@ -1,4 +1,5 @@
 from datetime import date
+from app.schemas.meal_plan import RecipeSuggestion
 
 
 class TestCreateWeeklyMealPlan:
@@ -8,6 +9,27 @@ class TestCreateWeeklyMealPlan:
         self, client, auth_headers, mock_meal_planning_agent
     ):
         """Test successful weekly meal plan creation."""
+        # Mock the agent's response
+        mock_suggestions = [
+            RecipeSuggestion(
+                name="Spaghetti Carbonara",
+                description="Classic Italian pasta dish",
+                cuisine="Italian",
+                ingredients=[{"name": "spaghetti", "quantity": 1, "unit": "lb"}],
+                instructions=["Boil pasta", "Make sauce"],
+                prep_time=10,
+                cook_time=15,
+                servings=4,
+                difficulty="Medium",
+                nutrition={"calories": 450},
+            )
+        ] * 3
+        mock_meal_planning_agent.generate_weekly_meal_plan.return_value = {
+            "monday_dinner": mock_suggestions,
+            "wednesday_dinner": mock_suggestions,
+            "friday_dinner": mock_suggestions,
+        }
+
         request_data = {
             "start_date": date.today().isoformat(),
             "cooking_days": ["monday", "wednesday", "friday"],
@@ -28,7 +50,6 @@ class TestCreateWeeklyMealPlan:
         assert response.status_code == 200
         data = response.json()
 
-        # Verify response structure
         assert "id" in data
         assert "user_id" in data
         assert "name" in data
@@ -36,8 +57,7 @@ class TestCreateWeeklyMealPlan:
         assert "end_date" in data
         assert "meal_slots" in data
 
-        # Verify meal slots were created
-        assert len(data["meal_slots"]) == 3  # 3 cooking days * 1 meal type
+        assert len(data["meal_slots"]) == 3
 
         for slot in data["meal_slots"]:
             assert slot["meal_type"] == "dinner"
@@ -156,7 +176,7 @@ class TestDataValidation:
             headers=auth_headers,
         )
 
-        assert response.status_code == 422  # Validation error
+        assert response.status_code == 422
 
     def test_empty_cooking_days(self, client, auth_headers):
         """Test with empty cooking days."""
@@ -175,4 +195,4 @@ class TestDataValidation:
 
         assert response.status_code == 200
         data = response.json()
-        assert len(data["meal_slots"]) == 0  # No cooking days = no meal slots
+        assert len(data["meal_slots"]) == 0

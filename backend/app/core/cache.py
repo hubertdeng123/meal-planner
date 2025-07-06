@@ -4,13 +4,103 @@ Caching utilities for reducing API calls and token usage
 
 import hashlib
 import json
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, TypeVar, Generic
 from datetime import datetime, timedelta
 import redis
 from app.core.config import settings
 import logging
+import time
 
 logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
+
+
+class Cache(Generic[T]):
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(Cache, cls).__new__(cls)
+            cls._instance._cache: dict[str, dict[str, str | int | float]] = {}
+        return cls._instance
+
+    def _generate_cache_key(
+        self, prefix: str, params: dict[str, str | int | float | bool | None]
+    ) -> str:
+        """Generate a consistent cache key"""
+        param_str = json.dumps(params, sort_keys=True)
+        return f"{prefix}:{hashlib.md5(param_str.encode()).hexdigest()}"
+
+    def get(
+        self, prefix: str, params: dict[str, str | int | float | bool | None]
+    ) -> T | None:
+        """Get data from cache if it exists and is not expired"""
+        key = self._generate_cache_key(prefix, params)
+        cached_item = self._cache.get(key)
+
+        if cached_item:
+            if time.time() < cached_item["expires_at"]:
+                return cached_item["data"]
+            else:
+                # Expired, remove from cache
+                del self._cache[key]
+        return None
+
+    def set(
+        self,
+        prefix: str,
+        params: dict[str, str | int | float | bool | None],
+        data: T,
+        ttl_hours: int = 24,
+    ):
+        """Set data in the cache with a TTL"""
+        key = self._generate_cache_key(prefix, params)
+        expires_at = time.time() + ttl_hours * 3600
+        self._cache[key] = {"data": data, "expires_at": expires_at}
+
+    def clear(self):
+        """Clear the entire cache"""
+        self._cache.clear()
+
+
+# Global cache instance
+cache_manager = Cache()
+
+
+# --- Specific Caching Functions ---
+
+
+def get_cached_or_generate(
+    prefix: str,
+    params: dict[str, str | int | float | bool | None],
+    generator_func,
+    ttl_hours: int = 24,
+) -> T:
+    """
+    Decorator to cache the result of a function call.
+    Uses a simple in-memory cache with a TTL.
+    """
+    cached_data = cache_manager.get(prefix, params)
+    if cached_data is not None:
+        return cached_data
+
+    new_data = generator_func()
+    cache_manager.set(prefix, params, new_data, ttl_hours)
+    return new_data
+
+
+def should_use_cache(params: dict[str, str | int | float | bool | None]) -> bool:
+    """
+    Determine if cache should be used based on request parameters.
+    For example, don't cache if there are very specific, unique constraints.
+    """
+    # Example: Don't cache if there are many ingredients to include/avoid
+    if len(params.get("ingredients_to_use", [])) > 5:
+        return False
+    if len(params.get("ingredients_to_avoid", [])) > 5:
+        return False
+    return True
 
 
 class APIResponseCache:

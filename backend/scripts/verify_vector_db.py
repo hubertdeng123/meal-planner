@@ -19,396 +19,280 @@ import sys
 import os
 import asyncio
 import argparse
-import time
 import logging
-from typing import Dict, Any
-import json
+import random
+from datetime import datetime, timedelta
+from sqlalchemy.orm import Session
 
 # Add the backend directory to Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from app.db.database import get_db
 from app.core.vector_store import (
-    RecipeVectorStore,
     HistoricalDataSummarizer,
-    OptimizedMealPlanningService,
+    VectorDBService,
 )
-from app.models.recipe import Recipe, RecipeFeedback
-from app.models.meal_plan import MealPlan
+from app.models.recipe import Recipe
 from app.models.user import User
-from datetime import datetime
+from app.agents.optimized_meal_planning_agent import (
+    OptimizedMealPlanningService as OMPAService,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# ANSI color codes for better readability
+GREEN = "\033[92m"
+YELLOW = "\033[93m"
+RED = "\033[91m"
+BLUE = "\033[94m"
+RESET = "\033[0m"
 
-class VectorDBVerifier:
-    """Comprehensive vector database verification"""
 
-    def __init__(self):
-        self.db = next(get_db())
-        self.vector_store = RecipeVectorStore(self.db)
-        self.summarizer = HistoricalDataSummarizer(self.db)
-        self.service = OptimizedMealPlanningService(self.db)
-        self.results = {}
+class VerificationSuite:
+    def __init__(self, db: Session):
+        self.db = db
+        self.vector_service = VectorDBService(db)
+        self.history_summarizer = HistoricalDataSummarizer(db)
+        self.optimized_service = OMPAService(db)
+        self.test_user = None
 
-    def verify_basic_setup(self) -> Dict[str, Any]:
-        """Verify basic vector store setup"""
-        logger.info("🔍 Verifying basic setup...")
-
-        results = {
-            "embedding_support": self.vector_store.has_embedding_support,
-            "total_recipes": 0,
-            "recipes_with_embeddings": 0,
-            "users_count": 0,
-            "feedback_count": 0,
-            "meal_plans_count": 0,
-            "database_type": "unknown",
-        }
-
-        try:
-            # Check database type
-            dialect = self.db.bind.dialect.name
-            results["database_type"] = dialect
-
-            # Count records
-            results["total_recipes"] = self.db.query(Recipe).count()
-            results["users_count"] = self.db.query(User).count()
-            results["feedback_count"] = self.db.query(RecipeFeedback).count()
-            results["meal_plans_count"] = self.db.query(MealPlan).count()
-
-            # Count recipes with embeddings (PostgreSQL only)
-            if dialect == "postgresql" and self.vector_store.has_embedding_support:
-                try:
-                    from sqlalchemy import text
-
-                    result = self.db.execute(
-                        text("SELECT COUNT(*) FROM recipes WHERE embedding IS NOT NULL")
-                    )
-                    results["recipes_with_embeddings"] = result.scalar()
-                except Exception as e:
-                    logger.warning(f"Could not count embeddings: {e}")
-
-            logger.info(f"✅ Database type: {dialect}")
-            logger.info(f"✅ Embedding support: {results['embedding_support']}")
-            logger.info(f"✅ Total recipes: {results['total_recipes']}")
-            logger.info(
-                f"✅ Recipes with embeddings: {results['recipes_with_embeddings']}"
+    def _setup_test_user(self):
+        """Ensure a test user exists"""
+        self.test_user = self.db.query(User).filter_by(email="test@example.com").first()
+        if not self.test_user:
+            self.test_user = User(
+                username="testuser",
+                email="test@example.com",
+                hashed_password="testpassword",
+                food_preferences={"cuisines": ["Italian", "Mexican"]},
+                dietary_restrictions=["Vegetarian"],
             )
+            self.db.add(self.test_user)
+            self.db.commit()
 
-        except Exception as e:
-            logger.error(f"❌ Basic setup verification failed: {e}")
-            results["error"] = str(e)
-
-        return results
-
-    def verify_embedding_generation(self) -> Dict[str, Any]:
-        """Test embedding text generation"""
-        logger.info("🧠 Verifying embedding generation...")
-
-        results = {
-            "text_generation_works": False,
-            "text_contains_expected_elements": False,
-            "generation_time_ms": 0,
-            "sample_text_length": 0,
-        }
-
+    def verify_basic_setup(self) -> dict[str, str | bool]:
+        """Verify that the vector extension is enabled"""
         try:
-            # Test recipe for embedding generation
-            test_recipe = {
-                "name": "Classic Margherita Pizza",
-                "cuisine": "Italian",
-                "description": "Traditional Italian pizza with tomatoes, mozzarella, and basil",
-                "difficulty": "Medium",
-                "tags": ["pizza", "italian", "vegetarian", "classic"],
-                "ingredients": [
-                    {"name": "pizza dough", "quantity": 1, "unit": "ball"},
-                    {"name": "tomato sauce", "quantity": 0.5, "unit": "cup"},
-                    {"name": "mozzarella cheese", "quantity": 8, "unit": "oz"},
-                    {"name": "fresh basil", "quantity": 10, "unit": "leaves"},
-                ],
-                "instructions": [
-                    "Preheat oven to 475°F",
-                    "Roll out pizza dough",
-                    "Spread tomato sauce evenly",
-                    "Add mozzarella cheese",
-                    "Bake for 12-15 minutes",
-                    "Add fresh basil before serving",
-                ],
-                "nutrition": {
-                    "calories": 320,
-                    "protein_g": 15,
-                    "carbs_g": 35,
-                    "fat_g": 12,
-                },
+            self.db.execute("CREATE EXTENSION IF NOT EXISTS vector")
+            self.db.commit()
+            return {"status": "success", "message": "Vector extension is enabled."}
+        except Exception as e:
+            return {
+                "status": "failure",
+                "message": f"Vector extension check failed: {e}",
             }
 
-            # Time the generation
-            start_time = time.time()
-            embedding_text = self.vector_store.create_recipe_embedding_text(test_recipe)
-            end_time = time.time()
+    def _create_sample_recipe(self, name, cuisine, ingredients, description):
+        """Helper to create a sample recipe"""
+        recipe = Recipe(
+            user_id=self.test_user.id,
+            name=name,
+            cuisine=cuisine,
+            ingredients=[{"name": ing} for ing in ingredients],
+            description=description,
+            instructions=["Test instruction"],
+            created_at=datetime.utcnow() - timedelta(days=random.randint(1, 30)),
+        )
+        self.db.add(recipe)
+        self.db.commit()
+        return recipe
 
-            results["text_generation_works"] = True
-            results["generation_time_ms"] = (end_time - start_time) * 1000
-            results["sample_text_length"] = len(embedding_text)
-
-            # Check if expected elements are present
-            expected_elements = [
-                "Margherita Pizza",
-                "Italian",
-                "pizza dough",
-                "mozzarella",
-                "basil",
-                "Medium",
-                "320 calories",
-            ]
-
-            elements_found = sum(
-                1 for element in expected_elements if element in embedding_text
-            )
-            results["text_contains_expected_elements"] = (
-                elements_found >= len(expected_elements) * 0.8
-            )
-            results["elements_found"] = elements_found
-            results["elements_expected"] = len(expected_elements)
-
-            logger.info(
-                f"✅ Embedding text generated in {results['generation_time_ms']:.2f}ms"
-            )
-            logger.info(f"✅ Text length: {results['sample_text_length']} characters")
-            logger.info(f"✅ Elements found: {elements_found}/{len(expected_elements)}")
-
-        except Exception as e:
-            logger.error(f"❌ Embedding generation failed: {e}")
-            results["error"] = str(e)
-
-        return results
-
-    def verify_search_functionality(self) -> Dict[str, Any]:
-        """Test search functionality"""
-        logger.info("🔍 Verifying search functionality...")
-
-        results = {
-            "basic_search_works": False,
-            "cuisine_filter_works": False,
-            "popular_recipes_works": False,
-            "search_performance_ms": 0,
-            "results_returned": 0,
-        }
+    def verify_embedding_generation(self) -> dict[str, str | bool | int]:
+        """Verify that embeddings are generated and stored correctly"""
+        self._setup_test_user()
+        recipe = self._create_sample_recipe(
+            "Pasta Primavera",
+            "Italian",
+            ["pasta", "broccoli", "carrots"],
+            "A light and fresh pasta dish.",
+        )
 
         try:
-            # Test basic search
-            start_time = time.time()
-            search_results = self.vector_store.search_similar_recipes(
-                query="pasta italian dinner", n_results=10
-            )
-            end_time = time.time()
+            self.vector_service.add_recipe_to_db(recipe)
+            self.db.refresh(recipe)
 
-            results["basic_search_works"] = isinstance(search_results, list)
-            results["search_performance_ms"] = (end_time - start_time) * 1000
-            results["results_returned"] = len(search_results)
+            if recipe.embedding is None:
+                return {
+                    "status": "failure",
+                    "message": "Embedding was not generated.",
+                }
 
-            # Test cuisine filter
-            cuisine_results = self.vector_store.search_similar_recipes(
-                query="dinner", cuisine="Italian", n_results=5
-            )
-            results["cuisine_filter_works"] = isinstance(cuisine_results, list)
+            if (
+                len(recipe.embedding)
+                != self.vector_service.embedding_model.get_sentence_embedding_dimension()
+            ):
+                return {
+                    "status": "failure",
+                    "message": f"Embedding has incorrect dimensions: {len(recipe.embedding)}",
+                }
 
-            # Test popular recipes
-            popular_results = self.vector_store.get_popular_recipes(n_results=5)
-            results["popular_recipes_works"] = isinstance(popular_results, list)
-
-            logger.info(
-                f"✅ Basic search returned {len(search_results)} results in {results['search_performance_ms']:.2f}ms"
-            )
-            logger.info(f"✅ Cuisine filter returned {len(cuisine_results)} results")
-            logger.info(f"✅ Popular recipes returned {len(popular_results)} results")
-
+            return {
+                "status": "success",
+                "message": f"Embedding generated with correct dimensions: {len(recipe.embedding)}",
+                "embedding_length": len(recipe.embedding),
+            }
         except Exception as e:
-            logger.error(f"❌ Search functionality failed: {e}")
-            results["error"] = str(e)
+            return {
+                "status": "failure",
+                "message": f"Embedding generation failed: {e}",
+            }
 
-        return results
-
-    async def verify_optimized_service(self) -> Dict[str, Any]:
-        """Test the complete optimized meal planning service"""
-        logger.info("⚡ Verifying optimized service...")
-
-        results = {
-            "service_works": False,
-            "suggestions_generated": 0,
-            "response_time_ms": 0,
-            "fallback_used": True,  # Assume fallback since we're likely in test mode
-        }
+    def verify_search_functionality(self) -> dict[str, str | bool | int | list]:
+        """Verify that vector search returns plausible results"""
+        self._setup_test_user()
+        # Create a few more recipes for a good search pool
+        self._create_sample_recipe(
+            "Spaghetti Carbonara",
+            "Italian",
+            ["pasta", "egg", "cheese"],
+            "A classic Roman pasta dish.",
+        )
+        self._create_sample_recipe(
+            "Tacos al Pastor",
+            "Mexican",
+            ["pork", "pineapple", "onion"],
+            "Classic Mexican street tacos.",
+        )
 
         try:
-            # Find a test user
-            user = self.db.query(User).first()
-            if not user:
-                logger.warning("No users found for service testing")
-                return results
-
-            # Test meal suggestion generation
-            start_time = time.time()
-            suggestions = await self.service.generate_meal_suggestions(
-                user_id=user.id,
-                meal_type="dinner",
-                preferences={
-                    "cuisine": "Italian",
-                    "dietary_restrictions": ["vegetarian"],
-                    "max_prep_time": 45,
-                },
-                n_suggestions=3,
-            )
-            end_time = time.time()
-
-            results["service_works"] = isinstance(suggestions, list)
-            results["suggestions_generated"] = len(suggestions)
-            results["response_time_ms"] = (end_time - start_time) * 1000
-
-            # Check if suggestions have expected structure
-            if suggestions:
-                first_suggestion = suggestions[0]
-                expected_fields = [
-                    "id",
-                    "name",
-                    "cuisine",
-                    "ingredients",
-                    "instructions",
-                ]
-                fields_present = sum(
-                    1 for field in expected_fields if field in first_suggestion
-                )
-                results["suggestion_structure_valid"] = (
-                    fields_present >= len(expected_fields) * 0.8
-                )
-
-            logger.info(
-                f"✅ Generated {len(suggestions)} suggestions in {results['response_time_ms']:.2f}ms"
+            query_text = "Italian pasta dish"
+            similar_recipes = self.vector_service.find_similar_recipes(
+                query_text, k=2, user_id=self.test_user.id
             )
 
+            if not similar_recipes:
+                return {
+                    "status": "failure",
+                    "message": "Vector search returned no results.",
+                }
+
+            if len(similar_recipes) != 2:
+                return {
+                    "status": "warning",
+                    "message": f"Expected 2 results, but got {len(similar_recipes)}.",
+                    "results": [r["name"] for r in similar_recipes],
+                }
+
+            if "Pasta" not in similar_recipes[0]["name"]:
+                return {
+                    "status": "warning",
+                    "message": "Top search result may not be the most relevant.",
+                    "top_result": similar_recipes[0]["name"],
+                }
+
+            return {
+                "status": "success",
+                "message": "Vector search returned relevant results.",
+                "num_results": len(similar_recipes),
+                "top_result": similar_recipes[0]["name"],
+            }
         except Exception as e:
-            logger.error(f"❌ Optimized service verification failed: {e}")
-            results["error"] = str(e)
+            return {
+                "status": "failure",
+                "message": f"Vector search failed: {e}",
+            }
 
-        return results
+    async def verify_optimized_service(self) -> dict[str, str | bool | list]:
+        """Verify that the optimized service can generate suggestions"""
+        self._setup_test_user()
 
-    async def run_full_verification(self, user_id: int = None) -> Dict[str, Any]:
-        """Run complete verification suite"""
-        logger.info("🚀 Starting full vector database verification...")
+        try:
+            preferences = {
+                "preferred_cuisines": ["Italian"],
+                "ingredients_to_use": ["pasta"],
+            }
+            suggestions = await self.optimized_service.generate_meal_suggestions(
+                "dinner", preferences, user_id=self.test_user.id
+            )
 
-        all_results = {
-            "timestamp": datetime.now().isoformat(),
-            "basic_setup": {},
-            "embedding_generation": {},
-            "search_functionality": {},
-            "optimized_service": {},
-            "overall_status": "unknown",
+            if not suggestions:
+                return {
+                    "status": "warning",
+                    "message": "Optimized service returned no suggestions (might be expected if DB is small).",
+                }
+
+            if len(suggestions) > 3:
+                return {
+                    "status": "warning",
+                    "message": f"Service returned {len(suggestions)} suggestions, expected 3.",
+                }
+
+            return {
+                "status": "success",
+                "message": "Optimized service generated suggestions.",
+                "suggestions": [s.name for s in suggestions],
+            }
+        except Exception as e:
+            return {
+                "status": "failure",
+                "message": f"Optimized service failed: {e}",
+            }
+
+    async def run_full_verification(
+        self, user_id: int | None = None
+    ) -> dict[str, dict]:
+        """Run all verification steps and return a report"""
+        if user_id:
+            self.test_user = self.db.query(User).filter_by(id=user_id).first()
+            if not self.test_user:
+                raise ValueError(f"User with ID {user_id} not found")
+
+        report = {
+            "basic_setup": self.verify_basic_setup(),
+            "embedding_generation": self.verify_embedding_generation(),
+            "search_functionality": self.verify_search_functionality(),
+            "optimized_service": await self.verify_optimized_service(),
         }
+        return report
 
-        # Run all verification tests
-        all_results["basic_setup"] = self.verify_basic_setup()
-        all_results["embedding_generation"] = self.verify_embedding_generation()
-        all_results["search_functionality"] = self.verify_search_functionality()
-        all_results["optimized_service"] = await self.verify_optimized_service()
 
-        # Determine overall status
-        critical_checks = [
-            all_results["basic_setup"].get("total_recipes", 0) >= 0,
-            all_results["embedding_generation"].get("text_generation_works", False),
-            all_results["search_functionality"].get("basic_search_works", False),
-            all_results["optimized_service"].get("service_works", False),
-        ]
+def print_verification_report(results: dict[str, dict]):
+    """Print the verification report with colors"""
+    print(f"\n{BLUE}--- Vector DB Verification Report ---{RESET}\n")
 
-        if all(critical_checks):
-            all_results["overall_status"] = "healthy"
-        elif sum(critical_checks) >= len(critical_checks) * 0.75:
-            all_results["overall_status"] = "mostly_healthy"
+    for check, result in results.items():
+        status = result.get("status", "unknown")
+        message = result.get("message", "No message.")
+
+        if status == "success":
+            color = GREEN
+            symbol = "✓"
+        elif status == "warning":
+            color = YELLOW
+            symbol = "!"
         else:
-            all_results["overall_status"] = "needs_attention"
+            color = RED
+            symbol = "✗"
 
-        logger.info(f"🎯 Overall status: {all_results['overall_status']}")
-        return all_results
+        print(f"{color}{symbol} {check.replace('_', ' ').title()}: {message}{RESET}")
 
+        # Print additional details
+        details_to_print = [
+            "embedding_length",
+            "num_results",
+            "top_result",
+            "suggestions",
+        ]
+        for detail in details_to_print:
+            if detail in result:
+                print(f"  - {detail.replace('_', ' ').title()}: {result[detail]}")
 
-def print_verification_report(results: Dict[str, Any]):
-    """Print a formatted verification report"""
-    print("\n" + "=" * 80)
-    print("🔍 VECTOR DATABASE VERIFICATION REPORT")
-    print("=" * 80)
-
-    print(f"\n📊 OVERALL STATUS: {results['overall_status'].upper()}")
-    print(f"⏰ Timestamp: {results['timestamp']}")
-
-    # Basic Setup
-    setup = results["basic_setup"]
-    print("\n🏗️  BASIC SETUP:")
-    print(f"   Database Type: {setup.get('database_type', 'unknown')}")
-    print(f"   Embedding Support: {'✅' if setup.get('embedding_support') else '❌'}")
-    print(f"   Total Recipes: {setup.get('total_recipes', 0)}")
-    print(f"   Recipes with Embeddings: {setup.get('recipes_with_embeddings', 0)}")
-    print(f"   Users: {setup.get('users_count', 0)}")
-    print(f"   Feedback Records: {setup.get('feedback_count', 0)}")
-
-    # Embedding Generation
-    embedding = results["embedding_generation"]
-    print("\n🧠 EMBEDDING GENERATION:")
-    print(
-        f"   Text Generation: {'✅' if embedding.get('text_generation_works') else '❌'}"
-    )
-    print(f"   Generation Time: {embedding.get('generation_time_ms', 0):.2f}ms")
-    print(f"   Text Length: {embedding.get('sample_text_length', 0)} chars")
-    print(
-        f"   Expected Elements: {embedding.get('elements_found', 0)}/{embedding.get('elements_expected', 0)}"
-    )
-
-    # Search Functionality
-    search = results["search_functionality"]
-    print("\n🔍 SEARCH FUNCTIONALITY:")
-    print(f"   Basic Search: {'✅' if search.get('basic_search_works') else '❌'}")
-    print(f"   Cuisine Filter: {'✅' if search.get('cuisine_filter_works') else '❌'}")
-    print(
-        f"   Popular Recipes: {'✅' if search.get('popular_recipes_works') else '❌'}"
-    )
-    print(f"   Search Time: {search.get('search_performance_ms', 0):.2f}ms")
-    print(f"   Results Returned: {search.get('results_returned', 0)}")
-
-    print("\n" + "=" * 80)
+    print(f"\n{BLUE}--- End of Report ---{RESET}\n")
 
 
-async def main():
-    parser = argparse.ArgumentParser(description="Verify vector database functionality")
-    parser.add_argument("--user-id", type=int, help="User ID to test preferences for")
-    parser.add_argument("--output-json", help="Output results to JSON file")
-    parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
-
-    args = parser.parse_args()
-
-    if args.verbose:
-        logging.getLogger().setLevel(logging.DEBUG)
-
-    verifier = VectorDBVerifier()
-
-    # Run verification
-    results = await verifier.run_full_verification(args.user_id)
-
-    # Print report
-    print_verification_report(results)
-
-    # Save to JSON if requested
-    if args.output_json:
-        with open(args.output_json, "w") as f:
-            json.dump(results, f, indent=2)
-        print(f"\n💾 Results saved to {args.output_json}")
-
-    # Exit with appropriate code
-    if results["overall_status"] == "healthy":
-        sys.exit(0)
-    elif results["overall_status"] == "mostly_healthy":
-        sys.exit(1)
-    else:
-        sys.exit(2)
+async def main(user_id: int | None = None):
+    db = next(get_db())
+    suite = VerificationSuite(db)
+    report = await suite.run_full_verification(user_id)
+    print_verification_report(report)
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    parser = argparse.ArgumentParser(description="Run Vector DB verification suite.")
+    parser.add_argument(
+        "--user-id", type=int, help="Optional user ID to run tests for."
+    )
+    args = parser.parse_args()
+
+    asyncio.run(main(args.user_id))

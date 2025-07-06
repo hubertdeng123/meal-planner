@@ -1,4 +1,14 @@
-from sqlalchemy import Column, Integer, String, Date, ForeignKey, JSON, DateTime, Float
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    Date,
+    ForeignKey,
+    JSON,
+    DateTime,
+    Float,
+    Text,
+)
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.db.database import Base
@@ -13,6 +23,26 @@ class MealPlan(Base):
     start_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Enhanced contextual fields
+    description = Column(Text, nullable=True)  # Additional context about the meal plan
+    theme = Column(
+        String, nullable=True
+    )  # e.g., "Italian Week", "Quick & Easy", "Healthy Reset"
+    occasion = Column(String, nullable=True)  # Special occasion or event context
+    budget_target = Column(Float, nullable=True)  # Optional budget constraints
+    prep_time_preference = Column(
+        String, nullable=True
+    )  # Overall prep time preference for the week
+    special_notes = Column(JSON, default=dict)  # Flexible contextual information
+
+    # Week-specific preferences that can override user defaults
+    week_dietary_restrictions = Column(
+        JSON, default=list
+    )  # Additional restrictions for this week
+    week_food_preferences = Column(
+        JSON, default=dict
+    )  # Temporary preferences for this week
 
     # Relationships
     user = relationship("User", back_populates="meal_plans")

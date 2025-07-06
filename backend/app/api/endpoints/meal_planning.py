@@ -2,7 +2,6 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-from typing import List
 from datetime import timedelta
 import json
 from app.db.database import get_db
@@ -22,6 +21,7 @@ from app.schemas.meal_plan import (
     RecipeSelectionRequest,
 )
 from app.agents.meal_planning_agent import meal_planning_agent
+from app.utils import json_serial
 
 # OPTIMIZATION: To use the vector database-powered agent instead:
 # from app.agents.optimized_meal_planning_agent import OptimizedMealPlanningAgent
@@ -56,12 +56,23 @@ async def create_weekly_meal_plan(
     # Calculate end date (6 days after start)
     end_date = schedule_request.start_date + timedelta(days=6)
 
-    # Create the meal plan in database
+    # Create the meal plan in database with enhanced contextual fields
     db_meal_plan = MealPlanModel(
         user_id=current_user.id,
-        name=f"Meal Plan - Week of {schedule_request.start_date.strftime('%B %d, %Y')}",
+        name=schedule_request.theme
+        or f"Meal Plan - Week of {schedule_request.start_date.strftime('%B %d, %Y')}",
         start_date=schedule_request.start_date,
         end_date=end_date,
+        description=schedule_request.description,
+        theme=schedule_request.theme,
+        occasion=schedule_request.occasion,
+        budget_target=schedule_request.budget_target,
+        prep_time_preference=schedule_request.prep_time_preference.value
+        if schedule_request.prep_time_preference
+        else None,
+        special_notes=schedule_request.special_notes or {},
+        week_dietary_restrictions=schedule_request.week_dietary_restrictions or [],
+        week_food_preferences=schedule_request.week_food_preferences or {},
     )
 
     db.add(db_meal_plan)
@@ -70,6 +81,28 @@ async def create_weekly_meal_plan(
 
     # Convert meal types to strings for the agent
     meal_type_strings = [meal_type.value for meal_type in schedule_request.meal_types]
+
+    # Build enhanced user preferences context
+    user_preferences = {
+        "food_preferences": current_user.food_preferences,
+        "dietary_restrictions": current_user.dietary_restrictions,
+        "ingredient_rules": current_user.ingredient_rules,
+        "food_type_rules": current_user.food_type_rules,
+        "nutritional_rules": current_user.nutritional_rules,
+        "scheduling_rules": current_user.scheduling_rules,
+        "dietary_rules": current_user.dietary_rules,
+        # Week-specific overrides
+        "week_dietary_restrictions": schedule_request.week_dietary_restrictions or [],
+        "week_food_preferences": schedule_request.week_food_preferences or {},
+        # Context information
+        "theme": schedule_request.theme,
+        "occasion": schedule_request.occasion,
+        "budget_target": schedule_request.budget_target,
+        "prep_time_preference": schedule_request.prep_time_preference.value
+        if schedule_request.prep_time_preference
+        else None,
+        "special_notes": schedule_request.special_notes or {},
+    }
 
     # Generate all meal suggestions for the week in a single call to ensure uniqueness
     try:
@@ -83,6 +116,7 @@ async def create_weekly_meal_plan(
             dietary_restrictions=schedule_request.dietary_restrictions,
             must_include_ingredients=schedule_request.must_include_ingredients,
             must_avoid_ingredients=schedule_request.must_avoid_ingredients,
+            user_preferences=user_preferences,  # Pass enhanced user preferences
             search_online=True,
         )
     except Exception as e:
@@ -111,28 +145,28 @@ async def create_weekly_meal_plan(
                     else:
                         # Fallback to individual generation if not found
                         logger.info(f"Fallback generation for {meal_key}")
-                    recipe_suggestions = await meal_planning_agent.generate_meal_suggestions(
-                        meal_type=meal_type.value,
-                        date_str=current_date.strftime("%A, %B %d"),
-                        servings=schedule_request.servings,
-                        difficulty=schedule_request.difficulty,
-                        preferred_cuisines=schedule_request.preferred_cuisines,
-                        dietary_restrictions=schedule_request.dietary_restrictions,
-                        must_include_ingredients=schedule_request.must_include_ingredients,
-                        must_avoid_ingredients=schedule_request.must_avoid_ingredients,
-                    )
+                        recipe_suggestions = await meal_planning_agent.generate_meal_suggestions(
+                            meal_type=meal_type.value,
+                            date_str=current_date.strftime("%A, %B %d"),
+                            servings=schedule_request.servings,
+                            difficulty=schedule_request.difficulty,
+                            preferred_cuisines=schedule_request.preferred_cuisines,
+                            dietary_restrictions=schedule_request.dietary_restrictions,
+                            must_include_ingredients=schedule_request.must_include_ingredients,
+                            must_avoid_ingredients=schedule_request.must_avoid_ingredients,
+                            user_preferences=user_preferences,  # Pass enhanced user preferences
+                        )
 
                     # Convert to RecipeSuggestion objects
                     suggestions = []
                     for i, recipe in enumerate(recipe_suggestions):
                         try:
-                            suggestion = RecipeSuggestion(**recipe)
-                            suggestions.append(suggestion)
+                            # The agent now returns Pydantic models directly
+                            suggestions.append(recipe)
                         except Exception as e:
                             logger.error(
-                                f"❌ Error creating RecipeSuggestion {i + 1}: {e}"
+                                f"❌ Error processing RecipeSuggestion {i + 1}: {e}"
                             )
-                            logger.debug(f"Problem recipe data: {recipe}")
                             # Skip this recipe and continue
                             continue
 
@@ -154,11 +188,7 @@ async def create_weekly_meal_plan(
                     continue
 
     return WeeklyMealPlan(
-        id=db_meal_plan.id,
-        user_id=current_user.id,
-        name=db_meal_plan.name,
-        start_date=db_meal_plan.start_date,
-        end_date=db_meal_plan.end_date,
+        **db_meal_plan.__dict__,
         meal_slots=meal_slots,
     )
 
@@ -173,23 +203,53 @@ async def create_weekly_meal_plan_stream(
 
     def generate():
         try:
-            # Send initial message
             yield f"data: {json.dumps({'type': 'status', 'message': 'Starting meal plan generation...'})}\n\n"
 
-            # Calculate end date (6 days after start)
             end_date = schedule_request.start_date + timedelta(days=6)
-
-            # Create the meal plan in database
             db_meal_plan = MealPlanModel(
                 user_id=current_user.id,
-                name=f"Meal Plan - Week of {schedule_request.start_date.strftime('%B %d, %Y')}",
+                name=schedule_request.theme
+                or f"Meal Plan - Week of {schedule_request.start_date.strftime('%B %d, %Y')}",
                 start_date=schedule_request.start_date,
                 end_date=end_date,
+                description=schedule_request.description,
+                theme=schedule_request.theme,
+                occasion=schedule_request.occasion,
+                budget_target=schedule_request.budget_target,
+                prep_time_preference=schedule_request.prep_time_preference.value
+                if schedule_request.prep_time_preference
+                else None,
+                special_notes=schedule_request.special_notes or {},
+                week_dietary_restrictions=schedule_request.week_dietary_restrictions
+                or [],
+                week_food_preferences=schedule_request.week_food_preferences or {},
             )
-
             db.add(db_meal_plan)
             db.commit()
             db.refresh(db_meal_plan)
+
+            # Build enhanced user preferences context
+            user_preferences = {
+                "food_preferences": current_user.food_preferences,
+                "dietary_restrictions": current_user.dietary_restrictions,
+                "ingredient_rules": current_user.ingredient_rules,
+                "food_type_rules": current_user.food_type_rules,
+                "nutritional_rules": current_user.nutritional_rules,
+                "scheduling_rules": current_user.scheduling_rules,
+                "dietary_rules": current_user.dietary_rules,
+                # Week-specific overrides
+                "week_dietary_restrictions": schedule_request.week_dietary_restrictions
+                or [],
+                "week_food_preferences": schedule_request.week_food_preferences or {},
+                # Context information
+                "theme": schedule_request.theme,
+                "occasion": schedule_request.occasion,
+                "budget_target": schedule_request.budget_target,
+                "prep_time_preference": schedule_request.prep_time_preference.value
+                if schedule_request.prep_time_preference
+                else None,
+                "special_notes": schedule_request.special_notes or {},
+            }
 
             yield f"data: {json.dumps({'type': 'status', 'message': 'Planning diverse meals for your week...'})}\n\n"
 
@@ -201,7 +261,7 @@ async def create_weekly_meal_plan_stream(
                 schedule_request.meal_types
             )
 
-            suggested_recipe_names = []  # Track already suggested recipes
+            suggested_recipe_names: list[str] = []  # Track already suggested recipes
             accumulated_thinking = ""
 
             for day_offset in range(7):
@@ -218,6 +278,134 @@ async def create_weekly_meal_plan_stream(
                         yield f"data: {json.dumps({'type': 'status', 'message': f'Planning {meal_type_str} for {weekday.title()} ({meal_count}/{total_meals})...'})}\n\n"
 
                         try:
+
+                            def process_and_save_recipes(recipe_list, source):
+                                saved_recipe_suggestions = []
+                                for recipe_data in recipe_list:
+                                    try:
+                                        # Create and save recipe to database
+                                        db_recipe = RecipeModel(
+                                            user_id=current_user.id,
+                                            name=recipe_data["name"],
+                                            description=recipe_data.get("description"),
+                                            instructions=recipe_data["instructions"],
+                                            ingredients=[
+                                                ing
+                                                for ing in recipe_data["ingredients"]
+                                            ],
+                                            prep_time_minutes=recipe_data.get(
+                                                "prep_time",
+                                                recipe_data.get("prep_time_minutes"),
+                                            ),
+                                            cook_time_minutes=recipe_data.get(
+                                                "cook_time",
+                                                recipe_data.get("cook_time_minutes"),
+                                            ),
+                                            servings=recipe_data["servings"],
+                                            tags=recipe_data.get("tags", []),
+                                            source=source,
+                                            source_urls=recipe_data.get(
+                                                "source_urls", []
+                                            ),
+                                            # Nutrition
+                                            calories=recipe_data.get(
+                                                "nutrition", {}
+                                            ).get("calories"),
+                                            protein_g=recipe_data.get(
+                                                "nutrition", {}
+                                            ).get("protein_g"),
+                                            carbs_g=recipe_data.get(
+                                                "nutrition", {}
+                                            ).get("carbs_g"),
+                                            fat_g=recipe_data.get("nutrition", {}).get(
+                                                "fat_g"
+                                            ),
+                                            fiber_g=recipe_data.get(
+                                                "nutrition", {}
+                                            ).get("fiber_g"),
+                                            sugar_g=recipe_data.get(
+                                                "nutrition", {}
+                                            ).get("sugar_g"),
+                                            sodium_mg=recipe_data.get(
+                                                "nutrition", {}
+                                            ).get("sodium_mg"),
+                                        )
+                                        db.add(db_recipe)
+                                        db.commit()
+                                        db.refresh(db_recipe)
+
+                                        # Add the saved recipe data with ID for the response
+                                        recipe_with_id = recipe_data.copy()
+                                        recipe_with_id["id"] = db_recipe.id
+                                        recipe_with_id["prep_time"] = recipe_data.get(
+                                            "prep_time",
+                                            recipe_data.get("prep_time_minutes", 0),
+                                        )
+                                        recipe_with_id["cook_time"] = recipe_data.get(
+                                            "cook_time",
+                                            recipe_data.get("cook_time_minutes", 0),
+                                        )
+                                        recipe_with_id["prep_time_minutes"] = (
+                                            recipe_with_id["prep_time"]
+                                        )
+                                        recipe_with_id["cook_time_minutes"] = (
+                                            recipe_with_id["cook_time"]
+                                        )
+                                        saved_recipe_suggestions.append(recipe_with_id)
+
+                                        # Track suggested recipe names to avoid duplicates
+                                        if recipe_data.get("name"):
+                                            suggested_recipe_names.append(
+                                                recipe_data["name"]
+                                            )
+
+                                    except Exception as e:
+                                        logger.error(
+                                            f"Error saving recipe '{recipe_data.get('name', 'Unknown')}' from {source}: {e}"
+                                        )
+                                        # Still include the recipe in suggestions even if saving failed
+                                        saved_recipe_suggestions.append(recipe_data)
+                                        if recipe_data.get("name"):
+                                            suggested_recipe_names.append(
+                                                recipe_data["name"]
+                                            )
+
+                                # Convert to RecipeSuggestion objects for response
+                                suggestions = []
+                                for i, recipe in enumerate(saved_recipe_suggestions):
+                                    try:
+                                        suggestion = RecipeSuggestion(**recipe)
+                                        suggestions.append(suggestion)
+                                    except Exception as e:
+                                        logger.error(
+                                            f"❌ Error creating RecipeSuggestion {i + 1} for {meal_type_str} from {source}: {e}"
+                                        )
+                                        continue
+
+                                if suggestions:
+                                    meal_plan_item = MealPlanItemModel(
+                                        meal_plan_id=db_meal_plan.id,
+                                        date=current_date,
+                                        meal_type=meal_type.value,
+                                        recipe_data={
+                                            "recipe_suggestions": [
+                                                s.model_dump() for s in suggestions
+                                            ],
+                                            "selected_recipe_index": None,
+                                        },
+                                    )
+                                    db.add(meal_plan_item)
+                                    db.commit()
+
+                                    meal_slot = MealSlot(
+                                        date=current_date,
+                                        meal_type=meal_type,
+                                        recipe_suggestions=suggestions,
+                                        selected_recipe_index=None,
+                                        selected_recipe=None,
+                                    )
+                                    meal_slots.append(meal_slot)
+
                             # Generate suggestions with streaming using the agent
                             meal_json_text = ""
 
@@ -237,6 +425,7 @@ async def create_weekly_meal_plan_stream(
                                 must_include_ingredients=schedule_request.must_include_ingredients,
                                 must_avoid_ingredients=schedule_request.must_avoid_ingredients,
                                 already_suggested=suggested_recipe_names,
+                                user_preferences=user_preferences,  # Pass enhanced user preferences
                                 search_online=True,
                             )
 
@@ -284,441 +473,79 @@ async def create_weekly_meal_plan_stream(
                                 stream_started = False
 
                             # If the stream never started or we got no content, force fallback
-                            if not stream_started or not meal_json_text:
+                            if not stream_started:
                                 logger.warning(
-                                    f"⚠️ Stream failed to start or returned no content for {meal_type_str} on {weekday.title()}"
+                                    f"⚠️ Stream failed to start for {meal_type_str} on {weekday.title()}"
                                 )
                                 meal_json_text = (
                                     ""  # This will trigger the fallback logic below
                                 )
 
-                            # Parse the final JSON result
-                            try:
-                                if not meal_json_text or not meal_json_text.strip():
-                                    logger.warning(
-                                        f"⚠️ Empty response for {meal_type_str} on {weekday.title()}, using fallback recipes"
+                            # Parse the final JSON result or use fallback
+                            if meal_json_text and meal_json_text.strip():
+                                try:
+                                    recipes_from_agent = json.loads(meal_json_text)
+                                    process_and_save_recipes(
+                                        recipes_from_agent,
+                                        source="ai_generated_meal_plan",
                                     )
-                                    yield f"data: {json.dumps({'type': 'status', 'message': f'Generating fallback recipes for {meal_type_str} on {weekday.title()}...'})}\n\n"
-
-                                    # Generate fallback recipes
-                                    fallback_recipes = []
-                                    for i in range(3):
-                                        fallback = (
-                                            meal_planning_agent._get_fallback_recipe(
-                                                meal_type_str, schedule_request.servings
-                                            )
-                                        )
-                                        # Make each fallback unique by using the meal slot count to vary the selection
-                                        fallback["name"] = (
-                                            f"{fallback['name']} (Backup {meal_count}-{i + 1})"
-                                        )
-                                        fallback_recipes.append(fallback)
-
-                                    # Save fallback recipes to database and continue
-                                    saved_recipe_suggestions = []
-                                    for recipe_data in fallback_recipes:
-                                        try:
-                                            # Create and save recipe to database
-                                            db_recipe = RecipeModel(
-                                                user_id=current_user.id,
-                                                name=recipe_data["name"],
-                                                description=recipe_data.get(
-                                                    "description"
-                                                ),
-                                                instructions=recipe_data[
-                                                    "instructions"
-                                                ],
-                                                ingredients=[
-                                                    ing
-                                                    for ing in recipe_data[
-                                                        "ingredients"
-                                                    ]
-                                                ],
-                                                prep_time_minutes=recipe_data.get(
-                                                    "prep_time",
-                                                    recipe_data.get(
-                                                        "prep_time_minutes"
-                                                    ),
-                                                ),
-                                                cook_time_minutes=recipe_data.get(
-                                                    "cook_time",
-                                                    recipe_data.get(
-                                                        "cook_time_minutes"
-                                                    ),
-                                                ),
-                                                servings=recipe_data["servings"],
-                                                tags=recipe_data.get("tags", []),
-                                                source="ai_generated_meal_plan_fallback",
-                                                source_urls=recipe_data.get(
-                                                    "source_urls", []
-                                                ),
-                                                # Nutrition
-                                                calories=recipe_data.get(
-                                                    "nutrition", {}
-                                                ).get("calories"),
-                                                protein_g=recipe_data.get(
-                                                    "nutrition", {}
-                                                ).get("protein_g"),
-                                                carbs_g=recipe_data.get(
-                                                    "nutrition", {}
-                                                ).get("carbs_g"),
-                                                fat_g=recipe_data.get(
-                                                    "nutrition", {}
-                                                ).get("fat_g"),
-                                                fiber_g=recipe_data.get(
-                                                    "nutrition", {}
-                                                ).get("fiber_g"),
-                                                sugar_g=recipe_data.get(
-                                                    "nutrition", {}
-                                                ).get("sugar_g"),
-                                                sodium_mg=recipe_data.get(
-                                                    "nutrition", {}
-                                                ).get("sodium_mg"),
-                                            )
-
-                                            db.add(db_recipe)
-                                            db.commit()
-                                            db.refresh(db_recipe)
-
-                                            # Add the saved recipe data with ID for the response
-                                            recipe_with_id = recipe_data.copy()
-                                            recipe_with_id["id"] = db_recipe.id
-                                            recipe_with_id["prep_time"] = (
-                                                recipe_data.get(
-                                                    "prep_time",
-                                                    recipe_data.get(
-                                                        "prep_time_minutes", 0
-                                                    ),
-                                                )
-                                            )
-                                            recipe_with_id["cook_time"] = (
-                                                recipe_data.get(
-                                                    "cook_time",
-                                                    recipe_data.get(
-                                                        "cook_time_minutes", 0
-                                                    ),
-                                                )
-                                            )
-                                            recipe_with_id["prep_time_minutes"] = (
-                                                recipe_with_id["prep_time"]
-                                            )
-                                            recipe_with_id["cook_time_minutes"] = (
-                                                recipe_with_id["cook_time"]
-                                            )
-                                            saved_recipe_suggestions.append(
-                                                recipe_with_id
-                                            )
-
-                                            # Track suggested recipe names to avoid duplicates
-                                            if recipe_data.get("name"):
-                                                suggested_recipe_names.append(
-                                                    recipe_data["name"]
-                                                )
-
-                                        except Exception as e:
-                                            logger.error(
-                                                f"Error saving fallback recipe {recipe_data.get('name', 'Unknown')}: {e}"
-                                            )
-                                            # Still include the recipe in suggestions even if saving failed
-                                            saved_recipe_suggestions.append(recipe_data)
-                                            if recipe_data.get("name"):
-                                                suggested_recipe_names.append(
-                                                    recipe_data["name"]
-                                                )
-
-                                    # Convert to RecipeSuggestion objects for response
-                                    from app.schemas.meal_plan import RecipeSuggestion
-
-                                    suggestions = []
-                                    for i, recipe in enumerate(
-                                        saved_recipe_suggestions
-                                    ):
-                                        try:
-                                            suggestion = RecipeSuggestion(**recipe)
-                                            suggestions.append(suggestion)
-                                        except Exception as e:
-                                            logger.error(
-                                                f"❌ Error creating fallback RecipeSuggestion {i + 1} for {meal_type_str}: {e}"
-                                            )
-                                            continue
-
-                                    if suggestions:
-                                        # Create meal plan item with recipe suggestions data
-                                        from app.models.meal_plan import (
-                                            MealPlanItem as MealPlanItemModel,
-                                        )
-
-                                        meal_plan_item = MealPlanItemModel(
-                                            meal_plan_id=db_meal_plan.id,
-                                            date=current_date,
-                                            meal_type=meal_type.value,
-                                            recipe_data={
-                                                "recipe_suggestions": [
-                                                    s.dict() for s in suggestions
-                                                ],
-                                                "selected_recipe_index": None,
-                                            },
-                                        )
-                                        db.add(meal_plan_item)
-                                        db.commit()
-
-                                        meal_slot = {
-                                            "date": current_date.isoformat(),
-                                            "meal_type": meal_type.value,
-                                            "recipe_suggestions": [
-                                                s.dict() for s in suggestions
-                                            ],
-                                            "selected_recipe_index": None,
-                                            "selected_recipe": None,
-                                        }
-
-                                        meal_slots.append(meal_slot)
-                                        yield f"data: {json.dumps({'type': 'status', 'message': f'✅ Generated fallback recipes for {meal_type_str} on {weekday.title()}'})}\n\n"
-
-                                    continue
-
-                                # Extract JSON from after MEAL_SUGGESTIONS_COMPLETE marker if present
-                                json_to_parse = meal_json_text
-                                if "MEAL_SUGGESTIONS_COMPLETE" in meal_json_text:
-                                    json_to_parse = meal_json_text.split(
-                                        "MEAL_SUGGESTIONS_COMPLETE", 1
-                                    )[1].strip()
-
-                                # Add debugging info
-                                logger.info(
-                                    f"🔧 DEBUG: Parsing JSON for {meal_type_str} on {weekday.title()}"
-                                )
-                                logger.info(
-                                    f"🔧 DEBUG: JSON text length: {len(json_to_parse)}"
-                                )
-                                logger.debug(
-                                    f"🔧 DEBUG: First 300 chars: {json_to_parse[:300]}..."
-                                )
-
-                                # Parse and validate the recipes
-                                recipe_suggestions = (
-                                    meal_planning_agent._parse_recipe_suggestions(
-                                        json_to_parse
-                                    )
-                                )
-
-                                if (
-                                    not isinstance(recipe_suggestions, list)
-                                    or len(recipe_suggestions) == 0
-                                ):
-                                    error_msg = f"Invalid recipe format received for {meal_type_str} on {weekday.title()}"
+                                except (json.JSONDecodeError, TypeError) as e:
                                     logger.error(
-                                        f"❌ {error_msg} - Got {type(recipe_suggestions)} with {len(recipe_suggestions) if isinstance(recipe_suggestions, list) else 'unknown'} items"
+                                        f"Error parsing agent response for {meal_type_str} on {weekday.title()}: {e}, response was: {meal_json_text}"
                                     )
-                                    logger.debug(f"Raw JSON text: {json_to_parse}")
-                                    yield f"data: {json.dumps({'type': 'error', 'message': error_msg})}\n\n"
-                                    continue
+                                    meal_json_text = ""  # Force fallback
 
-                                logger.info(
-                                    f"✅ Successfully parsed {len(recipe_suggestions)} recipes for {meal_type_str} on {weekday.title()}"
+                            if not meal_json_text or not meal_json_text.strip():
+                                logger.warning(
+                                    f"⚠️ Empty/failed response for {meal_type_str} on {weekday.title()}, using fallback recipes"
                                 )
+                                yield f"data: {json.dumps({'type': 'status', 'message': f'Generating fallback recipes for {meal_type_str} on {weekday.title()}...'})}\n\n"
 
-                                # Debug: Log the structure of the first recipe
-                                if recipe_suggestions:
-                                    first_recipe = recipe_suggestions[0]
-                                    logger.info(
-                                        f"🔧 DEBUG: First recipe structure - Keys: {list(first_recipe.keys())}"
+                                fallback_recipes = []
+                                for i in range(3):
+                                    fallback = meal_planning_agent._get_fallback_recipe(
+                                        meal_type_str, schedule_request.servings
                                     )
-                                    logger.info(
-                                        f"🔧 DEBUG: First recipe name: {first_recipe.get('name', 'NO NAME')}"
+                                    # Make each fallback unique by using the meal slot count to vary the selection
+                                    fallback.name = (
+                                        f"{fallback.name} (Backup {meal_count}-{i + 1})"
                                     )
-                                    logger.info(
-                                        f"🔧 DEBUG: Has ingredients: {bool(first_recipe.get('ingredients'))}, type: {type(first_recipe.get('ingredients'))}"
-                                    )
-                                    logger.info(
-                                        f"🔧 DEBUG: Has instructions: {bool(first_recipe.get('instructions'))}, type: {type(first_recipe.get('instructions'))}"
-                                    )
+                                    fallback_recipes.append(fallback)
 
-                                # Save the generated recipes to database
-                                saved_recipe_suggestions = []
-                                for recipe_data in recipe_suggestions:
-                                    try:
-                                        # Create and save recipe to database
-                                        db_recipe = RecipeModel(
-                                            user_id=current_user.id,
-                                            name=recipe_data["name"],
-                                            description=recipe_data.get("description"),
-                                            instructions=recipe_data["instructions"],
-                                            ingredients=[
-                                                ing
-                                                for ing in recipe_data["ingredients"]
-                                            ],
-                                            prep_time_minutes=recipe_data.get(
-                                                "prep_time",
-                                                recipe_data.get("prep_time_minutes"),
-                                            ),
-                                            cook_time_minutes=recipe_data.get(
-                                                "cook_time",
-                                                recipe_data.get("cook_time_minutes"),
-                                            ),
-                                            servings=recipe_data["servings"],
-                                            tags=recipe_data.get("tags", []),
-                                            source="ai_generated_meal_plan",
-                                            source_urls=recipe_data.get(
-                                                "source_urls", []
-                                            ),
-                                            # Nutrition
-                                            calories=recipe_data.get(
-                                                "nutrition", {}
-                                            ).get("calories"),
-                                            protein_g=recipe_data.get(
-                                                "nutrition", {}
-                                            ).get("protein_g"),
-                                            carbs_g=recipe_data.get(
-                                                "nutrition", {}
-                                            ).get("carbs_g"),
-                                            fat_g=recipe_data.get("nutrition", {}).get(
-                                                "fat_g"
-                                            ),
-                                            fiber_g=recipe_data.get(
-                                                "nutrition", {}
-                                            ).get("fiber_g"),
-                                            sugar_g=recipe_data.get(
-                                                "nutrition", {}
-                                            ).get("sugar_g"),
-                                            sodium_mg=recipe_data.get(
-                                                "nutrition", {}
-                                            ).get("sodium_mg"),
-                                        )
-
-                                        db.add(db_recipe)
-                                        db.commit()
-                                        db.refresh(db_recipe)
-
-                                        # Add the saved recipe data with ID for the response
-                                        recipe_with_id = recipe_data.copy()
-                                        recipe_with_id["id"] = db_recipe.id
-                                        # Ensure consistent field names for frontend
-                                        recipe_with_id["prep_time"] = recipe_data.get(
-                                            "prep_time",
-                                            recipe_data.get("prep_time_minutes", 0),
-                                        )
-                                        recipe_with_id["cook_time"] = recipe_data.get(
-                                            "cook_time",
-                                            recipe_data.get("cook_time_minutes", 0),
-                                        )
-                                        recipe_with_id["prep_time_minutes"] = (
-                                            recipe_with_id["prep_time"]
-                                        )
-                                        recipe_with_id["cook_time_minutes"] = (
-                                            recipe_with_id["cook_time"]
-                                        )
-                                        saved_recipe_suggestions.append(recipe_with_id)
-
-                                        # Track suggested recipe names to avoid duplicates
-                                        if recipe_data.get("name"):
-                                            suggested_recipe_names.append(
-                                                recipe_data["name"]
-                                            )
-
-                                    except Exception as e:
-                                        logger.error(
-                                            f"Error saving recipe {recipe_data.get('name', 'Unknown')}: {e}"
-                                        )
-                                        # Still include the recipe in suggestions even if saving failed
-                                        saved_recipe_suggestions.append(recipe_data)
-                                        if recipe_data.get("name"):
-                                            suggested_recipe_names.append(
-                                                recipe_data["name"]
-                                            )
-
-                                # Convert to RecipeSuggestion objects for response
-                                from app.schemas.meal_plan import RecipeSuggestion
-
-                                suggestions = []
-                                for i, recipe in enumerate(saved_recipe_suggestions):
-                                    try:
-                                        suggestion = RecipeSuggestion(**recipe)
-                                        suggestions.append(suggestion)
-                                    except Exception as e:
-                                        logger.error(
-                                            f"❌ Error creating RecipeSuggestion {i + 1} for {meal_type_str}: {e}"
-                                        )
-                                        logger.debug(f"Problem recipe data: {recipe}")
-                                        # Skip this recipe and continue
-                                        continue
-
-                                if suggestions:
-                                    # Create meal plan item with recipe suggestions data
-                                    from app.models.meal_plan import (
-                                        MealPlanItem as MealPlanItemModel,
-                                    )
-
-                                    meal_plan_item = MealPlanItemModel(
-                                        meal_plan_id=db_meal_plan.id,
-                                        date=current_date,
-                                        meal_type=meal_type.value,
-                                        recipe_data={
-                                            "recipe_suggestions": [
-                                                s.dict() for s in suggestions
-                                            ],
-                                            "selected_recipe_index": None,
-                                        },
-                                    )
-                                    db.add(meal_plan_item)
-                                    db.commit()
-
-                                    meal_slot = {
-                                        "date": current_date.isoformat(),
-                                        "meal_type": meal_type.value,
-                                        "recipe_suggestions": [
-                                            s.dict() for s in suggestions
-                                        ],
-                                        "selected_recipe_index": None,
-                                        "selected_recipe": None,
-                                    }
-
-                                    meal_slots.append(meal_slot)
-                                    yield f"data: {json.dumps({'type': 'status', 'message': f'✅ Generated and saved 3 recipes for {meal_type_str} on {weekday.title()}'})}\n\n"
-
-                            except Exception as e:
-                                yield f"data: {json.dumps({'type': 'error', 'message': f'Failed to parse recipes for {meal_type_str} on {weekday.title()}: {str(e)}'})}\n\n"
-                                continue
+                                process_and_save_recipes(
+                                    [f.model_dump() for f in fallback_recipes],
+                                    source="ai_generated_meal_plan_fallback",
+                                )
 
                         except Exception as e:
-                            yield f"data: {json.dumps({'type': 'error', 'message': f'Error planning {meal_type_str} for {weekday.title()}: {str(e)}'})}\n\n"
+                            logger.error(
+                                f"Error creating meal slot for {meal_type_str} on {weekday.title()}: {e}"
+                            )
                             continue
 
-            # Create the final meal plan
-            weekly_plan = {
-                "id": db_meal_plan.id,
-                "user_id": current_user.id,
-                "name": db_meal_plan.name,
-                "start_date": db_meal_plan.start_date.isoformat(),
-                "end_date": db_meal_plan.end_date.isoformat(),
-                "meal_slots": meal_slots,
-            }
-
-            # Send completion message with meal plan
-            total_recipes_saved = sum(
-                len(slot["recipe_suggestions"]) for slot in meal_slots
+            # Send complete meal plan
+            final_plan = WeeklyMealPlan(
+                **MealPlan.model_validate(db_meal_plan).model_dump(),
+                meal_slots=meal_slots,
             )
-            yield f"data: {json.dumps({'type': 'complete', 'meal_plan': weekly_plan, 'message': f'Weekly meal plan complete! 🎉 Saved {total_recipes_saved} recipes to your collection.', 'thinking_length': len(accumulated_thinking)})}\n\n"
+
+            yield f"data: {json.dumps({'type': 'complete', 'meal_plan': final_plan.model_dump()}, default=json_serial)}\n\n"
 
         except Exception as e:
-            import traceback
+            logger.error(f"Error in streaming generation: {e}")
+            error_details = {
+                "type": "error",
+                "message": "An unexpected error occurred.",
+            }
+            if isinstance(e, HTTPException):
+                error_details["details"] = e.detail
+            else:
+                error_details["details"] = str(e)
+            yield f"data: {json.dumps(error_details)}\n\n"
+        finally:
+            db.close()
 
-            error_details = traceback.format_exc()
-            logger.error(f"Error in streaming meal plan generation: {e}")
-            logger.error(f"Full traceback: {error_details}")
-            yield f"data: {json.dumps({'type': 'error', 'message': f'Failed to generate meal plan: {str(e)}'})}\n\n"
-
-    return StreamingResponse(
-        generate(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",  # Disable nginx buffering
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Headers": "*",
-        },
-    )
+    return StreamingResponse(generate(), media_type="text/event-stream")
 
 
 @router.post("/select-recipe/")
@@ -778,22 +605,22 @@ async def select_recipe_for_meal(
     return {"detail": "Recipe selection saved successfully"}
 
 
-@router.get("/meal-plans/", response_model=List[MealPlan])
+@router.get("/meal-plans/", response_model=list[MealPlan])
 async def get_meal_plans(
     skip: int = 0,
     limit: int = 20,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ):
-    """Get user's meal plans"""
+    """Get all meal plans for the current user"""
     meal_plans = (
         db.query(MealPlanModel)
         .filter(MealPlanModel.user_id == current_user.id)
+        .order_by(MealPlanModel.start_date.desc())
         .offset(skip)
         .limit(limit)
         .all()
     )
-
     return meal_plans
 
 
@@ -887,11 +714,7 @@ async def get_meal_plan_details(
         meal_slots.append(meal_slot)
 
     return WeeklyMealPlan(
-        id=meal_plan.id,
-        user_id=current_user.id,
-        name=meal_plan.name,
-        start_date=meal_plan.start_date,
-        end_date=meal_plan.end_date,
+        **MealPlan.model_validate(meal_plan).model_dump(),
         meal_slots=meal_slots,
     )
 

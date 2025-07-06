@@ -1,6 +1,8 @@
 import pytest
 from unittest.mock import patch, MagicMock
 from app.agents.meal_planning_agent import MealPlanningAgent
+from app.schemas.meal_plan import RecipeSuggestion
+import json
 
 
 class TestMealPlanningAgent:
@@ -10,7 +12,7 @@ class TestMealPlanningAgent:
         """Set up test fixtures."""
         self.agent = MealPlanningAgent()
 
-    @patch("app.agents.meal_planning_agent.Anthropic")
+    @patch("app.agents.unified_culinary_agent.Anthropic")
     @pytest.mark.asyncio
     async def test_generate_meal_suggestions_success(self, mock_anthropic):
         """Test successful meal suggestion generation."""
@@ -63,8 +65,6 @@ class TestMealPlanningAgent:
         mock_anthropic.return_value = mock_client
 
         # Create a fresh agent instance to pick up the mock
-        from app.agents.meal_planning_agent import MealPlanningAgent
-
         agent = MealPlanningAgent()
 
         # Test the method
@@ -78,9 +78,10 @@ class TestMealPlanningAgent:
         )
 
         assert len(result) == 3
-        assert result[0]["name"] == "Spaghetti Carbonara"
-        assert result[1]["cuisine"] == "Mexican"
-        assert result[2]["difficulty"] == "Medium"
+        assert result[0].name == "Spaghetti Carbonara"
+        assert isinstance(result[0], RecipeSuggestion)
+        assert result[1].cuisine == "Mexican"
+        assert result[2].difficulty == "Medium"
 
     def test_parse_recipe_suggestions_valid_json(self):
         """Test parsing valid JSON recipe suggestions."""
@@ -102,22 +103,23 @@ class TestMealPlanningAgent:
         result = self.agent._parse_recipe_suggestions(json_text)
 
         assert len(result) == 1
-        assert result[0]["name"] == "Test Recipe"
-        assert result[0]["cuisine"] == "Test"
+        assert result[0].name == "Test Recipe"
+        assert isinstance(result[0], RecipeSuggestion)
 
     def test_parse_recipe_suggestions_invalid_json(self):
-        """Test parsing invalid JSON returns empty list."""
-        invalid_json = "This is not valid JSON"
-
+        """Test parsing invalid JSON."""
+        invalid_json = "this is not json"
         result = self.agent._parse_recipe_suggestions(invalid_json)
-
         assert result == []
 
-    def test_parse_recipe_suggestions_empty_response(self):
-        """Test parsing empty response returns empty list."""
-        result = self.agent._parse_recipe_suggestions("")
-
-        assert result == []
+    def test_parse_recipe_suggestions_missing_fields(self):
+        """Test parsing recipes with missing fields."""
+        json_with_missing_fields = """[
+            {"name": "Recipe without ingredients"},
+            {"ingredients": [], "instructions": []}
+        ]"""
+        result = self.agent._parse_recipe_suggestions(json_with_missing_fields)
+        assert len(result) == 0
 
     def test_validate_recipe_valid(self):
         """Test recipe validation with valid recipe."""
@@ -164,11 +166,18 @@ class TestMealPlanningAgent:
         """Test fallback recipe generation."""
         fallback = self.agent._get_fallback_recipe("dinner", 4)
 
-        assert isinstance(fallback, dict)
-        assert "name" in fallback
-        assert "ingredients" in fallback
-        assert "instructions" in fallback
-        assert fallback["servings"] == 4
+        assert isinstance(fallback, RecipeSuggestion)
+        assert fallback.name is not None
+        assert fallback.servings == 4
+
+    def test_fix_recipe_missing_fields(self):
+        """Test recipe fixing for various missing fields."""
+        recipe_missing_fields = {"description": "A test recipe"}
+        fixed = self.agent._fix_recipe(recipe_missing_fields)
+        assert fixed is not None
+        assert fixed["name"] == "Untitled Recipe"
+        assert "ingredients" in fixed
+        assert "instructions" in fixed
 
     def test_fix_recipe_missing_nutrition(self):
         """Test recipe fixing for missing nutrition."""
@@ -182,14 +191,13 @@ class TestMealPlanningAgent:
             "cook_time": 15,
             "servings": 4,
             "difficulty": "Easy",
-            # Missing nutrition
         }
 
         fixed = self.agent._fix_recipe(recipe_without_nutrition)
 
         assert fixed is not None
         assert "nutrition" in fixed
-        assert isinstance(fixed["nutrition"], dict)
+        assert "calories" in fixed["nutrition"]
 
     def test_generate_meal_suggestions_stream_format(self):
         """Test that streaming generation returns proper format."""
@@ -205,7 +213,7 @@ class TestMealPlanningAgent:
         assert hasattr(stream_gen, "__iter__")
         assert hasattr(stream_gen, "__next__")
 
-    @patch("app.agents.meal_planning_agent.Anthropic")
+    @patch("app.agents.unified_culinary_agent.Anthropic")
     @pytest.mark.asyncio
     async def test_generate_weekly_meal_plan_success(self, mock_anthropic):
         """Test successful weekly meal plan generation."""
@@ -221,8 +229,6 @@ class TestMealPlanningAgent:
         mock_anthropic.return_value = mock_client
 
         # Create a fresh agent instance to pick up the mock
-        from app.agents.meal_planning_agent import MealPlanningAgent
-
         agent = MealPlanningAgent()
 
         result = await agent.generate_weekly_meal_plan(
@@ -240,20 +246,22 @@ class TestMealPlanningAgent:
         """Test JSON extraction from text."""
         text_with_json = """
         Some text before
-        {"key": "value", "array": [1, 2, 3]}
+        ```json
+        [{"key": "value", "array": [1, 2, 3]}]
+        ```
         Some text after
         """
 
         result = self.agent._extract_json_from_text(text_with_json)
 
         assert result is not None
-        assert result["key"] == "value"
-        assert result["array"] == [1, 2, 3]
+        # The result is a JSON string of a list
+        data = json.loads(result)
+        assert isinstance(data, list)
+        assert data[0]["key"] == "value"
 
     def test_extract_json_from_text_no_json(self):
-        """Test JSON extraction from text with no JSON."""
-        text_without_json = "This text has no JSON content"
-
+        """Test text with no JSON."""
+        text_without_json = "This is just plain text."
         result = self.agent._extract_json_from_text(text_without_json)
-
         assert result is None

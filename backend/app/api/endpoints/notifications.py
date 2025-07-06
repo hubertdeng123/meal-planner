@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import Optional, List
 from datetime import time, datetime, timedelta
 from pydantic import BaseModel
@@ -341,14 +341,20 @@ async def send_weekly_meal_plan_notification(
 
     if request.meal_plan_id:
         from app.models.meal_plan import (
-            WeeklyMealPlan as WeeklyMealPlanModel,
+            MealPlan as WeeklyMealPlanModel,
             GroceryList,
             GroceryItem,
+            MealPlanItem,
         )
 
         # Verify meal plan belongs to user
         meal_plan = (
             db.query(WeeklyMealPlanModel)
+            .options(
+                joinedload(WeeklyMealPlanModel.items).options(
+                    joinedload(MealPlanItem.recipe)
+                )
+            )
             .filter(
                 WeeklyMealPlanModel.id == request.meal_plan_id,
                 WeeklyMealPlanModel.user_id == current_user.id,
@@ -394,38 +400,27 @@ async def send_weekly_meal_plan_notification(
                 grocery_items = dict(sorted(grocery_items.items()))
 
         # Extract recipe names from meal plan data
-        if meal_plan.selected_recipes:
-            import json
+        if meal_plan.items:
+            weekly_recipes = {}
+            # Sort items by date and meal_type for consistent order
+            sorted_items = sorted(meal_plan.items, key=lambda x: (x.date, x.meal_type))
+            for item in sorted_items:
+                day_name = item.date.strftime("%A")
+                if day_name not in weekly_recipes:
+                    weekly_recipes[day_name] = []
 
-            try:
-                selected_recipes_data = (
-                    json.loads(meal_plan.selected_recipes)
-                    if isinstance(meal_plan.selected_recipes, str)
-                    else meal_plan.selected_recipes
+                recipe_name = "Untitled Recipe"
+                if item.recipe:
+                    recipe_name = item.recipe.name
+                elif item.recipe_data and "name" in item.recipe_data:
+                    recipe_name = item.recipe_data["name"]
+
+                weekly_recipes[day_name].append(
+                    {
+                        "name": recipe_name,
+                        "meal_type": item.meal_type.title(),
+                    }
                 )
-                weekly_recipes = {}
-
-                # Group recipes by day
-                for slot_key, recipe_data in selected_recipes_data.items():
-                    # Parse slot key like "monday_dinner" -> day="Monday", meal_type="dinner"
-                    parts = slot_key.split("_")
-                    if len(parts) >= 2:
-                        day = parts[0].title()
-                        meal_type = "_".join(parts[1:])
-
-                        if day not in weekly_recipes:
-                            weekly_recipes[day] = []
-
-                        weekly_recipes[day].append(
-                            {
-                                "name": recipe_data.get("name", "Untitled Recipe"),
-                                "meal_type": meal_type.title(),
-                            }
-                        )
-
-            except (json.JSONDecodeError, AttributeError) as e:
-                logger.error(f"Error parsing meal plan recipes: {e}")
-                weekly_recipes = None
     elif request.weekly_recipes:
         # Use weekly_recipes data provided directly from frontend (for AI-generated plans)
         weekly_recipes = request.weekly_recipes

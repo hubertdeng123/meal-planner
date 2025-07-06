@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List
 from app.db.database import get_db
 from app.api.deps import get_current_active_user
 from app.models import (
@@ -38,7 +37,7 @@ async def create_grocery_list(
     return _format_grocery_list_response(db_grocery_list)
 
 
-@router.get("/", response_model=List[GroceryList])
+@router.get("/", response_model=list[GroceryList])
 async def get_grocery_lists(
     skip: int = 0,
     limit: int = 20,
@@ -116,7 +115,6 @@ async def add_grocery_item(
     db: Session = Depends(get_db),
 ):
     """Add an item to a grocery list"""
-    # Verify grocery list belongs to user
     grocery_list = (
         db.query(GroceryListModel)
         .filter(
@@ -155,7 +153,6 @@ async def update_grocery_item(
     db: Session = Depends(get_db),
 ):
     """Update a grocery item"""
-    # Verify grocery list belongs to user
     grocery_list = (
         db.query(GroceryListModel)
         .filter(
@@ -202,7 +199,6 @@ async def delete_grocery_item(
     db: Session = Depends(get_db),
 ):
     """Delete a grocery item"""
-    # Verify grocery list belongs to user
     grocery_list = (
         db.query(GroceryListModel)
         .filter(
@@ -239,12 +235,11 @@ async def delete_grocery_item(
 
 @router.post("/from-recipes/", response_model=GroceryList)
 async def create_grocery_list_from_recipes(
-    recipe_ids: List[int],
+    recipe_ids: list[int],
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ):
     """Create a grocery list from selected recipes"""
-    # Verify all recipes belong to user
     recipes = (
         db.query(RecipeModel)
         .filter(RecipeModel.id.in_(recipe_ids), RecipeModel.user_id == current_user.id)
@@ -257,14 +252,12 @@ async def create_grocery_list_from_recipes(
             detail="One or more recipes not found",
         )
 
-    # Create grocery list
     db_grocery_list = GroceryListModel(user_id=current_user.id)
 
     db.add(db_grocery_list)
     db.commit()
     db.refresh(db_grocery_list)
 
-    # Aggregate ingredients from all recipes
     ingredient_dict = {}
 
     for recipe in recipes:
@@ -274,11 +267,9 @@ async def create_grocery_list_from_recipes(
             unit = ingredient.get("unit", "")
 
             if name in ingredient_dict:
-                # If same unit, add quantities
                 if ingredient_dict[name]["unit"] == unit:
                     ingredient_dict[name]["quantity"] += quantity
                 else:
-                    # Different units, create separate items
                     name_with_unit = f"{name} ({unit})"
                     ingredient_dict[name_with_unit] = {
                         "quantity": quantity,
@@ -292,7 +283,6 @@ async def create_grocery_list_from_recipes(
                     "category": _categorize_ingredient(name),
                 }
 
-    # Create grocery items
     for name, details in ingredient_dict.items():
         db_item = GroceryItemModel(
             grocery_list_id=db_grocery_list.id,
@@ -334,7 +324,6 @@ def _categorize_ingredient(ingredient_name: str) -> str:
         "apple",
         "banana",
     ]
-
     dairy = [
         "milk",
         "cheese",
@@ -345,7 +334,6 @@ def _categorize_ingredient(ingredient_name: str) -> str:
         "mozzarella",
         "parmesan",
     ]
-
     meat = [
         "chicken",
         "beef",
@@ -357,7 +345,6 @@ def _categorize_ingredient(ingredient_name: str) -> str:
         "bacon",
         "sausage",
     ]
-
     pantry = [
         "rice",
         "pasta",
@@ -377,15 +364,12 @@ def _categorize_ingredient(ingredient_name: str) -> str:
     for item in produce:
         if item in ingredient_name:
             return "Produce"
-
     for item in dairy:
         if item in ingredient_name:
             return "Dairy"
-
     for item in meat:
         if item in ingredient_name:
             return "Meat & Seafood"
-
     for item in pantry:
         if item in ingredient_name:
             return "Pantry"
