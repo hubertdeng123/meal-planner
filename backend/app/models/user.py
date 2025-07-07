@@ -2,6 +2,14 @@ from sqlalchemy import Column, Integer, String, Boolean, DateTime, JSON, Time
 from sqlalchemy.orm import relationship
 from datetime import datetime, time
 from app.db.database import Base
+from app.schemas.user import (
+    FoodPreferences,
+    IngredientRules,
+    FoodTypeRules,
+    NutritionalRules,
+    SchedulingRules,
+    DietaryRules,
+)
 
 
 class User(Base):
@@ -46,3 +54,24 @@ class User(Base):
     meal_plans = relationship("MealPlan", back_populates="user")
     grocery_lists = relationship("GroceryList", back_populates="user")
     recipe_feedback = relationship("RecipeFeedback", back_populates="user")
+
+    @property
+    def preferences(self):
+        """Returns a Pydantic-compatible UserPreferences object"""
+        return {
+            "food_preferences": FoodPreferences.model_validate(
+                self.food_preferences or {}
+            ),
+            "dietary_restrictions": self.dietary_restrictions or [],
+            "ingredient_rules": IngredientRules.model_validate(
+                self.ingredient_rules or {}
+            ),
+            "food_type_rules": FoodTypeRules.model_validate(self.food_type_rules or {}),
+            "nutritional_rules": NutritionalRules.model_validate(
+                self.nutritional_rules or {}
+            ),
+            "scheduling_rules": SchedulingRules.model_validate(
+                self.scheduling_rules or {}
+            ),
+            "dietary_rules": DietaryRules.model_validate(self.dietary_rules or {}),
+        }
