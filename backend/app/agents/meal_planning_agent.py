@@ -188,7 +188,7 @@ IMPORTANT: Always consider dietary restrictions and preferences. Make recipes di
 
                     logger.info("📝 Meal suggestions generated")
                     # Use proper SSE format for completion
-                    yield f"data: {json.dumps({'type': 'complete', 'message': 'Meal plan generated successfully!', 'meal_plan_data': recipe_json_text})}\n\n"
+                    yield recipe_json_text
                     return
                 else:
                     # Accumulate text for final parsing
