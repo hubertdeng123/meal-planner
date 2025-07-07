@@ -9,9 +9,30 @@ from sqlalchemy import (
     Boolean,
     DateTime,
 )
+from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy.ext.compiler import compiles
+from sqlalchemy.types import TypeDecorator, JSON as JSONType
 from sqlalchemy.orm import relationship
 import datetime
 from app.db.database import Base
+
+
+class TextArray(TypeDecorator):
+    """Safely handle JSON and ARRAY types for recipes"""
+
+    impl = JSONType
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == "postgresql":
+            return dialect.type_descriptor(ARRAY(String))
+        else:
+            return dialect.type_descriptor(JSONType())
+
+
+@compiles(TextArray, "postgresql")
+def compile_text_array_postgresql(element, compiler, **kw):
+    return "TEXT[]"
 
 
 class Recipe(Base):
@@ -29,8 +50,8 @@ class Recipe(Base):
 
     # Use JSON for compatibility with both PostgreSQL and SQLite
     # The migration will convert these to ARRAY in PostgreSQL
-    tags = Column(JSON)  # e.g., ["vegetarian", "quick", "healthy"]
-    source_urls = Column(JSON)  # URLs if applicable
+    tags = Column(TextArray, default=list)  # e.g., ["vegetarian", "quick", "healthy"]
+    source_urls = Column(TextArray, default=list)  # URLs if applicable
 
     cuisine = Column(String, index=True)  # e.g., "Italian", "Mexican"
     difficulty = Column(String)  # "Easy", "Medium", "Hard"
