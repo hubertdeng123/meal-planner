@@ -59,6 +59,10 @@ WEB SEARCH INSTRUCTIONS:
 - If you find inspiration from multiple sources, include ALL their URLs in the source_urls array
 
 THINKING PROCESS:
+When thinking through your response, write in clear, complete sentences that flow naturally.
+Do not use markdown formatting, bullet points, or special characters in your thinking.
+Think aloud as if you're explaining your reasoning to a colleague in simple, conversational language.
+
 Think through your meal planning approach naturally, paying special attention to the user's preferences and requirements.
 
 IMPORTANT: When user preferences are provided, discuss how you're incorporating them:
@@ -183,7 +187,8 @@ IMPORTANT: Always consider dietary restrictions and preferences. Make recipes di
                     ].strip()
 
                     logger.info("📝 Meal suggestions generated")
-                    yield recipe_json_text
+                    # Use proper SSE format for completion
+                    yield f"data: {json.dumps({'type': 'complete', 'message': 'Meal plan generated successfully!', 'meal_plan_data': recipe_json_text})}\n\n"
                     return
                 else:
                     # Accumulate text for final parsing
@@ -456,6 +461,10 @@ When user preferences are provided, think through how to incorporate them across
 - Plan around their dietary restrictions consistently
 
 THINKING PROCESS:
+When thinking through your response, write in clear, complete sentences that flow naturally.
+Do not use markdown formatting, bullet points, or special characters in your thinking.
+Think aloud as if you're explaining your reasoning to a colleague in simple, conversational language.
+
 Express your reasoning naturally, like: "The user loves Mediterranean and Asian flavors but wants to stay under 500 calories per meal. I'll plan 2 Mediterranean meals and 2 Asian meals this week, using lots of vegetables and lean proteins. Since they need to avoid dairy, I'll use olive oil and tahini for richness instead of cheese."
 
 OUTPUT FORMAT:
