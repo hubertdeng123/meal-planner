@@ -1,8 +1,9 @@
 import logging
+import hashlib
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-from datetime import timedelta
+from datetime import timedelta, datetime
 import json
 from app.db.database import get_db
 from app.api.deps import get_current_active_user
@@ -44,6 +45,46 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+# Simple in-memory cache for request deduplication (1 hour window)
+_recent_meal_plan_requests = {}
+
+
+def _generate_request_hash(user_id: int, schedule_request) -> str:
+    """Generate a hash for meal plan request to detect duplicates"""
+    request_data = {
+        "user_id": user_id,
+        "start_date": schedule_request.start_date.isoformat(),
+        "cooking_days": sorted(schedule_request.cooking_days),
+        "meal_types": sorted([mt.value for mt in schedule_request.meal_types]),
+        "servings": schedule_request.servings,
+        "difficulty": schedule_request.difficulty,
+        "preferred_cuisines": sorted(schedule_request.preferred_cuisines or []),
+        "dietary_restrictions": sorted(schedule_request.dietary_restrictions or []),
+    }
+    return hashlib.md5(json.dumps(request_data, sort_keys=True).encode()).hexdigest()
+
+
+def _is_duplicate_request(user_id: int, schedule_request) -> bool:
+    """Check if this is a duplicate request within the last hour"""
+    request_hash = _generate_request_hash(user_id, schedule_request)
+    now = datetime.now()
+
+    # Clean old requests (older than 1 hour)
+    cutoff_time = now - timedelta(hours=1)
+    expired_keys = [k for k, v in _recent_meal_plan_requests.items() if v < cutoff_time]
+    for key in expired_keys:
+        del _recent_meal_plan_requests[key]
+
+    # Check if this request was made recently
+    if request_hash in _recent_meal_plan_requests:
+        last_request_time = _recent_meal_plan_requests[request_hash]
+        if (now - last_request_time).total_seconds() < 300:  # 5 minutes
+            return True
+
+    # Record this request
+    _recent_meal_plan_requests[request_hash] = now
+    return False
+
 
 @router.post("/weekly-plan/", response_model=WeeklyMealPlan)
 async def create_weekly_meal_plan(
@@ -52,6 +93,16 @@ async def create_weekly_meal_plan(
     db: Session = Depends(get_db),
 ):
     """Create a weekly meal plan with AI-generated recipe suggestions"""
+
+    # Check for duplicate requests to prevent accidental API usage
+    if _is_duplicate_request(current_user.id, schedule_request):
+        logger.warning(
+            f"Duplicate meal plan request detected for user {current_user.id}"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Similar meal plan request was made recently. Please wait a few minutes before trying again.",
+        )
 
     # Calculate end date (6 days after start)
     end_date = schedule_request.start_date + timedelta(days=6)
@@ -104,25 +155,71 @@ async def create_weekly_meal_plan(
         "special_notes": schedule_request.special_notes or {},
     }
 
-    # Generate all meal suggestions for the week in a single call to ensure uniqueness
-    try:
-        weekly_suggestions = await meal_planning_agent.generate_weekly_meal_plan(
-            cooking_days=schedule_request.cooking_days,
-            meal_types=meal_type_strings,
-            start_date=schedule_request.start_date.strftime("%B %d, %Y"),
-            servings=schedule_request.servings,
-            difficulty=schedule_request.difficulty,
-            preferred_cuisines=schedule_request.preferred_cuisines,
-            dietary_restrictions=schedule_request.dietary_restrictions,
-            must_include_ingredients=schedule_request.must_include_ingredients,
-            must_avoid_ingredients=schedule_request.must_avoid_ingredients,
-            user_preferences=user_preferences,  # Pass enhanced user preferences
-            search_online=True,
-        )
-    except Exception as e:
-        logger.error(f"Error generating weekly meal plan: {e}")
-        # If generation fails, fall back to individual generation
-        weekly_suggestions = {}
+    # Generate meal suggestions using batched approach (daily batching for better reliability)
+    weekly_suggestions = {}
+
+    # Calculate total meals to decide on strategy
+    total_meals = len(schedule_request.cooking_days) * len(meal_type_strings)
+
+    if total_meals <= 6:  # Small plans: try weekly batching first
+        try:
+            logger.info(f"Attempting weekly batch generation for {total_meals} meals")
+            weekly_suggestions = await meal_planning_agent.generate_weekly_meal_plan(
+                cooking_days=schedule_request.cooking_days,
+                meal_types=meal_type_strings,
+                start_date=schedule_request.start_date.strftime("%B %d, %Y"),
+                servings=schedule_request.servings,
+                difficulty=schedule_request.difficulty,
+                preferred_cuisines=schedule_request.preferred_cuisines,
+                dietary_restrictions=schedule_request.dietary_restrictions,
+                must_include_ingredients=schedule_request.must_include_ingredients,
+                must_avoid_ingredients=schedule_request.must_avoid_ingredients,
+                user_preferences=user_preferences,
+                search_online=True,
+            )
+            logger.info(
+                f"Weekly batch generation successful, got {len(weekly_suggestions)} meal groups"
+            )
+        except Exception as e:
+            logger.error(f"Weekly batch generation failed: {e}")
+            weekly_suggestions = {}
+
+    # For larger plans or failed weekly batch, use daily batching strategy
+    if not weekly_suggestions and total_meals > 3:
+        logger.info("Using daily batch generation strategy")
+        for day_offset in range(7):
+            current_date = schedule_request.start_date + timedelta(days=day_offset)
+            weekday = current_date.strftime("%A").lower()
+
+            # Check if user wants to cook on this day
+            if weekday in [day.lower() for day in schedule_request.cooking_days]:
+                try:
+                    logger.info(f"Generating daily batch for {weekday}")
+                    daily_plan = await meal_planning_agent.generate_daily_meal_plan(
+                        date_str=current_date.strftime("%A, %B %d"),
+                        meal_types=meal_type_strings,
+                        servings=schedule_request.servings,
+                        difficulty=schedule_request.difficulty,
+                        preferred_cuisines=schedule_request.preferred_cuisines,
+                        dietary_restrictions=schedule_request.dietary_restrictions,
+                        must_include_ingredients=schedule_request.must_include_ingredients,
+                        must_avoid_ingredients=schedule_request.must_avoid_ingredients,
+                        user_preferences=user_preferences,
+                        search_online=True,
+                    )
+
+                    # Convert daily plan format to weekly plan format
+                    for meal_type, recipes in daily_plan.items():
+                        meal_key = f"{weekday}_{meal_type}"
+                        weekly_suggestions[meal_key] = recipes
+
+                    logger.info(
+                        f"Daily batch successful for {weekday}, got {len(daily_plan)} meal types"
+                    )
+
+                except Exception as e:
+                    logger.error(f"Daily batch generation failed for {weekday}: {e}")
+                    # Continue with other days even if one fails
 
     # Generate meal slots for the week
     meal_slots = []

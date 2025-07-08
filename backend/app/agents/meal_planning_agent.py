@@ -523,12 +523,30 @@ IMPORTANT: Consider all user preferences and restrictions for every recipe gener
             "\n\nReturn a single JSON object with all meal suggestions for the week."
         )
 
+        # Calculate estimated token needs based on meal plan size
+        total_meals = len(cooking_days) * len(meal_types)
+        # More aggressive token allocation for large weekly plans
+        max_tokens = min(12000, 4000 + (total_meals * 800))  # Base + per meal
+        thinking_budget = min(4000, 2000 + (total_meals * 200))  # Scaled thinking
+
+        tools = None
+        if search_online:
+            tools = self._build_web_search_tools(max_uses=5)
+            search_query = (
+                f"weekly meal plan {' '.join(preferred_cuisines or [])} recipes"
+            )
+            user_prompt = f"""First, search the web for "{search_query}" to get inspiration for diverse weekly meal planning, then create the complete meal plan.
+
+{user_prompt}"""
+
         try:
             message = self.client.messages.create(
                 model="claude-sonnet-4-20250514",
-                max_tokens=15000,
+                max_tokens=max_tokens,
                 temperature=0.8,
                 system=system_prompt,
+                thinking={"type": "enabled", "budget_tokens": thinking_budget},
+                tools=tools if tools else None,
                 messages=[{"role": "user", "content": user_prompt}],
             )
 
@@ -579,6 +597,175 @@ IMPORTANT: Consider all user preferences and restrictions for every recipe gener
 
         except json.JSONDecodeError as e:
             logger.error(f"Weekly plan JSON decoding failed: {e}")
+            logger.debug(f"Response text that failed to parse: {response_text}")
+            return {}
+
+    async def generate_daily_meal_plan(
+        self,
+        date_str: str,
+        meal_types: list[str],
+        servings: int = 4,
+        difficulty: str | None = None,
+        preferred_cuisines: list[str] | None = None,
+        dietary_restrictions: list[str] | None = None,
+        must_include_ingredients: list[str] | None = None,
+        must_avoid_ingredients: list[str] | None = None,
+        search_online: bool = True,
+        user_preferences: dict[str, str | int | float | dict | list] | None = None,
+    ) -> dict[str, list[RecipeSuggestion]]:
+        """Generate a complete daily meal plan with multiple meal types in one API call"""
+
+        system_prompt = """You are an expert meal planning AI for a full day. Your goal is to create a cohesive daily meal plan with diverse recipes that work well together.
+
+CRITICAL DAILY PLANNING REQUIREMENTS:
+1. **Meal Variety**: Each meal must use DIFFERENT cuisines and cooking methods
+2. **Nutritional Balance**: Plan the day's nutrition across all meals
+3. **Ingredient Synergy**: Smart ingredient reuse (e.g., herbs from lunch in dinner)
+4. **Prep Efficiency**: Consider overlapping prep work between meals
+5. **No Duplicates**: EVERY recipe name must be unique within the day
+
+PERSONALIZATION REQUIREMENTS:
+When user preferences are provided, think through how to incorporate them across all meals:
+- Explain how you're balancing their nutritional goals across the full day
+- Show how you're using their preferred ingredients and avoiding disliked ones
+- Consider their time constraints and when they might be cooking each meal
+- Address their spice level and flavor preferences consistently
+- Plan around their dietary restrictions for all meals
+
+THINKING PROCESS:
+When thinking through your response, write in clear, complete sentences that flow naturally.
+Do not use markdown formatting, bullet points, or special characters in your thinking.
+Think aloud as if you're explaining your reasoning to a colleague in simple, conversational language.
+
+Express your reasoning naturally, like: "For this busy Tuesday, I'll plan a quick Mediterranean breakfast, prep-ahead Asian lunch that uses similar vegetables, and an easy American dinner that balances the day's nutrition."
+
+OUTPUT FORMAT:
+Return a single JSON object. The keys should be the meal types (e.g., "breakfast", "lunch", "dinner").
+The value for each key should be an array of EXACTLY 3 diverse recipe suggestions.
+
+Example:
+{
+  "breakfast": [ {recipe1}, {recipe2}, {recipe3} ],
+  "lunch": [ {recipe4}, {recipe5}, {recipe6} ],
+  "dinner": [ {recipe7}, {recipe8}, {recipe9} ]
+}
+
+Each recipe object must follow this structure:
+{
+  "name": "Recipe Name",
+  "description": "Brief description",
+  "cuisine": "Cuisine Type",
+  "ingredients": [{"name": "ingredient", "quantity": 1.5, "unit": "cups"}],
+  "instructions": ["Step 1", ...],
+  "prep_time": 15,
+  "cook_time": 30,
+  "servings": 4,
+  "difficulty": "Easy/Medium/Hard",
+  "nutrition": {"calories": 350},
+  "source_urls": ["https://..."]
+}
+
+IMPORTANT: Consider all user preferences and restrictions for every recipe generated."""
+
+        user_prompt = f"Generate a complete daily meal plan for {date_str}."
+        user_prompt += f"\nPlan these meals: {', '.join(meal_types)}."
+        user_prompt += f"\nEach meal should serve {servings} people."
+
+        # Add user preferences early so they're prominently considered in planning
+        if user_preferences:
+            user_prompt += self._build_enhanced_preferences_prompt(user_preferences)
+
+        if difficulty:
+            user_prompt += f"\nOverall difficulty should be {difficulty}."
+
+        if dietary_restrictions:
+            user_prompt += f"\nApply these dietary restrictions to ALL recipes: {', '.join(dietary_restrictions)}"
+
+        if preferred_cuisines:
+            user_prompt += (
+                f"\nPrioritize these cuisines: {', '.join(preferred_cuisines)}"
+            )
+
+        if must_include_ingredients:
+            user_prompt += f"\nTry to include these ingredients: {', '.join(must_include_ingredients)}"
+
+        if must_avoid_ingredients:
+            user_prompt += f"\nStrictly avoid these ingredients: {', '.join(must_avoid_ingredients)}"
+
+        user_prompt += (
+            "\n\nReturn a single JSON object with all meal suggestions for the day."
+        )
+
+        # Calculate token needs based on number of meals
+        max_tokens = min(10000, 3000 + (len(meal_types) * 2000))  # Base + per meal
+        thinking_budget = min(3500, 1500 + (len(meal_types) * 500))  # Scaled thinking
+
+        tools = None
+        if search_online:
+            tools = self._build_web_search_tools(max_uses=3)
+            search_query = f"daily meal plan {' '.join(preferred_cuisines or [])} {' '.join(meal_types)} recipes"
+            user_prompt = f"""First, search the web for "{search_query}" to get inspiration for diverse daily meal planning, then create the complete meal plan.
+
+{user_prompt}"""
+
+        try:
+            message = self.client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=max_tokens,
+                temperature=0.8,
+                system=system_prompt,
+                thinking={"type": "enabled", "budget_tokens": thinking_budget},
+                tools=tools if tools else None,
+                messages=[{"role": "user", "content": user_prompt}],
+            )
+
+            response_text = ""
+            for content_block in message.content:
+                if hasattr(content_block, "text"):
+                    response_text += content_block.text
+
+            return self._parse_daily_meal_plan(response_text)
+
+        except Exception as e:
+            logger.error(f"Error generating daily meal plan: {e}")
+            return {}
+
+    def _parse_daily_meal_plan(
+        self, response_text: str
+    ) -> dict[str, list[RecipeSuggestion]]:
+        """Parse daily meal plan response from Claude"""
+        if not response_text or not response_text.strip():
+            logger.warning("Empty response text for daily meal plan")
+            return {}
+
+        try:
+            json_text = self._extract_json_from_text(response_text)
+            if not json_text:
+                logger.warning("No JSON found in daily meal plan response")
+                return {}
+
+            data = json.loads(json_text)
+
+            if isinstance(data, dict):
+                validated_plan = {}
+                for meal_type, recipes in data.items():
+                    if isinstance(recipes, list):
+                        validated_recipes = []
+                        for r in recipes:
+                            if isinstance(r, dict):
+                                fixed_recipe = self._fix_recipe(r)
+                                if fixed_recipe and self._validate_recipe(fixed_recipe):
+                                    validated_recipes.append(
+                                        RecipeSuggestion(**fixed_recipe)
+                                    )
+                        if validated_recipes:
+                            validated_plan[meal_type] = validated_recipes
+                return validated_plan
+
+            return {}
+
+        except json.JSONDecodeError as e:
+            logger.error(f"Daily plan JSON decoding failed: {e}")
             logger.debug(f"Response text that failed to parse: {response_text}")
             return {}
 
