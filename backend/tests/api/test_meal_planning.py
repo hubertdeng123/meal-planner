@@ -1,5 +1,16 @@
 from datetime import date
+import pytest
 from app.schemas.meal_plan import RecipeSuggestion
+
+
+@pytest.fixture(autouse=True)
+def clear_meal_planning_cache():
+    """Clear the meal planning duplicate request cache before each test to ensure test isolation."""
+    from app.api.endpoints.meal_planning import _recent_meal_plan_requests
+    _recent_meal_plan_requests.clear()
+    yield
+    # Optionally clear after test too
+    _recent_meal_plan_requests.clear()
 
 
 class TestCreateWeeklyMealPlan:
