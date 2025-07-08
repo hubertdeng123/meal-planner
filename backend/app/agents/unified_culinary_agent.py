@@ -563,9 +563,9 @@ class UnifiedCulinaryAgent:
         self,
         system_prompt: str,
         user_prompt: str,
-        max_tokens: int = 10000,
+        max_tokens: int = 8000,
         temperature: float = 1.0,
-        thinking_budget: int = 5000,
+        thinking_budget: int = 3000,
         tools: Optional[List[Dict[str, Any]]] = None,
     ) -> Iterator[str]:
         """

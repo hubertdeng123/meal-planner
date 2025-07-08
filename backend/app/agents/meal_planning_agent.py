@@ -169,9 +169,9 @@ IMPORTANT: Always consider dietary restrictions and preferences. Make recipes di
             for chunk in self._stream_claude_response(
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
-                max_tokens=10000,
+                max_tokens=8000,
                 temperature=1.0,
-                thinking_budget=5000,
+                thinking_budget=3000,
                 tools=tools,
             ):
                 # Handle special meal planning streaming logic
@@ -348,10 +348,10 @@ Return as a JSON array with exactly 3 recipes in this format:
         try:
             message = self.client.messages.create(
                 model="claude-sonnet-4-20250514",
-                max_tokens=10000,
+                max_tokens=8000,
                 temperature=1.0,
                 system=system_prompt,
-                thinking={"type": "enabled", "budget_tokens": 5000},
+                thinking={"type": "enabled", "budget_tokens": 3000},
                 tools=tools if tools else None,
                 messages=[{"role": "user", "content": user_prompt}],
             )

@@ -57,9 +57,9 @@ class RecipeAgent(UnifiedCulinaryAgent):
             for chunk in self._stream_claude_response(
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
-                max_tokens=10000,
+                max_tokens=8000,
                 temperature=1.0,
-                thinking_budget=5000,
+                thinking_budget=3000,
                 tools=tools,
             ):
                 # Handle special recipe streaming logic
@@ -435,8 +435,8 @@ class RecipeAgent(UnifiedCulinaryAgent):
         Return JSON with: calories, protein_g, carbs_g, fat_g, fiber_g, sugar_g, sodium_mg"""
 
         response = self.client.messages.create(
-            model="claude-3-5-sonnet-20241022",
-            max_tokens=1000,
+            model="claude-sonnet-4-20250514",
+            max_tokens=800,
             temperature=0.3,
             system="You are a nutritionist. Provide accurate nutritional estimates. Always respond with valid JSON only.",
             messages=[{"role": "user", "content": prompt}],

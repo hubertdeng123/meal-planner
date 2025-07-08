@@ -48,8 +48,12 @@ def upgrade() -> None:
         """)
 
         # Convert JSON arrays to PostgreSQL ARRAY types for better performance
-        op.execute("ALTER TABLE recipes ALTER COLUMN tags TYPE text[] USING json_to_text_array(tags)")
-        op.execute("ALTER TABLE recipes ALTER COLUMN source_urls TYPE text[] USING json_to_text_array(source_urls)")
+        op.execute(
+            "ALTER TABLE recipes ALTER COLUMN tags TYPE text[] USING json_to_text_array(tags)"
+        )
+        op.execute(
+            "ALTER TABLE recipes ALTER COLUMN source_urls TYPE text[] USING json_to_text_array(source_urls)"
+        )
 
         # Drop the helper function
         op.execute("DROP FUNCTION json_to_text_array(json)")
