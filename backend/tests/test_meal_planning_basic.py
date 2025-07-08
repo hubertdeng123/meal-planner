@@ -1,10 +1,32 @@
 from datetime import date
+from app.schemas.meal_plan import RecipeSuggestion
 
 
 def test_create_weekly_meal_plan_success(
     client, auth_headers, mock_meal_planning_agent
 ):
     """Test successful weekly meal plan creation."""
+    # Mock the agent's response
+    mock_suggestions = [
+        RecipeSuggestion(
+            name="Spaghetti Carbonara",
+            description="Classic Italian pasta dish",
+            cuisine="Italian",
+            ingredients=[{"name": "spaghetti", "quantity": 1, "unit": "lb"}],
+            instructions=["Boil pasta", "Make sauce"],
+            prep_time=10,
+            cook_time=15,
+            servings=4,
+            difficulty="Medium",
+            nutrition={"calories": 450},
+        )
+    ] * 3
+    mock_meal_planning_agent.generate_weekly_meal_plan.return_value = {
+        "monday_dinner": mock_suggestions,
+        "wednesday_dinner": mock_suggestions,
+        "friday_dinner": mock_suggestions,
+    }
+
     request_data = {
         "start_date": date.today().isoformat(),
         "cooking_days": ["monday", "wednesday", "friday"],
