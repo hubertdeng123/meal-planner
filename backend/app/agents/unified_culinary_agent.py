@@ -9,7 +9,7 @@ import logging
 import re
 from typing import Any, Dict, Iterator, List, Optional
 from anthropic import Anthropic
-from app.core.config import settings
+from app.core.config import settings, RECIPE_WEB_SEARCH_ALLOWED_DOMAINS
 from app.schemas.meal_plan import RecipeSuggestion
 from app.models import User, RecipeFeedback
 from sqlalchemy.orm import Session
@@ -544,18 +544,7 @@ class UnifiedCulinaryAgent:
                 "type": "web_search_20250305",
                 "name": "web_search",
                 "max_uses": max_uses,
-                "allowed_domains": [
-                    "allrecipes.com",
-                    "foodnetwork.com",
-                    "seriouseats.com",
-                    "simplyrecipes.com",
-                    "food.com",
-                    "tasteofhome.com",
-                    "delish.com",
-                    "cookinglight.com",
-                    "budgetbytes.com",
-                    "americastestkitchen.com",
-                ],
+                "allowed_domains": RECIPE_WEB_SEARCH_ALLOWED_DOMAINS,
             }
         ]
 

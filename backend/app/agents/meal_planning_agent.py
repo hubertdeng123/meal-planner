@@ -4,6 +4,7 @@ import logging
 from typing import Any, Iterator
 from app.agents.unified_culinary_agent import UnifiedCulinaryAgent
 from app.schemas.meal_plan import RecipeSuggestion
+from app.core.config import RECIPE_WEB_SEARCH_ALLOWED_DOMAINS
 
 logger = logging.getLogger(__name__)
 
@@ -144,13 +145,7 @@ IMPORTANT: Always consider dietary restrictions and preferences. Make recipes di
                     "type": "web_search_20250305",
                     "name": "web_search",
                     "max_uses": 3,
-                    "allowed_domains": [
-                        "foodnetwork.com",
-                        "food.com",
-                        "tasteofhome.com",
-                        "maangchi.com",
-                        "thewoksoflife.com",
-                    ],
+                    "allowed_domains": RECIPE_WEB_SEARCH_ALLOWED_DOMAINS,
                 }
             ]
 
@@ -301,14 +296,7 @@ IMPORTANT: Always consider dietary restrictions and preferences. Make recipes di
                     "type": "web_search_20250305",
                     "name": "web_search",
                     "max_uses": 5,
-                    "allowed_domains": [
-                        "allrecipes.com",
-                        "foodnetwork.com",
-                        "seriouseats.com",
-                        "simplyrecipes.com",
-                        "food.com",
-                        "tasteofhome.com",
-                    ],
+                    "allowed_domains": RECIPE_WEB_SEARCH_ALLOWED_DOMAINS,
                 }
             )
 

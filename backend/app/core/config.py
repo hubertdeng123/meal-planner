@@ -36,3 +36,16 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+# Recipe web search configuration
+RECIPE_WEB_SEARCH_ALLOWED_DOMAINS = [
+    "foodnetwork.com",
+    "food.com",
+    "tasteofhome.com",
+    "delish.com",
+    "cookinglight.com",
+    "budgetbytes.com",
+    "americastestkitchen.com",
+    "thewoksoflife.com",
+    "maangchi.com",
+]
