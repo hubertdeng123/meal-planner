@@ -145,12 +145,11 @@ IMPORTANT: Always consider dietary restrictions and preferences. Make recipes di
                     "name": "web_search",
                     "max_uses": 3,
                     "allowed_domains": [
-                        "allrecipes.com",
                         "foodnetwork.com",
-                        "seriouseats.com",
-                        "simplyrecipes.com",
                         "food.com",
                         "tasteofhome.com",
+                        "maangchi.com",
+                        "thewoksoflife.com",
                     ],
                 }
             ]
