@@ -44,7 +44,7 @@ async def update_user_preferences(
     """Update user preferences"""
     try:
         # Update only the fields that are provided
-        update_data = preferences.dict(exclude_unset=True)
+        update_data = preferences.model_dump(exclude_unset=True)
 
         for field, value in update_data.items():
             if hasattr(current_user, field):

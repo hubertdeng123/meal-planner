@@ -181,7 +181,7 @@ async def update_grocery_item(
             status_code=status.HTTP_404_NOT_FOUND, detail="Grocery item not found"
         )
 
-    update_data = item_update.dict(exclude_unset=True)
+    update_data = item_update.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(item, field, value)
 

@@ -6,25 +6,42 @@ import {
   UserCircleIcon,
   SparklesIcon,
   Cog6ToothIcon,
+  HomeIcon,
+  BookOpenIcon,
+  ShoppingBagIcon,
+  PlusCircleIcon,
 } from '@heroicons/react/24/outline';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 
 function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(' ');
 }
 
+const navigation = [
+  { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
+  { name: 'My Recipes', href: '/recipes', icon: BookOpenIcon },
+  { name: 'Grocery Lists', href: '/grocery', icon: ShoppingBagIcon },
+  { name: 'Generate Recipe', href: '/generate', icon: PlusCircleIcon },
+];
+
 interface LayoutProps {
   children: React.ReactNode;
+  breadcrumbs?: React.ReactNode; // Optional breadcrumbs to render above content
 }
 
-export default function Layout({ children }: LayoutProps) {
+export default function Layout({ children, breadcrumbs }: LayoutProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { logout } = useAuth();
 
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const isActive = (href: string) => {
+    return location.pathname === href || location.pathname.startsWith(href + '/');
   };
 
   return (
@@ -45,6 +62,26 @@ export default function Layout({ children }: LayoutProps) {
                       </div>
                       <h1 className="text-xl font-semibold text-gray-900">Hungry Helper</h1>
                     </Link>
+                  </div>
+                  <div className="hidden md:ml-6 md:flex md:space-x-1">
+                    {navigation.map(item => {
+                      const Icon = item.icon;
+                      return (
+                        <Link
+                          key={item.href}
+                          to={item.href}
+                          className={classNames(
+                            'inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200',
+                            isActive(item.href)
+                              ? 'bg-orange-50 text-orange-600'
+                              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                          )}
+                        >
+                          <Icon className="mr-2 h-4 w-4" />
+                          {item.name}
+                        </Link>
+                      );
+                    })}
                   </div>
                 </div>
                 <div className="hidden sm:ml-6 sm:flex sm:items-center">
@@ -109,21 +146,41 @@ export default function Layout({ children }: LayoutProps) {
               </div>
             </div>
 
-            <Disclosure.Panel className="sm:hidden">
+            <Disclosure.Panel className="md:hidden">
               <div className="space-y-1 pb-3 pt-2 px-4">
-                <Link
-                  to="/settings"
-                  className="flex w-full items-center rounded-lg px-3 py-2 text-left text-base font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all duration-200"
-                >
-                  <Cog6ToothIcon className="mr-3 h-5 w-5 text-gray-400" />
-                  Settings
-                </Link>
-                <button
-                  onClick={handleLogout}
-                  className="flex w-full items-center rounded-lg px-3 py-2 text-left text-base font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all duration-200"
-                >
-                  Sign out
-                </button>
+                {navigation.map(item => {
+                  const Icon = item.icon;
+                  return (
+                    <Link
+                      key={item.href}
+                      to={item.href}
+                      className={classNames(
+                        'flex w-full items-center rounded-lg px-3 py-2 text-left text-base font-medium transition-all duration-200',
+                        isActive(item.href)
+                          ? 'bg-orange-50 text-orange-600'
+                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      )}
+                    >
+                      <Icon className="mr-3 h-5 w-5" />
+                      {item.name}
+                    </Link>
+                  );
+                })}
+                <div className="border-t border-gray-200 mt-2 pt-2">
+                  <Link
+                    to="/settings"
+                    className="flex w-full items-center rounded-lg px-3 py-2 text-left text-base font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all duration-200"
+                  >
+                    <Cog6ToothIcon className="mr-3 h-5 w-5 text-gray-400" />
+                    Settings
+                  </Link>
+                  <button
+                    onClick={handleLogout}
+                    className="flex w-full items-center rounded-lg px-3 py-2 text-left text-base font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all duration-200"
+                  >
+                    Sign out
+                  </button>
+                </div>
               </div>
             </Disclosure.Panel>
           </>
@@ -131,6 +188,7 @@ export default function Layout({ children }: LayoutProps) {
       </Disclosure>
 
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 animate-fade-in">
+        {breadcrumbs}
         {children}
       </main>
     </div>

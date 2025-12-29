@@ -8,7 +8,6 @@ from app.api.endpoints import (
     auth,
     recipes,
     grocery,
-    meal_planning,
     notifications,
     users,
 )
@@ -99,12 +98,6 @@ app.include_router(
 
 app.include_router(
     grocery.router, prefix=f"{settings.API_PREFIX}/grocery", tags=["grocery"]
-)
-
-app.include_router(
-    meal_planning.router,
-    prefix=f"{settings.API_PREFIX}/meal-planning",
-    tags=["meal-planning"],
 )
 
 app.include_router(

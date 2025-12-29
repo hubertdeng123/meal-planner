@@ -4,9 +4,9 @@ import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
 import RecipesPage from './pages/RecipesPage';
 import RecipeDetailPage from './pages/RecipeDetailPage';
-import MealPlanHistoryPage from './pages/MealPlanHistoryPage';
-import WeeklyMealPlanPage from './pages/WeeklyMealPlanPage';
 import GenerateRecipePage from './pages/GenerateRecipePage';
+import GroceryListsPage from './pages/GroceryListsPage';
+import GroceryListDetailPage from './pages/GroceryListDetailPage';
 import SettingsPage from './pages/SettingsPage';
 import Layout from './components/Layout';
 import { AuthProvider } from './contexts/AuthContextProvider';
@@ -95,48 +95,28 @@ function AppRoutes() {
           }
         />
         <Route
-          path="/meal-planning"
-          element={
-            isAuthenticated ? (
-              <Layout>
-                <MealPlanHistoryPage />
-              </Layout>
-            ) : (
-              <Navigate to="/login" />
-            )
-          }
-        />
-        <Route
-          path="/weekly-meal-plan/create"
-          element={
-            isAuthenticated ? (
-              <Layout>
-                <WeeklyMealPlanPage />
-              </Layout>
-            ) : (
-              <Navigate to="/login" />
-            )
-          }
-        />
-        <Route
-          path="/weekly-meal-plan/:id"
-          element={
-            isAuthenticated ? (
-              <Layout>
-                <WeeklyMealPlanPage />
-              </Layout>
-            ) : (
-              <Navigate to="/login" />
-            )
-          }
-        />
-        <Route
           path="/grocery"
-          element={isAuthenticated ? <Navigate to="/meal-planning" /> : <Navigate to="/login" />}
+          element={
+            isAuthenticated ? (
+              <Layout>
+                <GroceryListsPage />
+              </Layout>
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
         />
         <Route
           path="/grocery/:id"
-          element={isAuthenticated ? <Navigate to="/meal-planning" /> : <Navigate to="/login" />}
+          element={
+            isAuthenticated ? (
+              <Layout>
+                <GroceryListDetailPage />
+              </Layout>
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
         />
         <Route
           path="/settings"

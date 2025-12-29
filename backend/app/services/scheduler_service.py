@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, time as dt_time
+from datetime import datetime, timedelta, time as dt_time, timezone
 from typing import List
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -56,7 +56,7 @@ class SchedulerService:
             db = next(get_db())
 
             # Get current UTC time
-            now_utc = datetime.utcnow()
+            now_utc = datetime.now(timezone.utc)
             current_hour = now_utc.hour
             current_weekday = now_utc.weekday()  # Monday = 0, Sunday = 6
 
@@ -181,7 +181,8 @@ class SchedulerService:
                 .join(Recipe, RecipeFeedback.recipe_id == Recipe.id)
                 .filter(
                     RecipeFeedback.user_id == user_id,
-                    RecipeFeedback.created_at >= datetime.utcnow() - timedelta(days=30),
+                    RecipeFeedback.created_at
+                    >= datetime.now(timezone.utc) - timedelta(days=30),
                     (RecipeFeedback.rating >= 4) | (RecipeFeedback.liked),
                 )
                 .order_by(RecipeFeedback.rating.desc())

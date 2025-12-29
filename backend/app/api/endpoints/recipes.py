@@ -244,7 +244,7 @@ async def update_recipe(
             status_code=status.HTTP_404_NOT_FOUND, detail="Recipe not found"
         )
 
-    update_data = recipe_update.dict(exclude_unset=True)
+    update_data = recipe_update.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(recipe, field, value)
 

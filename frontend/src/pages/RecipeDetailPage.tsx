@@ -9,6 +9,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { StarIcon as StarSolidIcon, HeartIcon as HeartSolidIcon } from '@heroicons/react/24/solid';
 import recipeService from '../services/recipe.service';
+import Breadcrumbs from '../components/Breadcrumbs';
 import type { Recipe, RecipeFeedback } from '../types';
 
 export default function RecipeDetailPage() {
@@ -106,6 +107,9 @@ export default function RecipeDetailPage() {
 
   return (
     <div className="max-w-4xl mx-auto">
+      {/* Breadcrumbs */}
+      <Breadcrumbs items={[{ label: 'My Recipes', href: '/recipes' }, { label: recipe.name }]} />
+
       <div className="bg-white shadow rounded-lg p-6">
         <div className="flex justify-between items-start mb-4">
           <div className="flex-1">

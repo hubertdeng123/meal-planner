@@ -51,7 +51,7 @@ def client(db):
     from fastapi import FastAPI
     from fastapi.middleware.cors import CORSMiddleware
     from app.core.config import settings
-    from app.api.endpoints import auth, recipes, grocery, meal_planning, notifications
+    from app.api.endpoints import auth, recipes, grocery, notifications
 
     test_app = FastAPI(
         title=settings.APP_NAME,
@@ -83,11 +83,6 @@ def client(db):
     )
     test_app.include_router(
         grocery.router, prefix=f"{settings.API_PREFIX}/grocery", tags=["grocery"]
-    )
-    test_app.include_router(
-        meal_planning.router,
-        prefix=f"{settings.API_PREFIX}/meal-planning",
-        tags=["meal-planning"],
     )
     test_app.include_router(
         notifications.router,

@@ -145,9 +145,9 @@ def update_current_user(
         current_user.dietary_rules = prefs.dietary_rules.model_dump()
 
     # Update timestamp
-    from datetime import datetime
+    from datetime import datetime, timezone
 
-    current_user.updated_at = datetime.utcnow()
+    current_user.updated_at = datetime.now(timezone.utc)
 
     db.commit()
     db.refresh(current_user)

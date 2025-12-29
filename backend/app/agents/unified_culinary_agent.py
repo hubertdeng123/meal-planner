@@ -10,7 +10,6 @@ import re
 from typing import Any, Dict, Iterator, List, Optional
 from anthropic import Anthropic
 from app.core.config import settings, RECIPE_WEB_SEARCH_ALLOWED_DOMAINS
-from app.schemas.meal_plan import RecipeSuggestion
 from app.models import User, RecipeFeedback
 from sqlalchemy.orm import Session
 
@@ -462,80 +461,6 @@ class UnifiedCulinaryAgent:
                 recipe_dict[field] = 0
 
         return recipe_dict
-
-    def _get_fallback_recipe(
-        self, meal_type: str, servings: int = 4
-    ) -> RecipeSuggestion:
-        """
-        Generate a simple fallback recipe when AI generation fails.
-        """
-        fallback_recipes = {
-            "breakfast": {
-                "name": "Simple Scrambled Eggs",
-                "description": "Classic breakfast with eggs and toast",
-                "cuisine": "American",
-                "ingredients": [
-                    {"name": "eggs", "quantity": 2, "unit": "large"},
-                    {"name": "butter", "quantity": 1, "unit": "tbsp"},
-                    {"name": "salt", "quantity": 1, "unit": "pinch"},
-                    {"name": "black pepper", "quantity": 1, "unit": "pinch"},
-                ],
-                "instructions": [
-                    "Beat eggs in a bowl with salt and pepper",
-                    "Heat butter in a non-stick pan over medium-low heat",
-                    "Add eggs and gently scramble until set",
-                    "Serve immediately",
-                ],
-                "prep_time": 5,
-                "cook_time": 5,
-                "difficulty": "Easy",
-            },
-            "lunch": {
-                "name": "Classic Grilled Cheese",
-                "description": "Comfort food sandwich with melted cheese",
-                "cuisine": "American",
-                "ingredients": [
-                    {"name": "bread", "quantity": 2, "unit": "slices"},
-                    {"name": "cheddar cheese", "quantity": 2, "unit": "slices"},
-                    {"name": "butter", "quantity": 1, "unit": "tbsp"},
-                ],
-                "instructions": [
-                    "Butter one side of each bread slice",
-                    "Place cheese between unbuttered sides",
-                    "Cook in skillet until golden and cheese melts",
-                    "Flip once and cook other side",
-                ],
-                "prep_time": 5,
-                "cook_time": 8,
-                "difficulty": "Easy",
-            },
-            "dinner": {
-                "name": "Simple Pasta with Marinara",
-                "description": "Quick and satisfying pasta dinner",
-                "cuisine": "Italian",
-                "ingredients": [
-                    {"name": "pasta", "quantity": 8, "unit": "oz"},
-                    {"name": "marinara sauce", "quantity": 1, "unit": "cup"},
-                    {"name": "parmesan cheese", "quantity": 2, "unit": "tbsp"},
-                    {"name": "olive oil", "quantity": 1, "unit": "tbsp"},
-                ],
-                "instructions": [
-                    "Cook pasta according to package directions",
-                    "Heat marinara sauce in a pan",
-                    "Drain pasta and toss with sauce",
-                    "Serve with parmesan cheese",
-                ],
-                "prep_time": 5,
-                "cook_time": 15,
-                "difficulty": "Easy",
-            },
-        }
-
-        fallback = fallback_recipes.get(meal_type, fallback_recipes["dinner"]).copy()
-        fallback["servings"] = servings
-        fallback["nutrition"] = {"calories": 300}
-
-        return RecipeSuggestion(**fallback)
 
     def _build_web_search_tools(self, max_uses: int = 3) -> List[Dict[str, Any]]:
         """Build web search tool configuration for recipe inspiration"""

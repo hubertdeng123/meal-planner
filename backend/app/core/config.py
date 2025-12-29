@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import field_validator
 
 
 class Settings(BaseSettings):
@@ -9,12 +10,29 @@ class Settings(BaseSettings):
     )
 
     # Database
-    DATABASE_URL: str = "postgresql://postgres:password@localhost:5432/meal_planner"
+    DATABASE_URL: str
 
     # JWT
-    JWT_SECRET_KEY: str = "your-secret-key-here"
+    JWT_SECRET_KEY: str
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRATION_HOURS: int = 24
+
+    @field_validator("DATABASE_URL", "JWT_SECRET_KEY")
+    @classmethod
+    def validate_required_secrets(cls, v: str, info) -> str:
+        """Ensure critical secrets are set from environment variables"""
+        if not v or v.strip() == "":
+            raise ValueError(
+                f"{info.field_name} must be set in environment variables. "
+                f"Please add it to your .env file."
+            )
+        # Warn if using obvious placeholder values
+        if v in ["your-secret-key-here", "changeme", "secret", "password"]:
+            raise ValueError(
+                f"{info.field_name} appears to use a placeholder value. "
+                f"Please set a secure value in your .env file."
+            )
+        return v
 
     # Anthropic Claude
     ANTHROPIC_API_KEY: str = ""

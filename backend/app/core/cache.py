@@ -5,7 +5,7 @@ Caching utilities for reducing API calls and token usage
 import hashlib
 import json
 from typing import Optional, Dict, Any, TypeVar, Generic
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import redis
 from app.core.config import settings
 import logging
@@ -134,7 +134,7 @@ class APIResponseCache:
                     return json.loads(cached)
             else:
                 cached = self._cache.get(cache_key)
-                if cached and cached["expires_at"] > datetime.utcnow():
+                if cached and cached["expires_at"] > datetime.now(timezone.utc):
                     return cached["data"]
         except Exception as e:
             logger.warning(f"Cache get error: {e}")
@@ -153,7 +153,8 @@ class APIResponseCache:
             else:
                 self._cache[cache_key] = {
                     "data": data,
-                    "expires_at": datetime.utcnow() + timedelta(hours=ttl_hours),
+                    "expires_at": datetime.now(timezone.utc)
+                    + timedelta(hours=ttl_hours),
                 }
         except Exception as e:
             logger.warning(f"Cache set error: {e}")
@@ -161,7 +162,7 @@ class APIResponseCache:
     def clear_expired(self):
         """Clear expired entries from in-memory cache"""
         if not self.use_redis:
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             expired_keys = [
                 key for key, value in self._cache.items() if value["expires_at"] <= now
             ]

@@ -13,7 +13,7 @@ from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.types import TypeDecorator, JSON as JSONType
 from sqlalchemy.orm import relationship
-import datetime
+from datetime import datetime, timezone
 from app.db.database import Base
 
 
@@ -68,9 +68,11 @@ class Recipe(Base):
 
     # Timestamps
     image_url = Column(String)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(
-        DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
     )
 
     # Note: embedding column will be added by migration in PostgreSQL only
@@ -126,9 +128,11 @@ class RecipeFeedback(Base):
     difficulty_rating = Column(Integer)  # 1-5, how hard was it actually?
     taste_rating = Column(Integer)  # 1-5, how did it taste?
 
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(
-        DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
     )
 
     # Relationships

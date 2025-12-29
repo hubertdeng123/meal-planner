@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, joinedload
 from typing import Optional, List
-from datetime import time, datetime, timedelta
+from datetime import time, datetime, timedelta, timezone
 from pydantic import BaseModel
 from app.db.database import get_db
 from app.api.deps import get_current_active_user
@@ -92,7 +92,7 @@ async def update_notification_preferences(
     if preferences.timezone is not None:
         current_user.timezone = preferences.timezone
 
-    current_user.updated_at = datetime.utcnow()
+    current_user.updated_at = datetime.now(timezone.utc)
 
     db.commit()
     db.refresh(current_user)
