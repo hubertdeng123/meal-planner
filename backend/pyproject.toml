@@ -16,7 +16,7 @@ dependencies = [
     "passlib[bcrypt]>=1.7.4",
     "bcrypt>=4.0.1,<4.2.0",
     "python-multipart>=0.0.12",
-    "together @ git+https://github.com/togethercomputer/together-py.git@main",
+    "pydantic-ai>=1.39.0",
     "aiofiles>=23.2.1",
     "httpx>=0.28.0",
     "beautifulsoup4>=4.12.3",
@@ -26,6 +26,7 @@ dependencies = [
     "pytz>=2024.1",
     "psycopg2-binary>=2.9.10",
     "sentry-sdk[fastapi]>=2.0.0",
+    "together>=2.0.0a11",
 ]
 
 [tool.uv]
