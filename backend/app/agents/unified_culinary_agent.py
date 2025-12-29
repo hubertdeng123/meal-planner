@@ -7,9 +7,10 @@ from __future__ import annotations
 import json
 import logging
 import re
-from typing import Any, Dict, Iterator, List, Optional
-from anthropic import Anthropic
-from app.core.config import settings, RECIPE_WEB_SEARCH_ALLOWED_DOMAINS
+from collections.abc import Iterator
+from pydantic import BaseModel
+from together import Together
+from app.core.config import settings
 from app.models import User, RecipeFeedback
 from sqlalchemy.orm import Session
 
@@ -18,22 +19,29 @@ logger = logging.getLogger(__name__)
 
 class UnifiedCulinaryAgent:
     """
-    Base agent for all culinary AI operations including recipe generation and meal planning.
+    Base agent for all culinary AI operations using Together API (Llama 4 Maverick).
     Provides shared functionality and comprehensive user preferences integration.
     """
 
     def __init__(self):
-        self._client: Anthropic | None = None
+        self._client: Together | None = None
 
     @property
-    def client(self) -> Anthropic:
-        """Lazy initialization of Anthropic client"""
+    def client(self) -> Together:
+        """Lazy initialization of Together client"""
         if self._client is None:
-            self._client = Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+            self._client = Together(api_key=settings.TOGETHER_API_KEY)
         return self._client
 
+    def _get_response_format(self, schema: type[BaseModel]) -> dict:
+        """Build response_format parameter for structured JSON output"""
+        return {
+            "type": "json_schema",
+            "schema": schema.model_json_schema(),
+        }
+
     def _build_enhanced_preferences_prompt(
-        self, user_preferences: Dict[str, Any]
+        self, user_preferences: dict[str, object]
     ) -> str:
         """
         Build a comprehensive prompt section based on enhanced user preferences.
@@ -335,231 +343,94 @@ class UnifiedCulinaryAgent:
 
     def _extract_json_from_text(self, text: str) -> str | None:
         """
-        Extracts JSON content from a string, handling markdown code blocks and various formats.
+        Extract JSON from LLM response text.
+        With structured output, this should always return valid JSON.
+        Keep for backward compatibility and as safety net.
         """
         if not text or not text.strip():
             return None
 
-        # Remove markdown code blocks
+        # Remove any markdown code blocks (shouldn't exist with structured output)
         text = re.sub(r"```json\s*", "", text, flags=re.IGNORECASE)
         text = re.sub(r"```\s*", "", text)
 
-        # Pre-process to fix common LLM JSON errors
-        # Convert "quantity": 1/4 to "quantity": 0.25
+        # With structured output, the entire response should be valid JSON
         try:
-            # This regex specifically targets unquoted fractions in "quantity" fields
-            text = re.sub(
-                r'("quantity":\s*)(\d+)/(\d+)',
-                lambda m: f"{m.group(1)}{float(m.group(2)) / float(m.group(3))}",
-                text,
-            )
-        except Exception as e:
-            logger.warning(f"Failed to fix fractions in JSON response: {e}")
-            # If regex fails, continue with original text
-            pass
+            # Validate it's parseable
+            json.loads(text.strip())
+            return text.strip()
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON extraction failed despite structured output: {e}")
+            return None
 
-        # Look for JSON array or object
-        json_patterns = [
-            r"\[.*\]",  # JSON array
-            r"\{.*\}",  # JSON object
-        ]
-
-        for pattern in json_patterns:
-            match = re.search(pattern, text, re.DOTALL)
-            if match:
-                potential_json = match.group(0).strip()
-                try:
-                    # Validate it's valid JSON
-                    json.loads(potential_json)
-                    return potential_json
-                except json.JSONDecodeError:
-                    continue
-
-        # If no pattern matched, try to find JSON after specific markers
-        markers = ["RECIPE_COMPLETE", "MEAL_SUGGESTIONS_COMPLETE", "RECIPES:"]
-        for marker in markers:
-            if marker in text:
-                after_marker = text.split(marker, 1)[1].strip()
-                # Try to extract JSON from after the marker
-                for pattern in json_patterns:
-                    match = re.search(pattern, after_marker, re.DOTALL)
-                    if match:
-                        potential_json = match.group(0).strip()
-                        try:
-                            json.loads(potential_json)
-                            return potential_json
-                        except json.JSONDecodeError:
-                            continue
-
-        logger.warning("Could not extract valid JSON from response")
-        return None
-
-    def _validate_recipe(self, recipe_dict: Dict[str, Any]) -> bool:
-        """Validate that a recipe dictionary has all required fields"""
+    def _validate_recipe(self, recipe_dict: dict[str, object]) -> bool:
+        """
+        Minimal validation as safety net.
+        With structured output, this should always pass.
+        """
         required_fields = ["name", "ingredients", "instructions"]
         if not all(
             field in recipe_dict and recipe_dict[field] for field in required_fields
         ):
+            logger.warning("Recipe missing required fields despite structured output")
             return False
         if not isinstance(recipe_dict["ingredients"], list):
+            logger.warning("Ingredients is not a list despite structured output")
             return False
         return True
 
-    def _fix_recipe(self, recipe_dict: Dict[str, Any]) -> Dict[str, Any] | None:
-        """
-        Fix common issues in recipe dictionaries returned by Claude.
-        """
-        if not isinstance(recipe_dict, dict):
-            return None
-
-        # Ensure required fields exist
-        recipe_dict.setdefault("name", "Untitled Recipe")
-        recipe_dict.setdefault("description", "")
-        recipe_dict.setdefault("ingredients", [])
-        recipe_dict.setdefault("instructions", [])
-
-        # Fix ingredient format
-        ingredients = recipe_dict.get("ingredients", [])
-        fixed_ingredients = []
-        for ing in ingredients:
-            if isinstance(ing, dict):
-                # Ensure required ingredient fields
-                ing.setdefault("name", "unknown ingredient")
-                ing.setdefault("quantity", 1)
-                ing.setdefault("unit", "")
-                fixed_ingredients.append(ing)
-            elif isinstance(ing, str):
-                # Convert string to ingredient dict
-                fixed_ingredients.append({"name": ing, "quantity": 1, "unit": ""})
-
-        recipe_dict["ingredients"] = fixed_ingredients
-
-        # Ensure instructions is a list
-        instructions = recipe_dict.get("instructions", [])
-        if isinstance(instructions, str):
-            # Split string instructions into list
-            recipe_dict["instructions"] = [
-                step.strip() for step in instructions.split("\n") if step.strip()
-            ]
-        elif not isinstance(instructions, list):
-            recipe_dict["instructions"] = ["Follow recipe as directed"]
-
-        # Set default values for optional fields
-        recipe_dict.setdefault("prep_time", 0)
-        recipe_dict.setdefault("cook_time", 0)
-        recipe_dict.setdefault("servings", 4)
-        recipe_dict.setdefault("difficulty", "Medium")
-        recipe_dict.setdefault("cuisine", "")
-        recipe_dict.setdefault("nutrition", {"calories": 0})
-
-        # Ensure numeric fields are actually numeric
-        numeric_fields = ["prep_time", "cook_time", "servings"]
-        for field in numeric_fields:
-            try:
-                recipe_dict[field] = int(recipe_dict.get(field, 0))
-            except (ValueError, TypeError):
-                recipe_dict[field] = 0
-
-        return recipe_dict
-
-    def _build_web_search_tools(self, max_uses: int = 3) -> List[Dict[str, Any]]:
-        """Build web search tool configuration for recipe inspiration"""
-        return [
-            {
-                "type": "web_search_20250305",
-                "name": "web_search",
-                "max_uses": max_uses,
-                "allowed_domains": RECIPE_WEB_SEARCH_ALLOWED_DOMAINS,
-            }
-        ]
-
-    def _stream_claude_response(
+    def _stream_together_response(
         self,
         system_prompt: str,
         user_prompt: str,
+        response_schema: type[BaseModel],
         max_tokens: int = 8000,
         temperature: float = 1.0,
-        thinking_budget: int = 3000,
-        tools: Optional[List[Dict[str, Any]]] = None,
     ) -> Iterator[str]:
         """
-        Stream response from Claude with unified error handling and response processing.
+        Stream response from Together API with thinking then JSON.
+
+        Args:
+            system_prompt: System prompt for the LLM
+            user_prompt: User prompt for the LLM
+            response_schema: Pydantic model defining the expected JSON structure
+            max_tokens: Maximum tokens to generate
+            temperature: Sampling temperature
         """
         try:
-            stream_args = {
-                "model": "claude-sonnet-4-20250514",
-                "max_tokens": max_tokens,
-                "temperature": temperature,
-                "system": system_prompt,
-                "thinking": {"type": "enabled", "budget_tokens": thinking_budget},
-                "messages": [{"role": "user", "content": user_prompt}],
-            }
+            # Use structured output for guaranteed valid JSON
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ]
 
-            if tools:
-                stream_args["tools"] = tools
+            # Stream from Together API WITH structured output (guarantees valid JSON)
+            stream = self.client.chat.completions.create(
+                model=settings.TOGETHER_MODEL,
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                response_format=self._get_response_format(response_schema),
+                stream=True,
+            )
 
-            with self.client.messages.stream(**stream_args) as stream:
-                accumulated_text = ""
-                accumulated_thinking = ""
-                current_content_type: str | None = None
-                content_received = False
+            # With structured output, entire response is JSON - no thinking text
+            json_buffer = ""
 
-                try:
-                    for chunk in stream:
-                        content_received = True
+            for chunk in stream:
+                if not chunk.choices:
+                    continue
 
-                        if chunk.type == "content_block_start":
-                            if hasattr(chunk, "content_block") and hasattr(
-                                chunk.content_block, "type"
-                            ):
-                                current_content_type = chunk.content_block.type
-                                if chunk.content_block.type == "thinking":
-                                    yield f"data: {json.dumps({'type': 'thinking_start', 'message': 'Thinking through your request...'})}\n\n"
+                delta = chunk.choices[0].delta
+                if not delta.content:
+                    continue
 
-                        elif chunk.type == "content_block_delta":
-                            if hasattr(chunk.delta, "text"):
-                                text_chunk = chunk.delta.text
-                                accumulated_text += text_chunk
+                # Accumulate JSON (all content is JSON with structured output)
+                json_buffer += delta.content
 
-                                if current_content_type == "thinking":
-                                    # Check if we're still in thinking or moved to completion
-                                    completion_markers = [
-                                        "MEAL_SUGGESTIONS_COMPLETE",
-                                        "RECIPE_COMPLETE",
-                                        "MEAL_SUGGESTIONS",
-                                    ]
-                                    if not any(
-                                        marker in text_chunk
-                                        for marker in completion_markers
-                                    ):
-                                        accumulated_thinking += text_chunk
-                                        yield f"data: {json.dumps({'type': 'thinking', 'chunk': text_chunk})}\n\n"
-                                else:
-                                    yield f"data: {json.dumps({'type': 'content', 'chunk': text_chunk})}\n\n"
-
-                        elif chunk.type == "content_block_stop":
-                            if current_content_type == "thinking":
-                                yield f"data: {json.dumps({'type': 'thinking_stop', 'message': 'Planning complete'})}\n\n"
-                            current_content_type = None
-
-                except Exception as stream_error:
-                    logger.error(f"Streaming error: {stream_error}")
-                    if not content_received:
-                        yield f"data: {json.dumps({'type': 'error', 'message': f'Connection error: {stream_error}'})}\n\n"
-                        return
-
-                if not content_received or not accumulated_text.strip():
-                    logger.warning("No content received from Claude")
-                    yield f"data: {json.dumps({'type': 'error', 'message': 'No response received from AI. This may be due to rate limiting or connection issues.'})}\n\n"
-                    return
-
-                logger.info(
-                    f"Response generated, content length: {len(accumulated_text)}, thinking length: {len(accumulated_thinking)}"
-                )
-
-                # Return the final accumulated text for parsing
-                yield accumulated_text
+            # Return the complete JSON
+            yield json_buffer
 
         except Exception as e:
-            logger.error(f"Error in Claude streaming: {e}")
-            yield f"data: {json.dumps({'type': 'error', 'message': f'Error generating response: {e}'})}\n\n"
+            logger.error(f"Together API streaming error: {e}")
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"

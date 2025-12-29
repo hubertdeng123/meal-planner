@@ -1,5 +1,17 @@
 import { api } from './api';
-import type { Recipe, RecipeGenerationRequest, RecipeFeedback } from '../types';
+import type {
+  Ingredient,
+  NutritionFacts,
+  Recipe,
+  RecipeFeedback,
+  RecipeGenerationRequest,
+} from '../types';
+
+export interface StreamRecipeMetadata {
+  prep_time: number;
+  cook_time: number;
+  servings: number;
+}
 
 export interface StreamMessage {
   type:
@@ -7,11 +19,21 @@ export interface StreamMessage {
     | 'thinking_start'
     | 'thinking'
     | 'thinking_stop'
-    | 'content'
+    | 'recipe_start'
+    | 'recipe_name'
+    | 'recipe_description'
+    | 'recipe_metadata'
+    | 'ingredients_start'
+    | 'ingredient'
+    | 'instructions_start'
+    | 'instruction'
+    | 'nutrition'
     | 'complete'
     | 'error';
   message?: string;
   chunk?: string;
+  content?: string | StreamRecipeMetadata | Ingredient | NutritionFacts;
+  step?: number;
   recipe_id?: number;
   thinking_length?: number;
 }
@@ -21,8 +43,16 @@ export interface StreamCallbacks {
   onThinkingStart?: (message: string) => void;
   onThinking?: (chunk: string) => void;
   onThinkingStop?: (message: string) => void;
-  onContent?: (chunk: string) => void;
-  onComplete?: (recipeId: number, message: string, thinkingLength?: number) => void;
+  onRecipeStart?: () => void;
+  onRecipeName?: (name: string) => void;
+  onRecipeDescription?: (description: string) => void;
+  onRecipeMetadata?: (metadata: StreamRecipeMetadata) => void;
+  onIngredientsStart?: () => void;
+  onIngredient?: (ingredient: Ingredient) => void;
+  onInstructionsStart?: () => void;
+  onInstruction?: (step: number, content: string) => void;
+  onNutrition?: (nutrition: NutritionFacts) => void;
+  onComplete?: (recipeId: number, message?: string, thinkingLength?: number) => void;
   onError?: (error: string) => void;
 }
 
@@ -127,8 +157,41 @@ class RecipeService {
       case 'thinking_stop':
         callbacks.onThinkingStop?.(data.message || 'Thinking complete');
         break;
-      case 'content':
-        callbacks.onContent?.(data.chunk || '');
+      case 'recipe_start':
+        callbacks.onRecipeStart?.();
+        break;
+      case 'recipe_name':
+        callbacks.onRecipeName?.(typeof data.content === 'string' ? data.content : '');
+        break;
+      case 'recipe_description':
+        callbacks.onRecipeDescription?.(typeof data.content === 'string' ? data.content : '');
+        break;
+      case 'recipe_metadata':
+        if (data.content && typeof data.content === 'object') {
+          callbacks.onRecipeMetadata?.(data.content as StreamRecipeMetadata);
+        }
+        break;
+      case 'ingredients_start':
+        callbacks.onIngredientsStart?.();
+        break;
+      case 'ingredient':
+        if (data.content && typeof data.content === 'object') {
+          callbacks.onIngredient?.(data.content as Ingredient);
+        }
+        break;
+      case 'instructions_start':
+        callbacks.onInstructionsStart?.();
+        break;
+      case 'instruction':
+        callbacks.onInstruction?.(
+          data.step || 0,
+          typeof data.content === 'string' ? data.content : ''
+        );
+        break;
+      case 'nutrition':
+        if (data.content && typeof data.content === 'object') {
+          callbacks.onNutrition?.(data.content as NutritionFacts);
+        }
         break;
       case 'complete':
         callbacks.onComplete?.(

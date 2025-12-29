@@ -16,7 +16,7 @@ dependencies = [
     "passlib[bcrypt]>=1.7.4",
     "bcrypt>=4.0.1,<4.2.0",
     "python-multipart>=0.0.12",
-    "anthropic>=0.47.0",
+    "together @ git+https://github.com/togethercomputer/together-py.git@main",
     "aiofiles>=23.2.1",
     "httpx>=0.28.0",
     "beautifulsoup4>=4.12.3",

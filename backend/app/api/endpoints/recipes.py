@@ -28,102 +28,24 @@ async def generate_recipe_stream(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ):
-    """Generate a new recipe using AI with streaming response"""
+    """
+    Generate recipe with guaranteed valid JSON using Together API structured output.
+
+    Uses Llama 4 Maverick with JSON Schema mode to ensure all responses conform to RecipeLLM
+    Pydantic schema. The agent handles all validation, parsing, and database operations.
+    Streams SSE events for real-time feedback during generation.
+    """
 
     def generate():
         try:
-            # Send initial message
             yield f"data: {json.dumps({'type': 'status', 'message': 'Starting recipe generation...'})}\n\n"
 
-            if request.search_online:
-                yield f"data: {json.dumps({'type': 'status', 'message': 'Searching the web for recipe inspiration...'})}\n\n"
-
-            # Stream the recipe generation
-            accumulated_content = ""
-            accumulated_thinking = ""
-
-            # Enhanced user preferences are automatically extracted and used by the RecipeAgent
-            stream_gen = recipe_agent.generate_recipe_stream(request, current_user, db)
-            recipe_json_text = ""
-
-            # Process the stream - it now returns the JSON text when complete
-            for result in stream_gen:
-                if isinstance(result, str) and not result.startswith("data: "):
-                    # This is the final JSON text
-                    recipe_json_text = result
-                    break
-                else:
-                    # This is a streaming chunk
-                    yield result
-
-                    # Parse the chunk to accumulate content for final processing
-                    try:
-                        if result.startswith("data: "):
-                            chunk_json = json.loads(result[6:].strip())
-                            if chunk_json.get("type") == "content":
-                                accumulated_content += chunk_json.get("chunk", "")
-                            elif chunk_json.get("type") == "thinking":
-                                accumulated_thinking += chunk_json.get("chunk", "")
-                    except (json.JSONDecodeError, ValueError):
-                        # If parsing fails, continue - the chunk will still be sent to client
-                        pass
-
-            # Try to parse the JSON to extract recipe data
-            try:
-                # Use the returned JSON text, or fall back to accumulated content
-                json_to_parse = (
-                    recipe_json_text if recipe_json_text else accumulated_content
-                )
-
-                if not json_to_parse or not json_to_parse.strip():
-                    yield f"data: {json.dumps({'type': 'error', 'message': 'Empty JSON content received from recipe generation'})}\n\n"
-                    return
-
-                recipe_data = recipe_agent._parse_recipe_json(json_to_parse)
-
-                if recipe_data:
-                    required_fields = ["name", "ingredients", "instructions"]
-                    missing_fields = [
-                        field for field in required_fields if field not in recipe_data
-                    ]
-
-                    if missing_fields:
-                        yield f"data: {json.dumps({'type': 'error', 'message': f'Recipe missing required fields: {missing_fields}'})}\n\n"
-                        return
-
-                    # Save the generated recipe to database
-                    db_recipe = RecipeModel(
-                        user_id=current_user.id,
-                        name=recipe_data["name"],
-                        description=recipe_data.get("description"),
-                        instructions=recipe_data["instructions"],
-                        ingredients=[ing for ing in recipe_data["ingredients"]],
-                        prep_time_minutes=recipe_data.get("prep_time_minutes"),
-                        cook_time_minutes=recipe_data.get("cook_time_minutes"),
-                        servings=recipe_data["servings"],
-                        tags=recipe_data.get("tags", []),
-                        source=recipe_data.get("source", "ai_generated"),
-                        source_urls=recipe_data.get("source_urls", []),
-                        # Nutrition
-                        calories=recipe_data.get("nutrition", {}).get("calories"),
-                        protein_g=recipe_data.get("nutrition", {}).get("protein_g"),
-                        carbs_g=recipe_data.get("nutrition", {}).get("carbs_g"),
-                        fat_g=recipe_data.get("nutrition", {}).get("fat_g"),
-                        fiber_g=recipe_data.get("nutrition", {}).get("fiber_g"),
-                        sugar_g=recipe_data.get("nutrition", {}).get("sugar_g"),
-                        sodium_mg=recipe_data.get("nutrition", {}).get("sodium_mg"),
-                    )
-
-                    db.add(db_recipe)
-                    db.commit()
-                    db.refresh(db_recipe)
-
-                    yield f"data: {json.dumps({'type': 'complete', 'recipe_id': db_recipe.id, 'message': 'Recipe generated and saved successfully!', 'thinking_length': len(accumulated_thinking)})}\n\n"
-                else:
-                    yield f"data: {json.dumps({'type': 'error', 'message': f'Could not extract valid recipe from generated content. Content length: {len(json_to_parse)}. Please try generating again.'})}\n\n"
-
-            except Exception as e:
-                yield f"data: {json.dumps({'type': 'error', 'message': f'Failed to save recipe: {str(e)}'})}\n\n"
+            # Agent handles everything: validation, parsing, saving
+            # Just pass through all SSE events from the generator
+            for result in recipe_agent.generate_recipe_stream(
+                request, current_user, db
+            ):
+                yield result
 
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'message': f'Failed to generate recipe: {str(e)}'})}\n\n"
@@ -147,9 +69,13 @@ async def generate_recipe(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ):
-    """Generate a new recipe using AI based on user preferences"""
+    """
+    Generate recipe with guaranteed valid JSON using Together API structured output (non-streaming).
+
+    Uses Llama 4 Maverick with JSON Schema mode to ensure all responses conform to RecipeLLM
+    Pydantic schema. Agent validates and formats the response, endpoint saves to database.
+    """
     try:
-        # Enhanced user preferences are automatically extracted and used by the RecipeAgent
         recipe_data = recipe_agent.generate_recipe(request, current_user, db)
 
         db_recipe = RecipeModel(

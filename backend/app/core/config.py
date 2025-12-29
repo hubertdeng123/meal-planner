@@ -34,8 +34,9 @@ class Settings(BaseSettings):
             )
         return v
 
-    # Anthropic Claude
-    ANTHROPIC_API_KEY: str = ""
+    # Together AI (Llama 4 Maverick)
+    TOGETHER_API_KEY: str = ""
+    TOGETHER_MODEL: str = "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8"
 
     # Email settings
     SMTP_HOST: str = "smtp.gmail.com"
@@ -54,16 +55,3 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-
-# Recipe web search configuration
-RECIPE_WEB_SEARCH_ALLOWED_DOMAINS = [
-    "foodnetwork.com",
-    "food.com",
-    "tasteofhome.com",
-    "delish.com",
-    "cookinglight.com",
-    "budgetbytes.com",
-    "americastestkitchen.com",
-    "thewoksoflife.com",
-    "maangchi.com",
-]
