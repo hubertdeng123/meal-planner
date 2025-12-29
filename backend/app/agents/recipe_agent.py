@@ -70,35 +70,29 @@ class RecipeAgent(UnifiedCulinaryAgent):
 
                 yield f"data: {json.dumps({'type': 'recipe_description', 'content': recipe_llm.description})}\n\n"
 
-                yield f"data: {
-                    json.dumps(
-                        {
-                            'type': 'recipe_metadata',
-                            'content': {
-                                'prep_time': recipe_llm.prep_time_minutes,
-                                'cook_time': recipe_llm.cook_time_minutes,
-                                'servings': recipe_llm.servings,
-                                'tags': recipe_llm.tags,
-                            },
-                        }
-                    )
-                }\n\n"
+                metadata_payload = {
+                    "type": "recipe_metadata",
+                    "content": {
+                        "prep_time": recipe_llm.prep_time_minutes,
+                        "cook_time": recipe_llm.cook_time_minutes,
+                        "servings": recipe_llm.servings,
+                        "tags": recipe_llm.tags,
+                    },
+                }
+                yield f"data: {json.dumps(metadata_payload)}\n\n"
 
                 yield f"data: {json.dumps({'type': 'ingredients_start'})}\n\n"
                 for ingredient in recipe_llm.ingredients:
-                    yield f"data: {
-                        json.dumps(
-                            {
-                                'type': 'ingredient',
-                                'content': {
-                                    'name': ingredient.name,
-                                    'quantity': ingredient.quantity,
-                                    'unit': ingredient.unit,
-                                    'notes': ingredient.notes,
-                                },
-                            }
-                        )
-                    }\n\n"
+                    ingredient_payload = {
+                        "type": "ingredient",
+                        "content": {
+                            "name": ingredient.name,
+                            "quantity": ingredient.quantity,
+                            "unit": ingredient.unit,
+                            "notes": ingredient.notes,
+                        },
+                    }
+                    yield f"data: {json.dumps(ingredient_payload)}\n\n"
 
                 yield f"data: {json.dumps({'type': 'instructions_start'})}\n\n"
                 for idx, instruction in enumerate(recipe_llm.instructions, 1):
