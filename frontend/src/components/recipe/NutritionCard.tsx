@@ -1,17 +1,8 @@
+import type { NutritionFacts } from '../../types';
 import { SkeletonShimmer } from '../ui/SkeletonShimmer';
 
-interface Nutrition {
-  calories: number;
-  protein_g: number;
-  carbs_g: number;
-  fat_g: number;
-  fiber_g?: number;
-  sugar_g?: number;
-  sodium_mg?: number;
-}
-
 interface NutritionCardProps {
-  nutrition?: Nutrition | null;
+  nutrition?: NutritionFacts | null;
   loading?: boolean;
 }
 

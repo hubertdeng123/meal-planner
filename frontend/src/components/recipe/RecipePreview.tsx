@@ -1,15 +1,9 @@
+import type { Ingredient, NutritionFacts } from '../../types';
 import { RecipeHeaderCard } from './RecipeHeaderCard';
 import { QuickInfoCard } from './QuickInfoCard';
 import { IngredientsCard } from './IngredientsCard';
 import { InstructionsCard } from './InstructionsCard';
 import { NutritionCard } from './NutritionCard';
-
-interface Ingredient {
-  name: string;
-  quantity: number;
-  unit: string;
-  notes?: string;
-}
 
 interface Instruction {
   step: number;
@@ -22,16 +16,6 @@ interface Metadata {
   servings: number;
 }
 
-interface Nutrition {
-  calories: number;
-  protein_g: number;
-  carbs_g: number;
-  fat_g: number;
-  fiber_g?: number;
-  sugar_g?: number;
-  sodium_mg?: number;
-}
-
 interface RecipePreviewProps {
   // Loading state
   loading: boolean;
@@ -42,7 +26,7 @@ interface RecipePreviewProps {
   metadata?: Metadata | null;
   ingredients: Ingredient[];
   instructions: Instruction[];
-  nutrition?: Nutrition | null;
+  nutrition?: NutritionFacts | null;
 
   // Predictive counts for skeletons
   predictedIngredientCount?: number;

@@ -20,7 +20,7 @@ interface RecipeFormProps {
   setFormData: (data: RecipeGenerationRequest) => void;
   loading: boolean;
   error: string;
-  onSubmit: (e: React.FormEvent) => void;
+  onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
   statusMessage?: string;
   isStreaming?: boolean;
   compact?: boolean; // For sidebar mode
