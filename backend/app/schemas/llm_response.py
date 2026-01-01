@@ -34,6 +34,7 @@ class RecipeLLM(BaseModel):
 
     name: str = Field(description="Recipe name")
     description: str = Field(description="Brief recipe description")
+    cuisine: str = Field(description="Cuisine type (e.g., Italian, Mexican, Thai)")
     ingredients: list[IngredientLLM] = Field(description="List of ingredients")
     instructions: list[str] = Field(description="Step-by-step cooking instructions")
     prep_time_minutes: int = Field(description="Preparation time in minutes")

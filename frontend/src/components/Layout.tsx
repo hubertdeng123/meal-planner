@@ -1,5 +1,6 @@
-import { Fragment } from 'react';
-import { Disclosure, Menu, Transition } from '@headlessui/react';
+import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { Disclosure } from '@headlessui/react';
 import {
   Bars3Icon,
   XMarkIcon,
@@ -32,6 +33,19 @@ export default function Layout({ children, breadcrumbs }: LayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { logout } = useAuth();
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 });
+
+  useEffect(() => {
+    if (isProfileMenuOpen && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setMenuPosition({
+        top: rect.bottom + 8,
+        right: window.innerWidth - rect.right,
+      });
+    }
+  }, [isProfileMenuOpen]);
 
   const handleLogout = () => {
     logout();
@@ -88,53 +102,52 @@ export default function Layout({ children, breadcrumbs }: LayoutProps) {
                     </div>
                   </div>
                   <div className="hidden sm:ml-6 sm:flex sm:items-center">
-                    <Menu as="div" className="relative ml-3">
-                      <div>
-                        <Menu.Button className="flex rounded-full bg-white/80 p-2 text-sm shadow-sm ring-1 ring-orange-200/70 transition-all duration-200 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2">
-                          <span className="sr-only">Open user menu</span>
-                          <UserCircleIcon className="h-5 w-5 text-orange-600" />
-                        </Menu.Button>
-                      </div>
-                      <Transition
-                        as={Fragment}
-                        enter="transition ease-out duration-200"
-                        enterFrom="transform opacity-0 scale-95"
-                        enterTo="transform opacity-100 scale-100"
-                        leave="transition ease-in duration-75"
-                        leaveFrom="transform opacity-100 scale-100"
-                        leaveTo="transform opacity-0 scale-95"
+                    <div className="relative ml-3">
+                      <button
+                        ref={buttonRef}
+                        onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+                        className="flex rounded-full bg-white/80 p-2 text-sm shadow-sm ring-1 ring-orange-200/70 transition-all duration-200 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
                       >
-                        <Menu.Items className="absolute right-0 z-10 mt-3 w-48 origin-top-right rounded-2xl bg-white py-2 shadow-xl ring-1 ring-orange-100 focus:outline-none">
-                          <Menu.Item>
-                            {({ active }) => (
+                        <span className="sr-only">Open user menu</span>
+                        <UserCircleIcon className="h-5 w-5 text-orange-600" />
+                      </button>
+
+                      {isProfileMenuOpen &&
+                        createPortal(
+                          <>
+                            <div
+                              className="fixed inset-0 z-40"
+                              onClick={() => setIsProfileMenuOpen(false)}
+                            />
+                            <div
+                              className="fixed z-50 w-48 rounded-2xl bg-white py-2 shadow-xl ring-1 ring-orange-100"
+                              style={{
+                                top: `${menuPosition.top}px`,
+                                right: `${menuPosition.right}px`,
+                              }}
+                            >
                               <Link
                                 to="/settings"
-                                className={classNames(
-                                  active ? 'bg-orange-50/70' : '',
-                                  'flex items-center px-4 py-2 text-sm text-slate-700 transition-colors duration-200'
-                                )}
+                                onClick={() => setIsProfileMenuOpen(false)}
+                                className="flex items-center px-4 py-2 text-sm text-slate-700 transition-colors duration-200 hover:bg-orange-50/70"
                               >
                                 <Cog6ToothIcon className="mr-3 h-4 w-4 text-orange-400" />
                                 Settings
                               </Link>
-                            )}
-                          </Menu.Item>
-                          <Menu.Item>
-                            {({ active }) => (
                               <button
-                                onClick={handleLogout}
-                                className={classNames(
-                                  active ? 'bg-orange-50/70' : '',
-                                  'block w-full px-4 py-2 text-left text-sm text-slate-700 transition-colors duration-200'
-                                )}
+                                onClick={() => {
+                                  setIsProfileMenuOpen(false);
+                                  handleLogout();
+                                }}
+                                className="block w-full px-4 py-2 text-left text-sm text-slate-700 transition-colors duration-200 hover:bg-orange-50/70"
                               >
                                 Sign out
                               </button>
-                            )}
-                          </Menu.Item>
-                        </Menu.Items>
-                      </Transition>
-                    </Menu>
+                            </div>
+                          </>,
+                          document.body
+                        )}
+                    </div>
                   </div>
                   <div className="-mr-2 flex items-center sm:hidden">
                     <Disclosure.Button className="inline-flex items-center justify-center rounded-full border border-orange-200/70 bg-white/80 p-2 text-orange-600 shadow-sm transition-all duration-200 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-orange-500">

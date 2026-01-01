@@ -274,6 +274,8 @@ async def generate_recipe_stream(
                     user_id=current_user.id,
                     name=recipe_llm.name,
                     description=recipe_llm.description,
+                    cuisine=recipe_llm.cuisine,
+                    difficulty=request.difficulty or "medium",
                     instructions=recipe_llm.instructions,
                     ingredients=[ing.model_dump() for ing in recipe_llm.ingredients],
                     prep_time_minutes=recipe_llm.prep_time_minutes,
