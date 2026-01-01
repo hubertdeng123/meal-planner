@@ -5,11 +5,7 @@ from sqlalchemy import and_
 import json
 import time
 import random
-from pydantic_ai import (
-    AgentRunResultEvent,
-    FunctionToolCallEvent,
-    FunctionToolResultEvent,
-)
+from pydantic_ai import AgentRunResultEvent
 from app.db.database import get_db
 from app.api.deps import get_current_active_user
 from app.models import (
@@ -88,31 +84,6 @@ def prefetch_user_context(user_id: int, db: Session) -> dict:
         "liked_recipes": liked_info,
         "disliked_ingredients": sorted(list(disliked_ingredients)),
     }
-
-
-# Tool name to user-friendly descriptions
-TOOL_DESCRIPTIONS = {
-    "get_user_preferences": {
-        "icon": "🔍",
-        "title": "Analyzing your preferences",
-        "description": "Learning about your dietary needs and cooking style",
-    },
-    "search_past_recipes": {
-        "icon": "📚",
-        "title": "Checking your recipe history",
-        "description": "Making sure we create something new for you",
-    },
-    "get_liked_recipes": {
-        "icon": "⭐",
-        "title": "Reviewing your favorites",
-        "description": "Understanding what flavors you love",
-    },
-    "get_disliked_ingredients": {
-        "icon": "🚫",
-        "title": "Avoiding disliked ingredients",
-        "description": "Respecting your ingredient preferences",
-    },
-}
 
 
 def _select_random_cuisine(request: RecipeGenerationRequest, user: User) -> str | None:
@@ -213,40 +184,8 @@ async def generate_recipe_stream(
                     yield ": keepalive\n\n"  # SSE comment - keeps connection alive, invisible to frontend
                     last_keepalive = current_time
 
-                # Tool started event
-                if isinstance(event, FunctionToolCallEvent):
-                    tool_name = event.part.tool_name
-                    tool_info = TOOL_DESCRIPTIONS.get(
-                        tool_name,
-                        {
-                            "icon": "🔧",
-                            "title": tool_name,
-                            "description": "Processing...",
-                        },
-                    )
-
-                    yield f"data: {
-                        json.dumps(
-                            {
-                                'type': 'tool_started',
-                                'tool_name': tool_name,
-                                'icon': tool_info['icon'],
-                                'title': tool_info['title'],
-                                'description': tool_info['description'],
-                            }
-                        )
-                    }\n\n"
-
-                # Tool completed event
-                elif isinstance(event, FunctionToolResultEvent):
-                    tool_name = event.result.tool_name
-
-                    yield f"data: {
-                        json.dumps({'type': 'tool_completed', 'tool_name': tool_name})
-                    }\n\n"
-
                 # Final result event - extract the recipe
-                elif isinstance(event, AgentRunResultEvent):
+                if isinstance(event, AgentRunResultEvent):
                     recipe_llm = event.result.output
 
             # Now manually stream the recipe field-by-field for progressive UX!
