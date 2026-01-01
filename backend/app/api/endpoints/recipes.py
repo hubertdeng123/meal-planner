@@ -1,7 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
+from sqlalchemy import and_
 import json
+import time
+import random
+from pydantic_ai import (
+    AgentRunResultEvent,
+    FunctionToolCallEvent,
+    FunctionToolResultEvent,
+)
 from app.db.database import get_db
 from app.api.deps import get_current_active_user
 from app.models import (
@@ -16,10 +24,103 @@ from app.schemas.recipe import (
     RecipeFeedbackCreate,
     RecipeFeedback,
 )
-from app.agents.recipe_agent import RecipeAgent
+from app.agents.pydantic_recipe_agent import recipe_agent
+from app.agents.recipe_deps import RecipeAgentDeps
 
 router = APIRouter()
-recipe_agent = RecipeAgent()
+
+
+def prefetch_user_context(user_id: int, db: Session) -> dict:
+    """Prefetch all user context data to avoid slow LLM tool calls"""
+    # Get user preferences
+    user = db.query(User).filter(User.id == user_id).first()
+    preferences = {
+        "food_preferences": user.food_preferences or {} if user else {},
+        "dietary_restrictions": user.dietary_restrictions or {} if user else {},
+        "ingredient_rules": user.ingredient_rules or {} if user else {},
+        "nutritional_rules": user.nutritional_rules or {} if user else {},
+    }
+
+    # Get past recipes (to avoid duplicates)
+    past_recipes = (
+        db.query(RecipeModel)
+        .filter(RecipeModel.user_id == user_id)
+        .order_by(RecipeModel.created_at.desc())
+        .limit(20)
+        .all()
+    )
+    past_recipe_names = [r.name for r in past_recipes]
+
+    # Get liked recipes
+    liked_recipes = (
+        db.query(RecipeModel)
+        .join(RecipeFeedbackModel)
+        .filter(and_(RecipeModel.user_id == user_id, RecipeFeedbackModel.rating >= 4))
+        .order_by(RecipeFeedbackModel.rating.desc())
+        .limit(10)
+        .all()
+    )
+    liked_info = [
+        {
+            "name": r.name,
+            "cuisine": r.cuisine,
+            "key_ingredients": [ing.get("name") for ing in (r.ingredients or [])[:5]],
+        }
+        for r in liked_recipes
+    ]
+
+    # Get disliked ingredients
+    disliked_recipes = (
+        db.query(RecipeModel)
+        .join(RecipeFeedbackModel)
+        .filter(and_(RecipeModel.user_id == user_id, RecipeFeedbackModel.rating <= 2))
+        .all()
+    )
+    disliked_ingredients = set()
+    for recipe in disliked_recipes:
+        if recipe.ingredients:
+            for ing in recipe.ingredients:
+                disliked_ingredients.add(ing.get("name", "").lower())
+
+    return {
+        "preferences": preferences,
+        "past_recipe_names": past_recipe_names,
+        "liked_recipes": liked_info,
+        "disliked_ingredients": sorted(list(disliked_ingredients)),
+    }
+
+
+# Tool name to user-friendly descriptions
+TOOL_DESCRIPTIONS = {
+    "get_user_preferences": {
+        "icon": "🔍",
+        "title": "Analyzing your preferences",
+        "description": "Learning about your dietary needs and cooking style",
+    },
+    "search_past_recipes": {
+        "icon": "📚",
+        "title": "Checking your recipe history",
+        "description": "Making sure we create something new for you",
+    },
+    "get_liked_recipes": {
+        "icon": "⭐",
+        "title": "Reviewing your favorites",
+        "description": "Understanding what flavors you love",
+    },
+    "get_disliked_ingredients": {
+        "icon": "🚫",
+        "title": "Avoiding disliked ingredients",
+        "description": "Respecting your ingredient preferences",
+    },
+}
+
+
+def _select_random_cuisine(request: RecipeGenerationRequest, user: User) -> str | None:
+    if request.cuisine:
+        return request.cuisine
+    preferences = user.food_preferences or {}
+    cuisines = preferences.get("cuisines") or []
+    return random.choice(cuisines) if cuisines else None
 
 
 @router.post("/generate/stream")
@@ -28,87 +129,186 @@ async def generate_recipe_stream(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ):
-    """
-    Generate recipe with guaranteed valid JSON using Together API structured output.
+    """Generate recipe with streaming using PydanticAI + tools"""
 
-    Uses Llama 4 Maverick with JSON Schema mode to ensure all responses conform to RecipeLLM
-    Pydantic schema. The agent handles all validation, parsing, and database operations.
-    Streams SSE events for real-time feedback during generation.
-    """
+    async def event_stream():
+        # Prefetch user context (fast - all queries at once, no LLM tool calls needed)
+        user_context = prefetch_user_context(current_user.id, db)
 
-    def generate():
+        selected_cuisine = _select_random_cuisine(request, current_user)
+
+        # Build user prompt with prefetched context
+        prompt_parts = ["Please create a recipe with:\n"]
+
+        # Include user preferences in prompt
+        if user_context["preferences"]["dietary_restrictions"]:
+            prompt_parts.append(
+                f"- Dietary Restrictions: {user_context['preferences']['dietary_restrictions']}"
+            )
+
+        # Include past recipes to avoid duplicates
+        if user_context["past_recipe_names"]:
+            prompt_parts.append(
+                f"- AVOID these existing recipes (create something different): {', '.join(user_context['past_recipe_names'][:10])}"
+            )
+
+        # Include liked recipes for inspiration
+        if user_context["liked_recipes"]:
+            liked_names = [r["name"] for r in user_context["liked_recipes"][:5]]
+            prompt_parts.append(
+                f"- You've enjoyed these recipes before (similar flavors work well): {', '.join(liked_names)}"
+            )
+
+        # Include disliked ingredients
+        if user_context["disliked_ingredients"]:
+            prompt_parts.append(
+                f"- AVOID these ingredients: {', '.join(user_context['disliked_ingredients'][:10])}"
+            )
+
+        prompt_parts.append("- Choose a cuisine from the user's saved preferences")
+        if user_context["preferences"]["food_preferences"].get("cuisines"):
+            prompt_parts.append(
+                f"- Preferred cuisines: {user_context['preferences']['food_preferences']['cuisines']}"
+            )
+        if request.meal_type:
+            prompt_parts.append(f"- Meal Type: {request.meal_type}")
+        if selected_cuisine:
+            prompt_parts.append(f"- Cuisine: {selected_cuisine}")
+            prompt_parts.append(
+                f"IMPORTANT: This MUST be a {selected_cuisine} dish with authentic flavors."
+            )
+        if request.difficulty:
+            difficulty_map = {
+                "easy": "EASY recipe with simple techniques, minimal prep, common ingredients",
+                "medium": "MEDIUM difficulty with some cooking techniques and moderate prep",
+                "hard": "HARD recipe with advanced techniques and longer preparation",
+            }
+            prompt_parts.append(difficulty_map.get(request.difficulty.lower(), ""))
+        if request.max_time_minutes:
+            prompt_parts.append(f"- Max Time: {request.max_time_minutes} minutes")
+        if request.ingredients_to_use:
+            prompt_parts.append(f"- Must Use: {', '.join(request.ingredients_to_use)}")
+        if request.dietary_restrictions:
+            prompt_parts.append(f"- Dietary: {', '.join(request.dietary_restrictions)}")
+        prompt_parts.append(f"- Servings: {request.servings}")
+        if request.comments:
+            prompt_parts.append(f"\nSpecial Requests: {request.comments}")
+
+        user_prompt = "\n".join(prompt_parts)
+
+        # Create dependencies (sync Session + user ID)
+        deps = RecipeAgentDeps(db=db, user_id=current_user.id)
+
         try:
             yield f"data: {json.dumps({'type': 'status', 'message': 'Starting recipe generation...'})}\n\n"
 
-            # Agent handles everything: validation, parsing, saving
-            # Just pass through all SSE events from the generator
-            for result in recipe_agent.generate_recipe_stream(
-                request, current_user, db
-            ):
-                yield result
+            # Stream events from PydanticAI
+            recipe_llm = None
+            last_keepalive = time.time()
+
+            async for event in recipe_agent.run_stream_events(user_prompt, deps=deps):
+                # Send SSE keepalive comment every 3 seconds to prevent connection timeout
+                current_time = time.time()
+                if current_time - last_keepalive > 3:
+                    yield ": keepalive\n\n"  # SSE comment - keeps connection alive, invisible to frontend
+                    last_keepalive = current_time
+
+                # Tool started event
+                if isinstance(event, FunctionToolCallEvent):
+                    tool_name = event.part.tool_name
+                    tool_info = TOOL_DESCRIPTIONS.get(
+                        tool_name,
+                        {
+                            "icon": "🔧",
+                            "title": tool_name,
+                            "description": "Processing...",
+                        },
+                    )
+
+                    yield f"data: {
+                        json.dumps(
+                            {
+                                'type': 'tool_started',
+                                'tool_name': tool_name,
+                                'icon': tool_info['icon'],
+                                'title': tool_info['title'],
+                                'description': tool_info['description'],
+                            }
+                        )
+                    }\n\n"
+
+                # Tool completed event
+                elif isinstance(event, FunctionToolResultEvent):
+                    tool_name = event.result.tool_name
+
+                    yield f"data: {
+                        json.dumps({'type': 'tool_completed', 'tool_name': tool_name})
+                    }\n\n"
+
+                # Final result event - extract the recipe
+                elif isinstance(event, AgentRunResultEvent):
+                    recipe_llm = event.result.output
+
+            # Now manually stream the recipe field-by-field for progressive UX!
+            if recipe_llm:
+                yield f"data: {json.dumps({'type': 'recipe_start'})}\n\n"
+
+                yield f"data: {json.dumps({'type': 'recipe_name', 'content': recipe_llm.name})}\n\n"
+
+                yield f"data: {json.dumps({'type': 'recipe_description', 'content': recipe_llm.description})}\n\n"
+
+                yield f"data: {json.dumps({'type': 'recipe_metadata', 'content': {'prep_time': recipe_llm.prep_time_minutes, 'cook_time': recipe_llm.cook_time_minutes, 'servings': recipe_llm.servings}})}\n\n"
+
+                yield f"data: {json.dumps({'type': 'ingredients_start'})}\n\n"
+                for ingredient in recipe_llm.ingredients:
+                    yield f"data: {json.dumps({'type': 'ingredient', 'content': {'name': ingredient.name, 'quantity': ingredient.quantity, 'unit': ingredient.unit, 'notes': ingredient.notes}})}\n\n"
+
+                yield f"data: {json.dumps({'type': 'instructions_start'})}\n\n"
+                for idx, instruction in enumerate(recipe_llm.instructions, 1):
+                    yield f"data: {json.dumps({'type': 'instruction', 'step': idx, 'content': instruction})}\n\n"
+
+                yield f"data: {json.dumps({'type': 'nutrition', 'content': recipe_llm.nutrition.model_dump()})}\n\n"
+
+                # Save to database
+                db_recipe = RecipeModel(
+                    user_id=current_user.id,
+                    name=recipe_llm.name,
+                    description=recipe_llm.description,
+                    instructions=recipe_llm.instructions,
+                    ingredients=[ing.model_dump() for ing in recipe_llm.ingredients],
+                    prep_time_minutes=recipe_llm.prep_time_minutes,
+                    cook_time_minutes=recipe_llm.cook_time_minutes,
+                    servings=recipe_llm.servings,
+                    tags=recipe_llm.tags,
+                    source="ai_generated",
+                    source_urls=recipe_llm.source_urls,
+                    calories=recipe_llm.nutrition.calories,
+                    protein_g=recipe_llm.nutrition.protein_g,
+                    carbs_g=recipe_llm.nutrition.carbs_g,
+                    fat_g=recipe_llm.nutrition.fat_g,
+                    fiber_g=recipe_llm.nutrition.fiber_g,
+                    sugar_g=recipe_llm.nutrition.sugar_g,
+                    sodium_mg=recipe_llm.nutrition.sodium_mg,
+                )
+
+                db.add(db_recipe)
+                db.commit()
+                db.refresh(db_recipe)
+
+                yield f"data: {json.dumps({'type': 'complete', 'recipe_id': db_recipe.id, 'message': 'Recipe created successfully!'})}\n\n"
 
         except Exception as e:
-            yield f"data: {json.dumps({'type': 'error', 'message': f'Failed to generate recipe: {str(e)}'})}\n\n"
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
 
     return StreamingResponse(
-        generate(),
+        event_stream(),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
             "X-Accel-Buffering": "no",
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Headers": "*",
         },
     )
-
-
-@router.post("/generate", response_model=Recipe)
-async def generate_recipe(
-    request: RecipeGenerationRequest,
-    current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db),
-):
-    """
-    Generate recipe with guaranteed valid JSON using Together API structured output (non-streaming).
-
-    Uses Llama 4 Maverick with JSON Schema mode to ensure all responses conform to RecipeLLM
-    Pydantic schema. Agent validates and formats the response, endpoint saves to database.
-    """
-    try:
-        recipe_data = recipe_agent.generate_recipe(request, current_user, db)
-
-        db_recipe = RecipeModel(
-            user_id=current_user.id,
-            name=recipe_data["name"],
-            description=recipe_data.get("description"),
-            instructions=recipe_data["instructions"],
-            ingredients=[ing for ing in recipe_data["ingredients"]],
-            prep_time_minutes=recipe_data.get("prep_time_minutes"),
-            cook_time_minutes=recipe_data.get("cook_time_minutes"),
-            servings=recipe_data["servings"],
-            tags=recipe_data.get("tags", []),
-            source=recipe_data["source"],
-            source_urls=recipe_data.get("source_urls", []),
-            calories=recipe_data["nutrition"].get("calories"),
-            protein_g=recipe_data["nutrition"].get("protein_g"),
-            carbs_g=recipe_data["nutrition"].get("carbs_g"),
-            fat_g=recipe_data["nutrition"].get("fat_g"),
-            fiber_g=recipe_data["nutrition"].get("fiber_g"),
-            sugar_g=recipe_data["nutrition"].get("sugar_g"),
-            sodium_mg=recipe_data["nutrition"].get("sodium_mg"),
-        )
-
-        db.add(db_recipe)
-        db.commit()
-        db.refresh(db_recipe)
-
-        return _format_recipe_response(db_recipe)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate recipe: {str(e)}",
-        )
 
 
 @router.get("/", response_model=list[Recipe])

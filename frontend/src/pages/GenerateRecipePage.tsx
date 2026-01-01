@@ -1,25 +1,9 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import recipeService, {
-  type StreamCallbacks,
-  type StreamRecipeMetadata,
-} from '../services/recipe.service';
-import type { Ingredient, NutritionFacts, RecipeGenerationRequest } from '../types';
+import recipeService, { type StreamCallbacks } from '../services/recipe.service';
+import type { RecipeGenerationRequest } from '../types';
 import { RecipeForm } from '../components/recipe/RecipeForm';
-import { RecipePreview } from '../components/recipe/RecipePreview';
-import { WaitingIndicator } from '../components/recipe/WaitingIndicator';
-
-interface StreamingRecipe {
-  name?: string | null;
-  description?: string | null;
-  metadata?: StreamRecipeMetadata | null;
-  ingredients: Ingredient[];
-  instructions: Array<{
-    step: number;
-    content: string;
-  }>;
-  nutrition?: NutritionFacts | null;
-}
+import { LoadingModal } from '../components/LoadingModal';
 
 export default function GenerateRecipePage() {
   const navigate = useNavigate();
@@ -38,164 +22,44 @@ export default function GenerateRecipePage() {
     comments: '',
   });
 
-  // New state for the beautiful UX
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [isWaiting, setIsWaiting] = useState(false); // True during 10-30s wait
-  const [statusMessage, setStatusMessage] = useState('');
-  const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
-  const [isOverlayFadingOut, setIsOverlayFadingOut] = useState(false);
-
-  // Recipe assembly state
-  const [streamingRecipe, setStreamingRecipe] = useState<StreamingRecipe>({
-    name: null,
-    description: null,
-    metadata: null,
-    ingredients: [],
-    instructions: [],
-    nutrition: null,
-  });
-
-  // Predictive skeleton counts
-  const [predictedIngredientCount, setPredictedIngredientCount] = useState(10);
-  const [predictedStepCount, setPredictedStepCount] = useState(7);
-
-  // Calculate predictive counts when form data changes
+  // 90-second timeout
   useEffect(() => {
-    // Predict ingredient count based on specified ingredients
-    const baseCount =
-      formData.ingredients_to_use.length > 0 ? formData.ingredients_to_use.length : 0;
-    const additionalCount = Math.floor(Math.random() * 4) + 8; // 8-12 more ingredients
-    setPredictedIngredientCount(baseCount + additionalCount);
-
-    // Predict step count based on difficulty
-    if (formData.difficulty === 'easy') {
-      setPredictedStepCount(Math.floor(Math.random() * 2) + 5); // 5-6 steps
-    } else if (formData.difficulty === 'hard') {
-      setPredictedStepCount(Math.floor(Math.random() * 3) + 8); // 8-10 steps
-    } else {
-      setPredictedStepCount(Math.floor(Math.random() * 3) + 6); // 6-8 steps
-    }
-  }, [formData.difficulty, formData.ingredients_to_use]);
-
-  // 45-second timeout for generation
-  useEffect(() => {
-    if (isStreaming) {
+    if (loading) {
       const timeout = setTimeout(() => {
         setError('Generation is taking longer than expected. Please try again.');
-        setIsStreaming(false);
         setLoading(false);
-        setIsWaiting(false);
-      }, 45000); // 45 seconds
-
+      }, 90000);
       return () => clearTimeout(timeout);
     }
-  }, [isStreaming]);
+  }, [loading]);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
     setLoading(true);
-    setIsStreaming(true);
-    setIsWaiting(false); // Will be set to true by onStatus
-    setStatusMessage('');
-    setShowSuccessOverlay(false);
-    setIsOverlayFadingOut(false);
-    setStreamingRecipe({
-      name: null,
-      description: null,
-      metadata: null,
-      ingredients: [],
-      instructions: [],
-      nutrition: null,
-    });
 
     const callbacks: StreamCallbacks = {
-      onStatus: message => {
-        setStatusMessage(message);
-        setIsWaiting(true); // Start waiting experience
-      },
+      onStatus: () => {},
+      onToolStarted: () => {},
+      onToolCompleted: () => {},
+      onRecipeStart: () => {},
+      onRecipeName: () => {},
+      onRecipeDescription: () => {},
+      onRecipeMetadata: () => {},
+      onIngredientsStart: () => {},
+      onIngredient: () => {},
+      onInstructionsStart: () => {},
+      onInstruction: () => {},
+      onNutrition: () => {},
 
-      onThinkingStart: () => {
-        // Not used in new UX - thinking is part of waiting
-      },
-
-      onThinking: () => {
-        // Not used in new UX
-      },
-
-      onThinkingStop: () => {
-        // Not used in new UX
-      },
-
-      onRecipeStart: () => {
-        // Recipe events are starting
-        setIsWaiting(false); // Stop waiting indicator
-      },
-
-      onRecipeName: (name: string) => {
-        setStreamingRecipe(prev => ({ ...prev, name }));
-      },
-
-      onRecipeDescription: (description: string) => {
-        setStreamingRecipe(prev => ({ ...prev, description }));
-      },
-
-      onRecipeMetadata: (metadata: StreamRecipeMetadata) => {
-        setStreamingRecipe(prev => ({ ...prev, metadata }));
-      },
-
-      onIngredientsStart: () => {
-        // Stop waiting when ingredients start arriving
-        setIsWaiting(false);
-      },
-
-      onIngredient: (ingredient: Ingredient) => {
-        setStreamingRecipe(prev => ({
-          ...prev,
-          ingredients: [...prev.ingredients, ingredient],
-        }));
-      },
-
-      onInstructionsStart: () => {
-        // Instructions starting
-      },
-
-      onInstruction: (step: number, content: string) => {
-        setStreamingRecipe(prev => ({
-          ...prev,
-          instructions: [...prev.instructions, { step, content }],
-        }));
-      },
-
-      onNutrition: (nutrition: NutritionFacts) => {
-        setStreamingRecipe(prev => ({ ...prev, nutrition }));
-      },
-
-      onComplete: (recipeId, message) => {
-        setStatusMessage(message || 'Recipe created successfully!');
+      onComplete: recipeId => {
         setLoading(false);
-        setIsStreaming(false);
-        setIsWaiting(false);
-        setShowSuccessOverlay(true);
-        setIsOverlayFadingOut(false); // Reset fade-out state
-
-        // Start fade-out after 1.5 seconds
-        setTimeout(() => {
-          setIsOverlayFadingOut(true);
-        }, 1500);
-
-        // Navigate after fade completes (1.5s + 0.5s fade = 2s total)
-        setTimeout(() => {
-          navigate(`/recipes/${recipeId}`);
-        }, 2000);
+        navigate(`/recipes/${recipeId}`);
       },
 
       onError: errorMsg => {
         setError(errorMsg);
         setLoading(false);
-        setIsStreaming(false);
-        setIsWaiting(false);
-        setStatusMessage('');
       },
     };
 
@@ -206,9 +70,6 @@ export default function GenerateRecipePage() {
         err instanceof Error ? err.message : 'Failed to generate recipe. Please try again.';
       setError(errorMessage);
       setLoading(false);
-      setIsStreaming(false);
-      setIsWaiting(false);
-      setStatusMessage('');
     }
   };
 
@@ -220,7 +81,6 @@ export default function GenerateRecipePage() {
 
   return (
     <div className="max-w-7xl mx-auto">
-      {/* Hero Header */}
       <div className="mb-8 text-center">
         <h1 className="text-5xl font-bold bg-gradient-to-r from-orange-600 via-orange-500 to-yellow-500 bg-clip-text text-transparent animate-gradient mb-3">
           Generate Your Recipe
@@ -230,7 +90,6 @@ export default function GenerateRecipePage() {
         </p>
       </div>
 
-      {/* Error Display */}
       {error && (
         <div className="mb-6 card p-6 bg-red-50 border-2 border-red-200 animate-shake">
           <div className="flex items-start gap-4">
@@ -251,84 +110,20 @@ export default function GenerateRecipePage() {
         </div>
       )}
 
-      {/* Only show content when not showing success overlay */}
-      {!showSuccessOverlay && (
-        <>
-          {/* State 1: Form only (before submission) */}
-          {!isStreaming && (
-            <div className="max-w-3xl mx-auto">
-              <RecipeForm
-                formData={formData}
-                setFormData={setFormData}
-                loading={loading}
-                error=""
-                onSubmit={handleSubmit}
-                statusMessage={statusMessage}
-                isStreaming={false}
-                compact={false}
-              />
-            </div>
-          )}
+      <LoadingModal isOpen={loading} message="Generating your recipe..." />
 
-          {/* State 2: Centered waiting indicator (during 10-30s wait) */}
-          {isStreaming && isWaiting && (
-            <div className="max-w-2xl mx-auto">
-              <WaitingIndicator />
-            </div>
-          )}
-
-          {/* State 3: Dual-panel with form + recipe preview (when building) */}
-          {isStreaming && !isWaiting && (
-            <div className="flex gap-6">
-              <div className="w-[400px] flex-shrink-0 sticky top-6 self-start">
-                <RecipeForm
-                  formData={formData}
-                  setFormData={setFormData}
-                  loading={loading}
-                  error=""
-                  onSubmit={handleSubmit}
-                  statusMessage={statusMessage}
-                  isStreaming={true}
-                  compact={true}
-                />
-              </div>
-              <div className="flex-1">
-                <RecipePreview
-                  loading={loading}
-                  name={streamingRecipe.name}
-                  description={streamingRecipe.description}
-                  metadata={streamingRecipe.metadata}
-                  ingredients={streamingRecipe.ingredients}
-                  instructions={streamingRecipe.instructions}
-                  nutrition={streamingRecipe.nutrition}
-                  predictedIngredientCount={predictedIngredientCount}
-                  predictedStepCount={predictedStepCount}
-                />
-              </div>
-            </div>
-          )}
-        </>
-      )}
-
-      {/* Success Overlay */}
-      {showSuccessOverlay && (
-        <div
-          className={`fixed inset-0 bg-black/50 flex items-center justify-center z-50 ${
-            isOverlayFadingOut ? 'animate-fade-out' : 'animate-fade-in'
-          }`}
-        >
-          <div
-            className={`bg-white rounded-2xl p-12 max-w-md text-center shadow-2xl ${
-              isOverlayFadingOut ? 'animate-scale-out' : 'animate-scale-in'
-            }`}
-          >
-            <div className="text-8xl mb-6 animate-bounce-in">✨</div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">Your Recipe is Ready!</h2>
-            <p className="text-gray-600 mb-6">Redirecting to your delicious creation...</p>
-            <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-              <div className="h-full w-0 bg-gradient-to-r from-orange-500 to-orange-600 animate-progress-bar" />
-            </div>
-          </div>
+      {!loading && (
+        <div className="max-w-3xl mx-auto">
+          <RecipeForm
+            formData={formData}
+            setFormData={setFormData}
+            loading={false}
+            error=""
+            onSubmit={handleSubmit}
+            statusMessage=""
+            isStreaming={false}
+            compact={false}
+          />
         </div>
       )}
     </div>

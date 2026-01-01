@@ -16,9 +16,8 @@ export interface StreamRecipeMetadata {
 export interface StreamMessage {
   type:
     | 'status'
-    | 'thinking_start'
-    | 'thinking'
-    | 'thinking_stop'
+    | 'tool_started'
+    | 'tool_completed'
     | 'recipe_start'
     | 'recipe_name'
     | 'recipe_description'
@@ -36,13 +35,17 @@ export interface StreamMessage {
   step?: number;
   recipe_id?: number;
   thinking_length?: number;
+  // Tool event fields
+  tool_name?: string;
+  icon?: string;
+  title?: string;
+  description?: string;
 }
 
 export interface StreamCallbacks {
   onStatus?: (message: string) => void;
-  onThinkingStart?: (message: string) => void;
-  onThinking?: (chunk: string) => void;
-  onThinkingStop?: (message: string) => void;
+  onToolStarted?: (toolName: string, icon: string, title: string, description: string) => void;
+  onToolCompleted?: (toolName: string) => void;
   onRecipeStart?: () => void;
   onRecipeName?: (name: string) => void;
   onRecipeDescription?: (description: string) => void;
@@ -57,11 +60,6 @@ export interface StreamCallbacks {
 }
 
 class RecipeService {
-  async generateRecipe(request: RecipeGenerationRequest): Promise<Recipe> {
-    const response = await api.post<Recipe>('/recipes/generate/', request);
-    return response.data;
-  }
-
   async generateRecipeStream(
     request: RecipeGenerationRequest,
     callbacks: StreamCallbacks
@@ -148,14 +146,16 @@ class RecipeService {
       case 'status':
         callbacks.onStatus?.(data.message || '');
         break;
-      case 'thinking_start':
-        callbacks.onThinkingStart?.(data.message || 'Hungry Helper is thinking...');
+      case 'tool_started':
+        callbacks.onToolStarted?.(
+          data.tool_name || '',
+          data.icon || '🔧',
+          data.title || '',
+          data.description || ''
+        );
         break;
-      case 'thinking':
-        callbacks.onThinking?.(data.chunk || '');
-        break;
-      case 'thinking_stop':
-        callbacks.onThinkingStop?.(data.message || 'Thinking complete');
+      case 'tool_completed':
+        callbacks.onToolCompleted?.(data.tool_name || '');
         break;
       case 'recipe_start':
         callbacks.onRecipeStart?.();

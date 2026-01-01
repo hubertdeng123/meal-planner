@@ -16,14 +16,6 @@ vi.mock('../api', () => ({
   },
 }));
 
-// Mock auth service to provide token
-vi.mock('../auth.service', () => ({
-  default: {
-    getToken: vi.fn(() => 'mock-token'),
-    isAuthenticated: vi.fn(() => true),
-  },
-}));
-
 const mockApi = vi.mocked(api);
 
 describe('RecipeService', () => {
