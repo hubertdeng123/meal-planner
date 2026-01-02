@@ -2,10 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
+import asyncio
 import json
-import time
 import random
-from pydantic_ai import AgentRunResultEvent
 from app.db.database import get_db
 from app.api.deps import get_current_active_user
 from app.models import (
@@ -173,22 +172,22 @@ async def generate_recipe_stream(
         try:
             yield f"data: {json.dumps({'type': 'status', 'message': 'Starting recipe generation...'})}\n\n"
 
-            # Stream events from PydanticAI
-            recipe_llm = None
-            last_keepalive = time.time()
+            # Run generation in background task
+            async def generate_recipe():
+                result = await recipe_agent.run(user_prompt, deps=deps)
+                return result.output
 
-            async for event in recipe_agent.run_stream_events(user_prompt, deps=deps):
-                # Send SSE keepalive comment every 3 seconds to prevent connection timeout
-                current_time = time.time()
-                if current_time - last_keepalive > 3:
-                    yield ": keepalive\n\n"  # SSE comment - keeps connection alive, invisible to frontend
-                    last_keepalive = current_time
+            generation_task = asyncio.create_task(generate_recipe())
 
-                # Final result event - extract the recipe
-                if isinstance(event, AgentRunResultEvent):
-                    recipe_llm = event.result.output
+            # Send keepalives while waiting for generation to complete
+            while not generation_task.done():
+                await asyncio.sleep(2)
+                yield ": keepalive\n\n"
 
-            # Now manually stream the recipe field-by-field for progressive UX!
+            # Get the complete recipe
+            recipe_llm = await generation_task
+
+            # Now stream the complete recipe field-by-field (happens instantly)
             if recipe_llm:
                 yield f"data: {json.dumps({'type': 'recipe_start'})}\n\n"
 
