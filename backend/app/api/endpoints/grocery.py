@@ -398,5 +398,5 @@ def _format_grocery_item_response(item: GroceryItemModel) -> dict:
         "quantity": item.quantity,
         "unit": item.unit,
         "category": item.category,
-        "checked": bool(item.checked),
+        "checked": item.checked,
     }

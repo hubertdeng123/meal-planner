@@ -1,4 +1,5 @@
 from sqlalchemy import (
+    Boolean,
     Column,
     Integer,
     String,
@@ -98,7 +99,7 @@ class GroceryItem(Base):
     quantity = Column(Float)
     unit = Column(String)
     category = Column(String)  # produce, dairy, meat, etc.
-    checked = Column(Integer, default=0)  # 0 = unchecked, 1 = checked
+    checked = Column(Boolean, default=False, nullable=False)
 
     # Relationships
     grocery_list = relationship("GroceryList", back_populates="items")
