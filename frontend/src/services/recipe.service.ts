@@ -16,6 +16,9 @@ export interface StreamRecipeMetadata {
 export interface StreamMessage {
   type:
     | 'status'
+    | 'thinking_start'
+    | 'thinking'
+    | 'thinking_end'
     | 'tool_started'
     | 'tool_completed'
     | 'recipe_start'
@@ -44,6 +47,9 @@ export interface StreamMessage {
 
 export interface StreamCallbacks {
   onStatus?: (message: string) => void;
+  onThinkingStart?: () => void;
+  onThinking?: (content: string) => void;
+  onThinkingEnd?: () => void;
   onToolStarted?: (toolName: string, icon: string, title: string, description: string) => void;
   onToolCompleted?: (toolName: string) => void;
   onRecipeStart?: () => void;
@@ -145,6 +151,15 @@ class RecipeService {
     switch (data.type) {
       case 'status':
         callbacks.onStatus?.(data.message || '');
+        break;
+      case 'thinking_start':
+        callbacks.onThinkingStart?.();
+        break;
+      case 'thinking':
+        callbacks.onThinking?.(typeof data.content === 'string' ? data.content : '');
+        break;
+      case 'thinking_end':
+        callbacks.onThinkingEnd?.();
         break;
       case 'tool_started':
         callbacks.onToolStarted?.(

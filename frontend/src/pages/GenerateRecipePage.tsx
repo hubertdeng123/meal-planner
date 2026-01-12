@@ -9,6 +9,8 @@ export default function GenerateRecipePage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [thinkingTokens, setThinkingTokens] = useState<string[]>([]);
+  const [isThinking, setIsThinking] = useState(false);
   const [formData, setFormData] = useState<RecipeGenerationRequest>({
     meal_type: '',
     cuisine: '',
@@ -37,9 +39,26 @@ export default function GenerateRecipePage() {
     e.preventDefault();
     setError('');
     setLoading(true);
+    setThinkingTokens([]);
+    setIsThinking(false);
 
     const callbacks: StreamCallbacks = {
       onStatus: () => {},
+      onThinkingStart: () => {
+        setIsThinking(true);
+      },
+      onThinking: content => {
+        if (content.trim()) {
+          setThinkingTokens(prev => {
+            const updated = [...prev, content];
+            // Limit to last 100 tokens to prevent memory growth
+            return updated.length > 100 ? updated.slice(-100) : updated;
+          });
+        }
+      },
+      onThinkingEnd: () => {
+        setIsThinking(false);
+      },
       onToolStarted: () => {},
       onToolCompleted: () => {},
       onRecipeStart: () => {},
@@ -54,12 +73,14 @@ export default function GenerateRecipePage() {
 
       onComplete: recipeId => {
         setLoading(false);
+        setIsThinking(false);
         navigate(`/recipes/${recipeId}`);
       },
 
       onError: errorMsg => {
         setError(errorMsg);
         setLoading(false);
+        setIsThinking(false);
       },
     };
 
@@ -110,7 +131,12 @@ export default function GenerateRecipePage() {
         </div>
       )}
 
-      <LoadingModal isOpen={loading} message="Generating your recipe..." />
+      <LoadingModal
+        isOpen={loading}
+        message="Generating your recipe..."
+        thinkingTokens={thinkingTokens}
+        isThinking={isThinking}
+      />
 
       {!loading && (
         <div className="max-w-3xl mx-auto">

@@ -1,13 +1,14 @@
-from pydantic_ai import Agent
+from pydantic_ai import Agent, NativeOutput
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 from app.core.config import settings
 from app.schemas.llm_response import RecipeLLM
 from app.agents.recipe_deps import RecipeAgentDeps
 
-# Create Together AI model (using OpenAI-compatible API)
+# Create Together AI model with DeepSeek R1-0528 (reasoning model)
+# DeepSeek R1 streams <think>...</think> reasoning tokens before structured output
 model = OpenAIChatModel(
-    "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8",
+    "deepseek-ai/DeepSeek-R1-0528",
     provider=OpenAIProvider(
         base_url="https://api.together.xyz/v1",
         api_key=settings.TOGETHER_API_KEY,
@@ -18,7 +19,9 @@ model = OpenAIChatModel(
 recipe_agent = Agent(
     model=model,
     deps_type=RecipeAgentDeps,
-    output_type=RecipeLLM,  # Type-safe structured output
+    output_type=NativeOutput(
+        RecipeLLM
+    ),  # Use JSON schema response_format instead of tool calling
     system_prompt="""You are a professional chef and nutritionist. Generate detailed, delicious recipes.
 
 The user's preferences, history, and dietary needs are included in the request. Use this information to create personalized recipes.

@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
-import asyncio
 import json
+import logging
 import random
 from app.db.database import get_db
 from app.api.deps import get_current_active_user
@@ -23,6 +23,7 @@ from app.agents.pydantic_recipe_agent import recipe_agent
 from app.agents.recipe_deps import RecipeAgentDeps
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 def prefetch_user_context(user_id: int, db: Session) -> dict:
@@ -135,6 +136,12 @@ async def generate_recipe_stream(
                 f"- AVOID these ingredients: {', '.join(user_context['disliked_ingredients'][:10])}"
             )
 
+        # Include nutritional goals/preferences
+        if user_context["preferences"]["nutritional_rules"]:
+            prompt_parts.append(
+                f"- Nutritional Goals: {user_context['preferences']['nutritional_rules']}"
+            )
+
         prompt_parts.append("- Choose a cuisine from the user's saved preferences")
         if user_context["preferences"]["food_preferences"].get("cuisines"):
             prompt_parts.append(
@@ -172,70 +179,100 @@ async def generate_recipe_stream(
         try:
             yield f"data: {json.dumps({'type': 'status', 'message': 'Starting recipe generation...'})}\n\n"
 
-            # Run generation in background task
-            async def generate_recipe():
-                result = await recipe_agent.run(user_prompt, deps=deps)
-                return result.output
+            logger.info("Recipe generation started with Kimi K2 Thinking")
 
-            generation_task = asyncio.create_task(generate_recipe())
+            # Stream with thinking tokens
+            recipe_llm = None
+            in_thinking = False
 
-            # Send keepalives while waiting for generation to complete
-            while not generation_task.done():
-                await asyncio.sleep(2)
-                yield ": keepalive\n\n"
+            async with recipe_agent.run_stream(user_prompt, deps=deps) as result:
+                # Use .stream() to iterate over response events (works with structured output)
+                # Kimi K2 outputs <think>...</think> before the tool call
+                async for event in result.stream():
+                    # Check if event has text content (thinking comes as text before tool call)
+                    if hasattr(event, "content") and isinstance(event.content, str):
+                        content = event.content
 
-            # Get the complete recipe
-            recipe_llm = await generation_task
+                        if "<think>" in content:
+                            in_thinking = True
+                            yield f"data: {json.dumps({'type': 'thinking_start'})}\n\n"
+                            content = content.split("<think>", 1)[-1]
+
+                        if "</think>" in content:
+                            before_end = content.split("</think>", 1)[0]
+                            if before_end.strip():
+                                yield f"data: {json.dumps({'type': 'thinking', 'content': before_end})}\n\n"
+                            in_thinking = False
+                            yield f"data: {json.dumps({'type': 'thinking_end'})}\n\n"
+                            # Content after </think> is the tool call, not text - safe to skip
+                            continue
+
+                        if in_thinking and content.strip():
+                            yield f"data: {json.dumps({'type': 'thinking', 'content': content})}\n\n"
+
+                # Get the final structured output (type-safe RecipeLLM)
+                recipe_llm = await result.get_output()
+
+            if not recipe_llm:
+                logger.error("Recipe generation returned None")
+                yield f"data: {json.dumps({'type': 'error', 'message': 'Recipe generation failed - no output received'})}\n\n"
+                return
+
+            logger.info(
+                "Recipe generation complete: ingredients=%s instructions=%s nutrition=%s",
+                len(recipe_llm.ingredients or []),
+                len(recipe_llm.instructions or []),
+                bool(recipe_llm.nutrition),
+            )
 
             # Now stream the complete recipe field-by-field (happens instantly)
-            if recipe_llm:
-                yield f"data: {json.dumps({'type': 'recipe_start'})}\n\n"
+            yield f"data: {json.dumps({'type': 'recipe_start'})}\n\n"
 
-                yield f"data: {json.dumps({'type': 'recipe_name', 'content': recipe_llm.name})}\n\n"
+            yield f"data: {json.dumps({'type': 'recipe_name', 'content': recipe_llm.name})}\n\n"
 
-                yield f"data: {json.dumps({'type': 'recipe_description', 'content': recipe_llm.description})}\n\n"
+            yield f"data: {json.dumps({'type': 'recipe_description', 'content': recipe_llm.description})}\n\n"
 
-                yield f"data: {json.dumps({'type': 'recipe_metadata', 'content': {'prep_time': recipe_llm.prep_time_minutes, 'cook_time': recipe_llm.cook_time_minutes, 'servings': recipe_llm.servings}})}\n\n"
+            yield f"data: {json.dumps({'type': 'recipe_metadata', 'content': {'prep_time': recipe_llm.prep_time_minutes, 'cook_time': recipe_llm.cook_time_minutes, 'servings': recipe_llm.servings}})}\n\n"
 
-                yield f"data: {json.dumps({'type': 'ingredients_start'})}\n\n"
-                for ingredient in recipe_llm.ingredients:
-                    yield f"data: {json.dumps({'type': 'ingredient', 'content': {'name': ingredient.name, 'quantity': ingredient.quantity, 'unit': ingredient.unit, 'notes': ingredient.notes}})}\n\n"
+            yield f"data: {json.dumps({'type': 'ingredients_start'})}\n\n"
+            for ingredient in recipe_llm.ingredients:
+                yield f"data: {json.dumps({'type': 'ingredient', 'content': {'name': ingredient.name, 'quantity': ingredient.quantity, 'unit': ingredient.unit, 'notes': ingredient.notes}})}\n\n"
 
-                yield f"data: {json.dumps({'type': 'instructions_start'})}\n\n"
-                for idx, instruction in enumerate(recipe_llm.instructions, 1):
-                    yield f"data: {json.dumps({'type': 'instruction', 'step': idx, 'content': instruction})}\n\n"
+            yield f"data: {json.dumps({'type': 'instructions_start'})}\n\n"
+            for idx, instruction in enumerate(recipe_llm.instructions, 1):
+                yield f"data: {json.dumps({'type': 'instruction', 'step': idx, 'content': instruction})}\n\n"
 
-                yield f"data: {json.dumps({'type': 'nutrition', 'content': recipe_llm.nutrition.model_dump()})}\n\n"
+            yield f"data: {json.dumps({'type': 'nutrition', 'content': recipe_llm.nutrition.model_dump()})}\n\n"
 
-                # Save to database
-                db_recipe = RecipeModel(
-                    user_id=current_user.id,
-                    name=recipe_llm.name,
-                    description=recipe_llm.description,
-                    cuisine=recipe_llm.cuisine,
-                    difficulty=request.difficulty or "medium",
-                    instructions=recipe_llm.instructions,
-                    ingredients=[ing.model_dump() for ing in recipe_llm.ingredients],
-                    prep_time_minutes=recipe_llm.prep_time_minutes,
-                    cook_time_minutes=recipe_llm.cook_time_minutes,
-                    servings=recipe_llm.servings,
-                    tags=recipe_llm.tags,
-                    source="ai_generated",
-                    source_urls=recipe_llm.source_urls,
-                    calories=recipe_llm.nutrition.calories,
-                    protein_g=recipe_llm.nutrition.protein_g,
-                    carbs_g=recipe_llm.nutrition.carbs_g,
-                    fat_g=recipe_llm.nutrition.fat_g,
-                    fiber_g=recipe_llm.nutrition.fiber_g,
-                    sugar_g=recipe_llm.nutrition.sugar_g,
-                    sodium_mg=recipe_llm.nutrition.sodium_mg,
-                )
+            # Save to database
+            db_recipe = RecipeModel(
+                user_id=current_user.id,
+                name=recipe_llm.name,
+                description=recipe_llm.description,
+                cuisine=recipe_llm.cuisine,
+                difficulty=request.difficulty or "medium",
+                instructions=recipe_llm.instructions,
+                ingredients=[ing.model_dump() for ing in recipe_llm.ingredients],
+                prep_time_minutes=recipe_llm.prep_time_minutes,
+                cook_time_minutes=recipe_llm.cook_time_minutes,
+                servings=recipe_llm.servings,
+                tags=recipe_llm.tags,
+                source="ai_generated",
+                source_urls=recipe_llm.source_urls,
+                calories=recipe_llm.nutrition.calories,
+                protein_g=recipe_llm.nutrition.protein_g,
+                carbs_g=recipe_llm.nutrition.carbs_g,
+                fat_g=recipe_llm.nutrition.fat_g,
+                fiber_g=recipe_llm.nutrition.fiber_g,
+                sugar_g=recipe_llm.nutrition.sugar_g,
+                sodium_mg=recipe_llm.nutrition.sodium_mg,
+            )
 
-                db.add(db_recipe)
-                db.commit()
-                db.refresh(db_recipe)
+            db.add(db_recipe)
+            db.commit()
+            db.refresh(db_recipe)
 
-                yield f"data: {json.dumps({'type': 'complete', 'recipe_id': db_recipe.id, 'message': 'Recipe created successfully!'})}\n\n"
+            yield f"data: {json.dumps({'type': 'complete', 'recipe_id': db_recipe.id, 'message': 'Recipe created successfully!'})}\n\n"
 
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
