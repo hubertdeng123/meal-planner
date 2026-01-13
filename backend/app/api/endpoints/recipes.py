@@ -5,7 +5,7 @@ from sqlalchemy import and_
 import json
 import logging
 import random
-from app.db.database import get_db
+from app.db.database import get_db, SessionLocal
 from app.api.deps import get_current_active_user
 from app.models import (
     User,
@@ -98,88 +98,95 @@ def _select_random_cuisine(request: RecipeGenerationRequest, user: User) -> str 
 async def generate_recipe_stream(
     request: RecipeGenerationRequest,
     current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db),
 ):
     """Generate recipe with streaming using PydanticAI + tools"""
+    # Capture user_id before entering generator (current_user may not be available later)
+    user_id = current_user.id
+    # Select cuisine before entering generator (needs current_user which won't be available inside)
+    selected_cuisine = _select_random_cuisine(request, current_user)
 
     async def event_stream():
-        # Prefetch user context (fast - all queries at once, no LLM tool calls needed)
-        user_context = prefetch_user_context(current_user.id, db)
-
-        selected_cuisine = _select_random_cuisine(request, current_user)
-
-        # Build user prompt with prefetched context
-        prompt_parts = ["Please create a recipe with:\n"]
-
-        # Include user preferences in prompt
-        if user_context["preferences"]["dietary_restrictions"]:
-            prompt_parts.append(
-                f"- Dietary Restrictions: {user_context['preferences']['dietary_restrictions']}"
-            )
-
-        # Include past recipes to avoid duplicates
-        if user_context["past_recipe_names"]:
-            prompt_parts.append(
-                f"- AVOID these existing recipes (create something different): {', '.join(user_context['past_recipe_names'][:10])}"
-            )
-
-        # Include liked recipes for inspiration
-        if user_context["liked_recipes"]:
-            liked_names = [r["name"] for r in user_context["liked_recipes"][:5]]
-            prompt_parts.append(
-                f"- You've enjoyed these recipes before (similar flavors work well): {', '.join(liked_names)}"
-            )
-
-        # Include disliked ingredients
-        if user_context["disliked_ingredients"]:
-            prompt_parts.append(
-                f"- AVOID these ingredients: {', '.join(user_context['disliked_ingredients'][:10])}"
-            )
-
-        # Include nutritional goals/preferences
-        if user_context["preferences"]["nutritional_rules"]:
-            prompt_parts.append(
-                f"- Nutritional Goals: {user_context['preferences']['nutritional_rules']}"
-            )
-
-        prompt_parts.append("- Choose a cuisine from the user's saved preferences")
-        if user_context["preferences"]["food_preferences"].get("cuisines"):
-            prompt_parts.append(
-                f"- Preferred cuisines: {user_context['preferences']['food_preferences']['cuisines']}"
-            )
-        if request.meal_type:
-            prompt_parts.append(f"- Meal Type: {request.meal_type}")
-        if selected_cuisine:
-            prompt_parts.append(f"- Cuisine: {selected_cuisine}")
-            prompt_parts.append(
-                f"IMPORTANT: This MUST be a {selected_cuisine} dish with authentic flavors."
-            )
-        if request.difficulty:
-            difficulty_map = {
-                "easy": "EASY recipe with simple techniques, minimal prep, common ingredients",
-                "medium": "MEDIUM difficulty with some cooking techniques and moderate prep",
-                "hard": "HARD recipe with advanced techniques and longer preparation",
-            }
-            prompt_parts.append(difficulty_map.get(request.difficulty.lower(), ""))
-        if request.max_time_minutes:
-            prompt_parts.append(f"- Max Time: {request.max_time_minutes} minutes")
-        if request.ingredients_to_use:
-            prompt_parts.append(f"- Must Use: {', '.join(request.ingredients_to_use)}")
-        if request.dietary_restrictions:
-            prompt_parts.append(f"- Dietary: {', '.join(request.dietary_restrictions)}")
-        prompt_parts.append(f"- Servings: {request.servings}")
-        if request.comments:
-            prompt_parts.append(f"\nSpecial Requests: {request.comments}")
-
-        user_prompt = "\n".join(prompt_parts)
-
-        # Create dependencies (sync Session + user ID)
-        deps = RecipeAgentDeps(db=db, user_id=current_user.id)
-
+        # Create session inside generator to ensure it stays open for streaming
+        db = SessionLocal()
         try:
+            # Prefetch user context (fast - all queries at once, no LLM tool calls needed)
+            user_context = prefetch_user_context(user_id, db)
+
+            # Build user prompt with prefetched context
+            prompt_parts = ["Please create a recipe with:\n"]
+
+            # Include user preferences in prompt
+            if user_context["preferences"]["dietary_restrictions"]:
+                prompt_parts.append(
+                    f"- Dietary Restrictions: {user_context['preferences']['dietary_restrictions']}"
+                )
+
+            # Include past recipes to avoid duplicates
+            if user_context["past_recipe_names"]:
+                prompt_parts.append(
+                    f"- AVOID these existing recipes (create something different): {', '.join(user_context['past_recipe_names'][:10])}"
+                )
+
+            # Include liked recipes for inspiration
+            if user_context["liked_recipes"]:
+                liked_names = [r["name"] for r in user_context["liked_recipes"][:5]]
+                prompt_parts.append(
+                    f"- You've enjoyed these recipes before (similar flavors work well): {', '.join(liked_names)}"
+                )
+
+            # Include disliked ingredients
+            if user_context["disliked_ingredients"]:
+                prompt_parts.append(
+                    f"- AVOID these ingredients: {', '.join(user_context['disliked_ingredients'][:10])}"
+                )
+
+            # Include nutritional goals/preferences
+            if user_context["preferences"]["nutritional_rules"]:
+                prompt_parts.append(
+                    f"- Nutritional Goals: {user_context['preferences']['nutritional_rules']}"
+                )
+
+            prompt_parts.append("- Choose a cuisine from the user's saved preferences")
+            if user_context["preferences"]["food_preferences"].get("cuisines"):
+                prompt_parts.append(
+                    f"- Preferred cuisines: {user_context['preferences']['food_preferences']['cuisines']}"
+                )
+            if request.meal_type:
+                prompt_parts.append(f"- Meal Type: {request.meal_type}")
+            if selected_cuisine:
+                prompt_parts.append(f"- Cuisine: {selected_cuisine}")
+                prompt_parts.append(
+                    f"IMPORTANT: This MUST be a {selected_cuisine} dish with authentic flavors."
+                )
+            if request.difficulty:
+                difficulty_map = {
+                    "easy": "EASY recipe with simple techniques, minimal prep, common ingredients",
+                    "medium": "MEDIUM difficulty with some cooking techniques and moderate prep",
+                    "hard": "HARD recipe with advanced techniques and longer preparation",
+                }
+                prompt_parts.append(difficulty_map.get(request.difficulty.lower(), ""))
+            if request.max_time_minutes:
+                prompt_parts.append(f"- Max Time: {request.max_time_minutes} minutes")
+            if request.ingredients_to_use:
+                prompt_parts.append(
+                    f"- Must Use: {', '.join(request.ingredients_to_use)}"
+                )
+            if request.dietary_restrictions:
+                prompt_parts.append(
+                    f"- Dietary: {', '.join(request.dietary_restrictions)}"
+                )
+            prompt_parts.append(f"- Servings: {request.servings}")
+            if request.comments:
+                prompt_parts.append(f"\nSpecial Requests: {request.comments}")
+
+            user_prompt = "\n".join(prompt_parts)
+
+            # Create dependencies (sync Session + user ID)
+            deps = RecipeAgentDeps(db=db, user_id=user_id)
+
             yield f"data: {json.dumps({'type': 'status', 'message': 'Starting recipe generation...'})}\n\n"
 
-            logger.info("Recipe generation started with Kimi K2 Thinking")
+            logger.info("Recipe generation started with DeepSeek R1")
 
             # Stream with thinking tokens
             recipe_llm = None
@@ -246,7 +253,7 @@ async def generate_recipe_stream(
 
             # Save to database
             db_recipe = RecipeModel(
-                user_id=current_user.id,
+                user_id=user_id,
                 name=recipe_llm.name,
                 description=recipe_llm.description,
                 cuisine=recipe_llm.cuisine,
@@ -275,7 +282,10 @@ async def generate_recipe_stream(
             yield f"data: {json.dumps({'type': 'complete', 'recipe_id': db_recipe.id, 'message': 'Recipe created successfully!'})}\n\n"
 
         except Exception as e:
+            db.rollback()
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+        finally:
+            db.close()
 
     return StreamingResponse(
         event_stream(),
