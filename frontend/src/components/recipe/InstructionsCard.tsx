@@ -23,7 +23,7 @@ export function InstructionsCard({
     <div className="card p-6">
       <h3 className="text-2xl font-semibold flex items-center gap-2 mb-6">
         <span>📝</span>
-        <span>Instructions</span>
+        <span>Steps</span>
       </h3>
 
       <div className="space-y-6">
@@ -43,7 +43,7 @@ export function InstructionsCard({
                 style={{ animationDelay: `${inst.step * 100}ms` }}
               >
                 <div className="flex-shrink-0">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold shadow-lg group-hover:scale-110 transition-transform">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#f97316] to-[#ea580c] flex items-center justify-center text-white font-bold shadow-lg group-hover:scale-110 transition-transform">
                     {inst.step}
                   </div>
                 </div>

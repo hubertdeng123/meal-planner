@@ -46,10 +46,10 @@ export function IngredientsCard({
             ingredients.map((ing, idx) => (
               <div
                 key={idx}
-                className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-all duration-200 animate-slide-in-left"
+                className="flex items-start gap-3 p-3 rounded-2xl hover:bg-slate-50 transition-all duration-200 animate-slide-in-left"
                 style={{ animationDelay: `${idx * 50}ms` }}
               >
-                <span className="text-orange-500 text-xl flex-shrink-0">•</span>
+                <span className="text-[#f97316] text-xl flex-shrink-0">•</span>
                 <div className="flex-1">
                   <span className="font-semibold text-gray-900">
                     {ing.quantity} {ing.unit}

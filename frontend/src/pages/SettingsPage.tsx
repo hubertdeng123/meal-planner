@@ -30,6 +30,7 @@ import {
   SchedulingRulesComponent,
   DietaryRulesComponent,
 } from '../components/PreferenceComponents';
+import { PageHeader } from '../components/ui/PageHeader';
 
 const WEEKDAYS = [
   { value: 0, label: 'Monday' },
@@ -44,12 +45,12 @@ const WEEKDAYS = [
 const PREFERENCE_TABS = [
   { id: 'account', name: 'Account', icon: UserIcon },
   { id: 'notifications', name: 'Notifications', icon: BellIcon },
-  { id: 'basic', name: 'Food Preferences', icon: HeartIcon },
+  { id: 'basic', name: 'Food favorites', icon: HeartIcon },
   { id: 'ingredients', name: 'Ingredients', icon: SparklesIcon },
-  { id: 'cooking', name: 'Cooking', icon: Cog6ToothIcon },
+  { id: 'cooking', name: 'Cooking style', icon: Cog6ToothIcon },
   { id: 'nutrition', name: 'Nutrition', icon: ScaleIcon },
   { id: 'schedule', name: 'Schedule', icon: CalendarIcon },
-  { id: 'dietary', name: 'Dietary Rules', icon: ClipboardDocumentListIcon },
+  { id: 'dietary', name: 'Dietary rules', icon: ClipboardDocumentListIcon },
 ];
 
 export default function SettingsPage() {
@@ -88,7 +89,7 @@ export default function SettingsPage() {
       }
     } catch (error) {
       console.error('Failed to load settings:', error);
-      setMessage({ type: 'error', text: 'Failed to load settings. Please refresh the page.' });
+      setMessage({ type: 'error', text: 'Could not load settings. Give it a refresh.' });
     } finally {
       setLoading(false);
     }
@@ -122,12 +123,12 @@ export default function SettingsPage() {
         setReminderSchedule(scheduleData);
       }
 
-      setMessage({ type: 'success', text: 'Notification settings saved successfully!' });
+      setMessage({ type: 'success', text: 'Notification settings saved. Nice.' });
     } catch (error) {
       console.error('Failed to save notification preferences:', error);
       setMessage({
         type: 'error',
-        text: 'Failed to save notification settings. Please try again.',
+        text: 'Could not save notification settings. Try again?',
       });
     } finally {
       setSaving(false);
@@ -143,10 +144,10 @@ export default function SettingsPage() {
     try {
       const updatedPrefs = await authService.updateUserPreferences(userPreferences);
       setUserPreferences(updatedPrefs);
-      setMessage({ type: 'success', text: 'Food preferences saved successfully!' });
+      setMessage({ type: 'success', text: 'Preferences saved. Tasty.' });
     } catch (error) {
       console.error('Failed to save user preferences:', error);
-      setMessage({ type: 'error', text: 'Failed to save food preferences. Please try again.' });
+      setMessage({ type: 'error', text: 'Could not save preferences. Try again?' });
     } finally {
       setSaving(false);
     }
@@ -160,21 +161,20 @@ export default function SettingsPage() {
       const result = await notificationService.sendTestReminder();
       setMessage({
         type: 'success',
-        text: `Test reminder sent to ${result.email}! Check your inbox.`,
+        text: `Test reminder sent to ${result.email}. Check your inbox.`,
       });
     } catch (error: unknown) {
       const apiError = error as APIError;
       console.error('Failed to send test reminder:', error);
 
-      let errorMessage = 'Failed to send test reminder.';
+      let errorMessage = 'Could not send a test reminder.';
       if (apiError.response?.status === 400) {
         errorMessage =
           apiError.response.data?.detail ||
-          'Please check your notification settings and email address.';
+          'Double-check notification settings and your email address.';
       } else if (apiError.response?.status === 503) {
         errorMessage =
-          apiError.response.data?.detail ||
-          'Email service is currently unavailable. Please try again later.';
+          apiError.response.data?.detail || 'Email service is taking a break. Try again later.';
       }
 
       setMessage({ type: 'error', text: errorMessage });
@@ -186,7 +186,7 @@ export default function SettingsPage() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#f97316]"></div>
       </div>
     );
   }
@@ -195,8 +195,8 @@ export default function SettingsPage() {
     return (
       <div className="text-center py-12">
         <ExclamationCircleIcon className="mx-auto h-12 w-12 text-red-400" />
-        <h2 className="mt-4 text-lg font-semibold text-gray-900">Failed to load settings</h2>
-        <p className="mt-2 text-gray-600">Please refresh the page to try again.</p>
+        <h2 className="mt-4 text-lg font-semibold text-gray-900">Settings are taking a nap</h2>
+        <p className="mt-2 text-gray-600">Give the page a refresh to wake them up.</p>
       </div>
     );
   }
@@ -206,22 +206,22 @@ export default function SettingsPage() {
       <div className="card p-6">
         <div className="flex items-center mb-4">
           <UserIcon className="h-6 w-6 text-gray-500 mr-3" />
-          <h2 className="text-xl font-semibold text-gray-900">Account Information</h2>
+          <h2 className="text-xl font-semibold text-gray-900">Account info</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
-            <div className="input bg-gray-50 text-gray-500">
+            <div className="input bg-slate-50 text-gray-500">
               {user?.username || 'Not available'}
             </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <div className="input bg-gray-50 text-gray-500">{user?.email || 'Not available'}</div>
+            <div className="input bg-slate-50 text-gray-500">{user?.email || 'Not available'}</div>
           </div>
         </div>
         <p className="text-sm text-gray-500 mt-4">
-          To update your account information, please contact support.
+          Need to change account info? Reach out to support.
         </p>
       </div>
     </div>
@@ -232,15 +232,15 @@ export default function SettingsPage() {
       <div className="card p-6">
         <div className="flex items-center mb-6">
           <EnvelopeIcon className="h-6 w-6 text-gray-500 mr-3" />
-          <h2 className="text-xl font-semibold text-gray-900">Email Notifications</h2>
+          <h2 className="text-xl font-semibold text-gray-900">Email notifications</h2>
         </div>
 
         <div className="space-y-6">
           {/* Master Toggle */}
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+          <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-200/70">
             <div>
-              <h3 className="text-sm font-medium text-gray-900">Email Notifications</h3>
-              <p className="text-sm text-gray-500">Enable or disable all email notifications</p>
+              <h3 className="text-sm font-medium text-gray-900">Email notifications</h3>
+              <p className="text-sm text-gray-500">Flip all email nudges on or off</p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
               <input
@@ -254,21 +254,19 @@ export default function SettingsPage() {
                 }
                 className="sr-only peer"
               />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-600"></div>
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#f97316]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#f97316]"></div>
             </label>
           </div>
 
           {/* Weekly Planning Reminder */}
           {notificationPreferences.email_notifications_enabled && (
-            <div className="border border-gray-200 rounded-lg p-4">
+            <div className="border border-slate-200/70 rounded-2xl p-4 bg-white">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center">
                   <BellIcon className="h-5 w-5 text-gray-400 mr-2" />
                   <div>
-                    <h3 className="text-sm font-medium text-gray-900">
-                      Weekly Meal Planning Reminder
-                    </h3>
-                    <p className="text-sm text-gray-500">Get reminded to plan your weekly meals</p>
+                    <h3 className="text-sm font-medium text-gray-900">Weekly planning reminder</h3>
+                    <p className="text-sm text-gray-500">A gentle nudge to plan the week</p>
                   </div>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
@@ -283,12 +281,12 @@ export default function SettingsPage() {
                     }
                     className="sr-only peer"
                   />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-600"></div>
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#f97316]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#f97316]"></div>
                 </label>
               </div>
 
               {notificationPreferences.weekly_planning_reminder && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 pt-4 border-t border-gray-200">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 pt-4 border-t border-slate-200/70">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Day of Week
@@ -347,8 +345,8 @@ export default function SettingsPage() {
               )}
 
               {notificationPreferences.weekly_planning_reminder && reminderSchedule && (
-                <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                  <p className="text-sm text-blue-700">
+                <div className="mt-4 p-3 bg-[#fff6f7] rounded-2xl border border-[#f97316]/15">
+                  <p className="text-sm text-[#ea580c]">
                     <strong>Next reminder:</strong> {reminderSchedule.message}
                   </p>
                 </div>
@@ -359,7 +357,7 @@ export default function SettingsPage() {
 
         <div className="flex gap-4 mt-6">
           <button onClick={saveNotificationPreferences} disabled={saving} className="btn-primary">
-            {saving ? 'Saving...' : 'Save Notification Settings'}
+            {saving ? 'Saving...' : 'Save notifications'}
           </button>
 
           {notificationPreferences.email_notifications_enabled &&
@@ -369,7 +367,7 @@ export default function SettingsPage() {
                 disabled={testingSendReminder}
                 className="btn-secondary"
               >
-                {testingSendReminder ? 'Sending...' : 'Send Test Reminder'}
+                {testingSendReminder ? 'Sending...' : 'Send test reminder'}
               </button>
             )}
         </div>
@@ -421,7 +419,7 @@ export default function SettingsPage() {
 
           <div className="mt-6">
             <button onClick={saveUserPreferences} disabled={saving} className="btn-primary">
-              {saving ? 'Saving...' : 'Save Preferences'}
+              {saving ? 'Saving...' : 'Save preferences'}
             </button>
           </div>
         </div>
@@ -443,18 +441,15 @@ export default function SettingsPage() {
   return (
     <div className="max-w-6xl mx-auto">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
-        <p className="mt-2 text-gray-600">Manage your account preferences and notifications</p>
-      </div>
+      <PageHeader className="mb-8" title="Settings" subtitle="Make Hungry Helper feel like yours" />
 
       {/* Status Message */}
       {message && (
         <div
-          className={`mb-6 rounded-lg p-4 ${
+          className={`mb-6 rounded-2xl p-4 border ${
             message.type === 'success'
-              ? 'bg-green-50 border border-green-200'
-              : 'bg-red-50 border border-red-200'
+              ? 'bg-emerald-50 border-emerald-200'
+              : 'bg-red-50 border-red-200'
           }`}
         >
           <div className="flex">
@@ -491,12 +486,12 @@ export default function SettingsPage() {
                   onClick={() => setActiveTab(tab.id)}
                   className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
                     isActive
-                      ? 'bg-orange-50 text-orange-700 border-r-2 border-orange-500'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                      ? 'bg-[#f97316]/10 text-[#ea580c] border-r-2 border-[#f97316]'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-white/70'
                   }`}
                 >
                   <Icon
-                    className={`mr-3 h-5 w-5 ${isActive ? 'text-orange-500' : 'text-gray-400'}`}
+                    className={`mr-3 h-5 w-5 ${isActive ? 'text-[#f97316]' : 'text-gray-400'}`}
                   />
                   {tab.name}
                 </button>

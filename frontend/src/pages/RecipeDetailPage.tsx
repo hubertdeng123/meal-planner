@@ -6,9 +6,11 @@ import {
   TrashIcon,
   StarIcon,
   HeartIcon,
+  ShoppingBagIcon,
 } from '@heroicons/react/24/outline';
 import { StarIcon as StarSolidIcon, HeartIcon as HeartSolidIcon } from '@heroicons/react/24/solid';
 import recipeService from '../services/recipe.service';
+import groceryService from '../services/grocery.service';
 import Breadcrumbs from '../components/Breadcrumbs';
 import type { Recipe, RecipeFeedback } from '../types';
 
@@ -23,6 +25,7 @@ export default function RecipeDetailPage() {
   const [liked, setLiked] = useState(false);
   const [notes, setNotes] = useState('');
   const [savingFeedback, setSavingFeedback] = useState(false);
+  const [creatingList, setCreatingList] = useState(false);
 
   const loadRecipe = useCallback(
     async (recipeId: number) => {
@@ -56,9 +59,24 @@ export default function RecipeDetailPage() {
       navigate('/recipes');
     } catch (error) {
       console.error('Failed to delete recipe:', error);
-      alert('Failed to delete recipe. Please try again.');
+      alert('Could not delete that recipe. Try again?');
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleCreateList = async () => {
+    if (!recipe) return;
+
+    setCreatingList(true);
+    try {
+      const list = await groceryService.createGroceryListFromRecipes([recipe.id]);
+      navigate(`/grocery/${list.id}`);
+    } catch (error) {
+      console.error('Failed to create grocery list:', error);
+      alert('Could not create a grocery list. Try again?');
+    } finally {
+      setCreatingList(false);
     }
   };
 
@@ -79,7 +97,7 @@ export default function RecipeDetailPage() {
       const successDiv = document.createElement('div');
       successDiv.className =
         'fixed bottom-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg';
-      successDiv.textContent = 'Feedback saved successfully!';
+      successDiv.textContent = 'Saved! Thanks for the notes.';
       document.body.appendChild(successDiv);
 
       setTimeout(() => {
@@ -87,7 +105,7 @@ export default function RecipeDetailPage() {
       }, 3000);
     } catch (error) {
       console.error('Failed to save feedback:', error);
-      alert('Failed to save feedback. Please try again.');
+      alert('Could not save your notes. Try again?');
     } finally {
       setSavingFeedback(false);
     }
@@ -96,7 +114,7 @@ export default function RecipeDetailPage() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#f97316]"></div>
       </div>
     );
   }
@@ -108,18 +126,18 @@ export default function RecipeDetailPage() {
   return (
     <div className="max-w-4xl mx-auto">
       {/* Breadcrumbs */}
-      <Breadcrumbs items={[{ label: 'My Recipes', href: '/recipes' }, { label: recipe.name }]} />
+      <Breadcrumbs items={[{ label: 'Recipe Vault', href: '/recipes' }, { label: recipe.name }]} />
 
-      <div className="bg-white shadow rounded-lg p-6">
+      <div className="surface p-6">
         <div className="flex justify-between items-start mb-4">
           <div className="flex-1">
-            <h1 className="text-3xl font-bold text-gray-900">{recipe.name}</h1>
+            <h1 className="font-display text-3xl font-semibold text-gray-900">{recipe.name}</h1>
             {recipe.description && <p className="mt-2 text-gray-600">{recipe.description}</p>}
             {recipe.source_urls && recipe.source_urls.length > 0 && (
-              <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="mt-4 p-4 bg-[#fff6f7] rounded-2xl border border-[#f97316]/20">
                 <div className="flex items-center space-x-2 mb-2">
                   <svg
-                    className="h-4 w-4 text-blue-600"
+                    className="h-4 w-4 text-[#f97316]"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -131,10 +149,10 @@ export default function RecipeDetailPage() {
                       d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
                     />
                   </svg>
-                  <span className="text-sm font-medium text-blue-800">
+                  <span className="text-sm font-medium text-[#ea580c]">
                     {recipe.source_urls.length === 1
-                      ? 'Recipe inspiration from:'
-                      : `Recipe inspired by ${recipe.source_urls.length} sources:`}
+                      ? 'Inspired by:'
+                      : `Inspired by ${recipe.source_urls.length} sources:`}
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -168,7 +186,7 @@ export default function RecipeDetailPage() {
                         href={url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-white text-blue-700 border border-blue-300 hover:bg-blue-100 hover:border-blue-400 transition-colors duration-200"
+                        className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-white text-[#f97316] border border-[#f97316]/30 hover:bg-[#f97316]/10 hover:border-[#f97316]/40 transition-colors duration-200"
                       >
                         {getDomainName(url)}
                         <svg
@@ -191,14 +209,24 @@ export default function RecipeDetailPage() {
               </div>
             )}
           </div>
-          <button
-            onClick={handleDelete}
-            disabled={deleting}
-            className="ml-4 p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200 disabled:opacity-50"
-            title="Delete recipe"
-          >
-            <TrashIcon className="h-5 w-5" />
-          </button>
+          <div className="flex items-center space-x-3 ml-4">
+            <button
+              onClick={handleCreateList}
+              disabled={creatingList}
+              className="btn-secondary flex items-center disabled:opacity-50"
+            >
+              <ShoppingBagIcon className="h-4 w-4 mr-2" />
+              {creatingList ? 'Building list...' : 'Add to grocery list'}
+            </button>
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="icon-button-danger disabled:opacity-50"
+              title="Delete recipe"
+            >
+              <TrashIcon className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         <div className="mt-4 flex items-center text-sm text-gray-500 space-x-4">
@@ -213,8 +241,8 @@ export default function RecipeDetailPage() {
         </div>
 
         {/* Rating and Feedback Section */}
-        <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-          <h3 className="text-lg font-semibold mb-3">Rate this Recipe</h3>
+        <div className="mt-6 p-5 bg-slate-50 rounded-2xl border border-slate-200/70">
+          <h3 className="text-lg font-semibold mb-3">How did it go?</h3>
 
           <div className="flex items-center space-x-4 mb-4">
             {/* Like button */}
@@ -222,9 +250,9 @@ export default function RecipeDetailPage() {
               {liked ? (
                 <HeartSolidIcon className="h-6 w-6 text-red-500" />
               ) : (
-                <HeartIcon className="h-6 w-6 text-gray-400 hover:text-red-500" />
+                <HeartIcon className="h-6 w-6 text-gray-400 hover:text-red-500 transition-colors" />
               )}
-              <span className="text-sm">{liked ? 'Liked' : 'Like'}</span>
+              <span className="text-sm">{liked ? 'Loved it' : 'Like'}</span>
             </button>
 
             {/* Star rating */}
@@ -262,13 +290,13 @@ export default function RecipeDetailPage() {
               value={notes}
               onChange={e => setNotes(e.target.value)}
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="What did you think of this recipe?"
+              className="input"
+              placeholder="Any tweaks for next time?"
             />
           </div>
 
           <button onClick={handleSaveFeedback} disabled={savingFeedback} className="btn-primary">
-            {savingFeedback ? 'Saving...' : 'Save Feedback'}
+            {savingFeedback ? 'Saving...' : 'Save notes'}
           </button>
         </div>
 
@@ -290,8 +318,8 @@ export default function RecipeDetailPage() {
           </div>
 
           <div>
-            <h2 className="text-xl font-semibold mb-4">Nutrition Facts</h2>
-            <div className="bg-gray-50 rounded-lg p-4">
+            <h2 className="text-xl font-semibold mb-4">Nutrition snapshot</h2>
+            <div className="surface-muted p-4">
               <div className="grid grid-cols-2 gap-2 text-sm">
                 {recipe.nutrition.calories && (
                   <div>
@@ -319,11 +347,11 @@ export default function RecipeDetailPage() {
         </div>
 
         <div className="mt-8">
-          <h2 className="text-xl font-semibold mb-4">Instructions</h2>
+          <h2 className="text-xl font-semibold mb-4">Steps</h2>
           <ol className="space-y-3">
             {recipe.instructions.map((instruction, index) => (
               <li key={index} className="flex">
-                <span className="font-semibold text-blue-600 mr-3">{index + 1}.</span>
+                <span className="font-semibold text-[#f97316] mr-3">{index + 1}.</span>
                 <span className="text-gray-700">{instruction}</span>
               </li>
             ))}

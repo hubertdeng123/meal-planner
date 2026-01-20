@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { ClockIcon, UserGroupIcon, TrashIcon } from '@heroicons/react/24/outline';
 import recipeService from '../services/recipe.service';
 import type { Recipe } from '../types';
+import { PageHeader } from '../components/ui/PageHeader';
+import { EmptyState } from '../components/ui/EmptyState';
 
 export default function RecipesPage() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
@@ -36,7 +38,7 @@ export default function RecipesPage() {
       setRecipes(prev => prev.filter(recipe => recipe.id !== recipeId));
     } catch (error) {
       console.error('Failed to delete recipe:', error);
-      alert('Failed to delete recipe. Please try again.');
+      alert('Could not delete that recipe. Try again?');
     } finally {
       setDeletingIds(prev => {
         const newSet = new Set(prev);
@@ -50,7 +52,7 @@ export default function RecipesPage() {
     return (
       <div className="flex justify-center items-center h-64">
         <div
-          className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"
+          className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#f97316]"
           data-testid="loading-spinner"
         ></div>
       </div>
@@ -59,16 +61,15 @@ export default function RecipesPage() {
 
   if (recipes.length === 0) {
     return (
-      <div className="text-center py-12">
-        <h2 className="text-2xl font-semibold text-gray-900">No recipes yet</h2>
-        <p className="mt-2 text-gray-600">Start by generating your first recipe!</p>
-        <Link
-          to="/generate"
-          className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
-        >
-          Generate Recipe
-        </Link>
-      </div>
+      <EmptyState
+        title="No recipes yet...yet"
+        description="Kick things off with your first recipe."
+        action={
+          <Link to="/generate" className="btn-primary">
+            Make a recipe
+          </Link>
+        }
+      />
     );
   }
 
@@ -76,30 +77,23 @@ export default function RecipesPage() {
     <div>
       <div className="sm:flex sm:items-center">
         <div className="sm:flex-auto">
-          <h1 className="text-2xl font-semibold text-gray-900">My Recipes</h1>
-          <p className="mt-2 text-sm text-gray-700">Browse and manage your saved recipes</p>
+          <PageHeader title="Recipe Vault" subtitle="Browse and manage your saved recipes" />
         </div>
         <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
-          <Link
-            to="/generate"
-            className="inline-flex items-center justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 sm:w-auto"
-          >
-            Generate New Recipe
+          <Link to="/generate" className="btn-primary">
+            New recipe, please
           </Link>
         </div>
       </div>
 
       <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {recipes.map(recipe => (
-          <div
-            key={recipe.id}
-            className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow overflow-hidden relative"
-          >
+          <div key={recipe.id} className="card card-hover overflow-hidden relative">
             {/* Delete Button */}
             <button
               onClick={e => handleDelete(recipe.id, e)}
               disabled={deletingIds.has(recipe.id)}
-              className="absolute top-3 right-3 z-10 p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200 disabled:opacity-50"
+              className="icon-button-danger absolute top-3 right-3 z-10 disabled:opacity-50"
               title="Delete recipe"
             >
               {deletingIds.has(recipe.id) ? (
@@ -111,7 +105,7 @@ export default function RecipesPage() {
 
             {/* Clickable Content */}
             <Link to={`/recipes/${recipe.id}`} className="group block p-6 pr-12">
-              <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600">
+              <h3 className="text-lg font-semibold text-gray-900 group-hover:text-[#f97316] transition-colors">
                 {recipe.name}
               </h3>
               <p className="mt-2 text-sm text-gray-600 line-clamp-2">{recipe.description}</p>
@@ -127,7 +121,7 @@ export default function RecipesPage() {
               </div>
               <div className="mt-3">
                 {recipe.source_urls && recipe.source_urls.length > 0 && (
-                  <div className="flex items-center text-xs text-blue-600 mb-2">
+                  <div className="flex items-center text-xs text-[#f97316] mb-2">
                     <svg
                       className="h-3 w-3 mr-1"
                       fill="none"
@@ -153,7 +147,7 @@ export default function RecipesPage() {
                     {recipe.tags.slice(0, 3).map(tag => (
                       <span
                         key={tag}
-                        className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800"
+                        className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-[#f97316]/10 text-[#ea580c]"
                       >
                         {tag}
                       </span>

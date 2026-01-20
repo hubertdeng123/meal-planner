@@ -8,6 +8,7 @@ import {
   CheckCircleIcon,
 } from '@heroicons/react/24/outline';
 import authService from '../services/auth.service';
+import { useAuth } from '../hooks/useAuth';
 import type { UserCreate, UserPreferences, APIError } from '../types';
 
 // Simplified lists - only show the most common/popular options
@@ -30,10 +31,11 @@ const COMMON_DIETARY_RESTRICTIONS = [
   'Nut-Free',
 ];
 
-const STEP_TITLES = ['Create Your Account', 'Basic Preferences', 'Optional Details'];
+const STEP_TITLES = ['Create your account', 'Taste profile', 'Fine-tune it'];
 
 export default function RegisterPage() {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [step, setStep] = useState(1);
   const [userData, setUserData] = useState<UserCreate>({
     email: '',
@@ -110,6 +112,7 @@ export default function RegisterPage() {
     try {
       await authService.register(userData, preferences);
       await authService.login({ email: userData.email, password: userData.password });
+      login();
       navigate('/dashboard');
     } catch (err: unknown) {
       const apiError = err as APIError;
@@ -126,6 +129,7 @@ export default function RegisterPage() {
     try {
       await authService.register(userData, preferences);
       await authService.login({ email: userData.email, password: userData.password });
+      login();
       navigate('/dashboard');
     } catch (err: unknown) {
       const apiError = err as APIError;
@@ -149,27 +153,25 @@ export default function RegisterPage() {
   const renderProgressBar = () => (
     <div className="mb-8">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-medium text-gray-700">
+        <span className="text-sm font-medium text-slate-700">
           Step {step} of {STEP_TITLES.length}
         </span>
-        <span className="text-sm text-gray-500">
+        <span className="text-sm text-slate-500">
           {Math.round((step / STEP_TITLES.length) * 100)}% Complete
         </span>
       </div>
-      <div className="w-full bg-gray-200 rounded-full h-2">
+      <div className="w-full bg-slate-200 rounded-full h-2">
         <div
-          className="bg-gradient-to-r from-orange-500 to-pink-500 h-2 rounded-full transition-all duration-300"
+          className="bg-[#f97316] h-2 rounded-full transition-all duration-300"
           style={{ width: `${(step / STEP_TITLES.length) * 100}%` }}
         />
       </div>
       <h2 className="mt-4 text-2xl font-semibold text-gray-900">{STEP_TITLES[step - 1]}</h2>
       {step === 2 && (
-        <p className="mt-2 text-sm text-gray-600">Help us personalize your meal plans (optional)</p>
+        <p className="mt-2 text-sm text-gray-600">Tell us your flavor compass (optional)</p>
       )}
       {step === 3 && (
-        <p className="mt-2 text-sm text-gray-600">
-          Additional preferences to fine-tune your experience
-        </p>
+        <p className="mt-2 text-sm text-gray-600">Optional tweaks for extra finesse</p>
       )}
     </div>
   );
@@ -184,10 +186,11 @@ export default function RegisterPage() {
           type="email"
           id="email"
           name="email"
+          autoComplete="email"
           required
           value={userData.email}
           onChange={handleUserDataChange}
-          className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-orange-500 focus:outline-none focus:ring-orange-500"
+          className="mt-2 input"
         />
       </div>
 
@@ -199,10 +202,11 @@ export default function RegisterPage() {
           type="text"
           id="username"
           name="username"
+          autoComplete="username"
           required
           value={userData.username}
           onChange={handleUserDataChange}
-          className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-orange-500 focus:outline-none focus:ring-orange-500"
+          className="mt-2 input"
         />
       </div>
 
@@ -214,10 +218,11 @@ export default function RegisterPage() {
           type="password"
           id="password"
           name="password"
+          autoComplete="new-password"
           required
           value={userData.password}
           onChange={handleUserDataChange}
-          className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-orange-500 focus:outline-none focus:ring-orange-500"
+          className="mt-2 input"
         />
         <p className="mt-1 text-xs text-gray-500">Minimum 6 characters</p>
       </div>
@@ -234,18 +239,18 @@ export default function RegisterPage() {
       {/* Cuisines */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-3">
-          What cuisines do you enjoy? <span className="text-gray-500">(Select any that apply)</span>
+          What cuisines make you happy? <span className="text-gray-500">(Pick any)</span>
         </label>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {TOP_CUISINES.map(cuisine => (
             <label
               key={cuisine}
               className={`
-                relative flex items-center justify-center px-4 py-3 rounded-lg border-2 cursor-pointer transition-all
+                relative flex items-center justify-center px-4 py-3 rounded-2xl border-2 cursor-pointer transition-all
                 ${
                   preferences.food_preferences.cuisines.includes(cuisine)
-                    ? 'border-orange-500 bg-orange-50 text-orange-700'
-                    : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                    ? 'border-[#f97316] bg-[#f97316]/10 text-[#ea580c]'
+                    : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
                 }
               `}
             >
@@ -264,7 +269,7 @@ export default function RegisterPage() {
                 className="sr-only"
               />
               {preferences.food_preferences.cuisines.includes(cuisine) && (
-                <CheckCircleIcon className="absolute top-2 right-2 h-5 w-5 text-orange-500" />
+                <CheckCircleIcon className="absolute top-2 right-2 h-5 w-5 text-[#f97316]" />
               )}
               <span className="text-sm font-medium">{cuisine}</span>
             </label>
@@ -282,11 +287,11 @@ export default function RegisterPage() {
             <label
               key={restriction}
               className={`
-                relative flex items-center justify-center px-4 py-3 rounded-lg border-2 cursor-pointer transition-all
+                relative flex items-center justify-center px-4 py-3 rounded-2xl border-2 cursor-pointer transition-all
                 ${
                   preferences.dietary_restrictions.includes(restriction)
-                    ? 'border-orange-500 bg-orange-50 text-orange-700'
-                    : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                    ? 'border-[#f97316] bg-[#f97316]/10 text-[#ea580c]'
+                    : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
                 }
               `}
             >
@@ -302,7 +307,7 @@ export default function RegisterPage() {
                 className="sr-only"
               />
               {preferences.dietary_restrictions.includes(restriction) && (
-                <CheckCircleIcon className="absolute top-2 right-2 h-5 w-5 text-orange-500" />
+                <CheckCircleIcon className="absolute top-2 right-2 h-5 w-5 text-[#f97316]" />
               )}
               <span className="text-sm font-medium">{restriction}</span>
             </label>
@@ -335,9 +340,9 @@ export default function RegisterPage() {
           type="button"
           onClick={handleSkipToRegistration}
           disabled={loading}
-          className="text-sm text-gray-600 hover:text-gray-900 underline"
+          className="text-sm text-[#f97316] hover:text-[#ea580c] underline"
         >
-          {loading ? 'Creating account...' : 'Skip and finish setup later'}
+          {loading ? 'Setting things up...' : 'Skip for now, finish later'}
         </button>
       </div>
     </div>
@@ -346,16 +351,16 @@ export default function RegisterPage() {
   const renderOptionalPreferences = () => (
     <div className="space-y-6">
       {/* Info box */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+      <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4">
         <div className="flex items-start">
-          <SparklesIcon className="h-5 w-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
+          <SparklesIcon className="h-5 w-5 text-emerald-600 mt-0.5 mr-3 flex-shrink-0" />
           <div>
-            <p className="text-sm text-blue-900 font-medium">
+            <p className="text-sm text-emerald-900 font-medium">
               You can customize all preferences later
             </p>
-            <p className="text-sm text-blue-700 mt-1">
-              Skip this step and complete your profile anytime in Settings. We'll use smart defaults
-              to get you started!
+            <p className="text-sm text-emerald-700 mt-1">
+              Skip this step and update later in Settings. We'll use easy defaults to get you
+              started!
             </p>
           </div>
         </div>
@@ -364,18 +369,18 @@ export default function RegisterPage() {
       {/* Meal Complexity Preference */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-3">
-          Preferred Recipe Complexity
+          How ambitious are you feeling?
         </label>
         <div className="grid grid-cols-3 gap-3">
           {(['simple', 'medium', 'complex'] as const).map(complexity => (
             <label
               key={complexity}
               className={`
-                relative flex flex-col items-center justify-center px-4 py-4 rounded-lg border-2 cursor-pointer transition-all
+                relative flex flex-col items-center justify-center px-4 py-4 rounded-2xl border-2 cursor-pointer transition-all
                 ${
                   preferences.food_type_rules.meal_complexity_preference === complexity
-                    ? 'border-orange-500 bg-orange-50'
-                    : 'border-gray-300 bg-white hover:border-gray-400'
+                    ? 'border-[#f97316] bg-[#f97316]/10'
+                    : 'border-slate-200 bg-white hover:border-slate-300'
                 }
               `}
             >
@@ -416,11 +421,11 @@ export default function RegisterPage() {
           {loading ? (
             <>
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2" />
-              Creating your account...
+              Setting things up...
             </>
           ) : (
             <>
-              Create Account
+              Create account
               <ChevronRightIcon className="ml-2 h-5 w-5" />
             </>
           )}
@@ -441,30 +446,30 @@ export default function RegisterPage() {
           type="button"
           onClick={handleSkipToRegistration}
           disabled={loading}
-          className="w-full py-3 px-4 rounded-lg border-2 border-dashed border-gray-300 text-gray-700 hover:border-gray-400 hover:bg-gray-50 transition-all font-medium"
+          className="w-full py-3 px-4 rounded-2xl border-2 border-dashed border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-white transition-all font-medium"
         >
-          Skip for now - I'll complete this in Settings
+          Skip for now - I'll finish in Settings
         </button>
       </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen gradient-bg flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div className="app-shell flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-2xl w-full">
         {/* Header */}
         <div className="text-center mb-8">
           <Link to="/login" className="inline-flex items-center space-x-3 mb-6">
-            <div className="h-12 w-12 rounded-lg gradient-primary flex items-center justify-center">
+            <div className="h-12 w-12 rounded-lg gradient-primary sticker flex items-center justify-center">
               <SparklesIcon className="h-6 w-6 text-white" />
             </div>
-            <h1 className="text-3xl font-bold text-gray-900">Hungry Helper</h1>
+            <h1 className="font-display text-3xl font-semibold text-gray-900">Hungry Helper</h1>
           </Link>
-          <p className="text-gray-600">Create your account and start planning delicious meals</p>
+          <p className="text-gray-600">Start your account and line up some tasty wins</p>
         </div>
 
         {/* Main card */}
-        <div className="card-premium">
+        <div className="card-premium panel-glow">
           {renderProgressBar()}
 
           {error && (
@@ -482,7 +487,7 @@ export default function RegisterPage() {
         {/* Footer */}
         <p className="text-center text-sm text-gray-600 mt-6">
           Already have an account?{' '}
-          <Link to="/login" className="font-medium text-orange-600 hover:text-orange-500">
+          <Link to="/login" className="font-semibold text-[#f97316] hover:text-[#ea580c]">
             Sign in
           </Link>
         </p>

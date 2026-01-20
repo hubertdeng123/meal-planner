@@ -13,7 +13,7 @@ export function NutritionCard({ nutrition, loading = true }: NutritionCardProps)
     <div className="card p-6 bg-gradient-to-br from-green-50 to-emerald-50">
       <h3 className="text-2xl font-semibold flex items-center gap-2 mb-4">
         <span>🧮</span>
-        <span>Nutrition Facts</span>
+        <span>Nutrition snapshot</span>
         <span className="text-sm font-normal text-gray-500 ml-2">per serving</span>
       </h3>
 

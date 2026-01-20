@@ -19,9 +19,7 @@ export function RecipeHeaderCard({ name, description, loading = true }: RecipeHe
 
   return (
     <div className="card p-6 space-y-4 animate-fade-in">
-      <h1 className="text-4xl font-bold bg-gradient-to-r from-orange-600 via-orange-500 to-yellow-500 bg-clip-text text-transparent animate-gradient">
-        {name}
-      </h1>
+      <h1 className="font-display text-3xl sm:text-4xl font-semibold text-slate-900">{name}</h1>
       {description && <p className="text-lg text-gray-700 leading-relaxed">{description}</p>}
     </div>
   );

@@ -46,8 +46,8 @@ describe('LoginPage', () => {
   it('renders login form', () => {
     render(<LoginPage />);
 
-    expect(screen.getByText('Welcome back')).toBeInTheDocument();
-    expect(screen.getByText('Sign in to your Hungry Helper account')).toBeInTheDocument();
+    expect(screen.getByText('Welcome back!')).toBeInTheDocument();
+    expect(screen.getByText("Sign in and let's get cooking")).toBeInTheDocument();
     expect(screen.getByLabelText(/email address/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
@@ -148,7 +148,7 @@ describe('LoginPage', () => {
     await user.click(submitButton);
 
     await waitFor(() => {
-      expect(screen.getByText('Login failed. Please try again.')).toBeInTheDocument();
+      expect(screen.getByText("Couldn't sign you in. Try again?")).toBeInTheDocument();
     });
   });
 

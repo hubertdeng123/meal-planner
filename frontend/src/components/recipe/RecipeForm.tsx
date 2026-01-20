@@ -58,7 +58,7 @@ export function RecipeForm({
   };
 
   return (
-    <form onSubmit={onSubmit} className={`space-y-6 bg-white shadow rounded-lg p-6 ${className}`}>
+    <form onSubmit={onSubmit} className={`space-y-6 card p-6 ${className}`}>
       {error && (
         <div className="rounded-md bg-red-50 p-4">
           <div className="flex">
@@ -75,13 +75,13 @@ export function RecipeForm({
       <div className={`grid grid-cols-1 gap-6 ${compact ? '' : 'sm:grid-cols-2'}`}>
         <div>
           <label htmlFor="meal_type" className="block text-sm font-medium text-gray-700">
-            Meal Type
+            Meal type
           </label>
           <select
             id="meal_type"
             value={formData.meal_type}
             onChange={e => setFormData({ ...formData, meal_type: e.target.value })}
-            className="mt-1 block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-orange-500 focus:outline-none focus:ring-orange-500 sm:text-sm"
+            className="mt-2 input"
             disabled={loading}
           >
             <option value="">Any</option>
@@ -101,7 +101,7 @@ export function RecipeForm({
             id="cuisine"
             value={formData.cuisine}
             onChange={e => setFormData({ ...formData, cuisine: e.target.value })}
-            className="mt-1 block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-orange-500 focus:outline-none focus:ring-orange-500 sm:text-sm"
+            className="mt-2 input"
             disabled={loading}
           >
             <option value="">Any</option>
@@ -123,7 +123,7 @@ export function RecipeForm({
             id="difficulty"
             value={formData.difficulty}
             onChange={e => setFormData({ ...formData, difficulty: e.target.value })}
-            className="mt-1 block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-orange-500 focus:outline-none focus:ring-orange-500 sm:text-sm"
+            className="mt-2 input"
             disabled={loading}
           >
             <option value="">Any</option>
@@ -137,7 +137,7 @@ export function RecipeForm({
 
         <div>
           <label htmlFor="max_time" className="block text-sm font-medium text-gray-700">
-            Max Time (min)
+            Max time (min)
           </label>
           <input
             type="number"
@@ -149,7 +149,7 @@ export function RecipeForm({
                 max_time_minutes: e.target.value ? parseInt(e.target.value) : undefined,
               })
             }
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+            className="mt-2 input"
             placeholder="No limit"
             disabled={loading}
           />
@@ -165,21 +165,21 @@ export function RecipeForm({
             min="1"
             value={formData.servings}
             onChange={e => setFormData({ ...formData, servings: parseInt(e.target.value) || 4 })}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+            className="mt-2 input"
             disabled={loading}
           />
         </div>
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700">Ingredients to Use</label>
-        <div className="mt-1 flex rounded-md shadow-sm">
+        <label className="block text-sm font-medium text-gray-700">Ingredients to use</label>
+        <div className="mt-2 flex items-center gap-2">
           <input
             type="text"
             value={ingredientInput}
             onChange={e => setIngredientInput(e.target.value)}
             onKeyPress={e => e.key === 'Enter' && (e.preventDefault(), addIngredient())}
-            className="block w-full rounded-none rounded-l-md border-gray-300 focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+            className="input"
             placeholder="Add an ingredient"
             disabled={loading}
           />
@@ -187,7 +187,7 @@ export function RecipeForm({
             type="button"
             onClick={addIngredient}
             disabled={loading}
-            className="relative -ml-px inline-flex items-center space-x-2 rounded-r-md border border-gray-300 bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+            className="btn-secondary"
           >
             Add
           </button>
@@ -196,14 +196,14 @@ export function RecipeForm({
           {formData.ingredients_to_use.map((ingredient, index) => (
             <span
               key={index}
-              className="inline-flex items-center rounded-full bg-orange-100 px-3 py-0.5 text-sm font-medium text-orange-800"
+              className="inline-flex items-center rounded-full bg-[#f97316]/10 px-3 py-0.5 text-sm font-medium text-[#ea580c]"
             >
               {ingredient}
               <button
                 type="button"
                 onClick={() => removeIngredient(index)}
                 disabled={loading}
-                className="ml-1 inline-flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full text-orange-400 hover:bg-orange-200 hover:text-orange-500 disabled:opacity-50"
+                className="ml-1 inline-flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full text-[#f97316] hover:bg-[#f97316]/15 disabled:opacity-50"
               >
                 <span className="sr-only">Remove {ingredient}</span>
                 <svg className="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
@@ -217,39 +217,33 @@ export function RecipeForm({
 
       <div>
         <label htmlFor="comments" className="block text-sm font-medium text-gray-700">
-          Comments & Special Requests
+          Notes for the chef (you)
         </label>
         <textarea
           id="comments"
           value={formData.comments || ''}
           onChange={e => setFormData({ ...formData, comments: e.target.value })}
           rows={compact ? 2 : 3}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
-          placeholder="Add any special requests or preferences..."
+          className="mt-2 input"
+          placeholder="Anything to dodge or double down on?"
           disabled={loading}
         />
         {!compact && (
-          <p className="mt-1 text-sm text-gray-500">
-            Optional: Add specific instructions or preferences
-          </p>
+          <p className="mt-1 text-sm text-gray-500">Optional: notes, swaps, or hard no's.</p>
         )}
       </div>
 
       <div>
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 hover:to-orange-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-        >
-          {loading ? 'Generating Recipe...' : 'Generate Recipe'}
+        <button type="submit" disabled={loading} className="btn-primary w-full py-3 text-base">
+          {loading ? 'Cooking up ideas...' : 'Make my recipe'}
         </button>
       </div>
 
       {statusMessage && !isStreaming && (
-        <div className="rounded-md bg-blue-50 p-4">
+        <div className="rounded-2xl bg-[#fff6f7] p-4">
           <div className="flex">
             <div className="ml-3">
-              <h3 className="text-sm font-medium text-blue-800">{statusMessage}</h3>
+              <h3 className="text-sm font-medium text-[#ea580c]">{statusMessage}</h3>
             </div>
           </div>
         </div>

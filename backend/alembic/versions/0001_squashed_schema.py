@@ -1,23 +1,23 @@
-"""Initial database schema
+"""Squashed schema baseline (no pgvector)
 
-Revision ID: 001_initial_schema
+Revision ID: 0001_squashed_schema
 Revises:
-Create Date: 2024-06-29 00:00:00.000000
-
+Create Date: 2026-01-20
 """
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision = "001_initial_schema"
+revision = "0001_squashed_schema"
 down_revision = None
 branch_labels = None
 depends_on = None
 
 
 def upgrade() -> None:
-    # Increase the size of the version_num column in the alembic_version table
+    # Ensure alembic_version can store longer revision ids
     op.alter_column(
         "alembic_version",
         "version_num",
@@ -25,7 +25,7 @@ def upgrade() -> None:
         type_=sa.String(length=255),
         existing_nullable=False,
     )
-    # Create users table
+
     op.create_table(
         "users",
         sa.Column("id", sa.Integer(), nullable=False),
@@ -35,27 +35,30 @@ def upgrade() -> None:
         sa.Column("is_active", sa.Boolean(), nullable=True, default=True),
         sa.Column("created_at", sa.DateTime(), nullable=True),
         sa.Column("updated_at", sa.DateTime(), nullable=True),
-        sa.Column("food_preferences", sa.JSON(), nullable=True),
-        sa.Column("dietary_restrictions", sa.JSON(), nullable=True),
-        # Email notification preferences
+        sa.Column("food_preferences", sa.JSON(), nullable=True, default=dict),
+        sa.Column("dietary_restrictions", sa.JSON(), nullable=True, default=list),
+        sa.Column("ingredient_rules", sa.JSON(), nullable=True, default=dict),
+        sa.Column("food_type_rules", sa.JSON(), nullable=True, default=dict),
+        sa.Column("nutritional_rules", sa.JSON(), nullable=True, default=dict),
+        sa.Column("scheduling_rules", sa.JSON(), nullable=True, default=dict),
+        sa.Column("dietary_rules", sa.JSON(), nullable=True, default=dict),
         sa.Column(
-            "email_notifications_enabled", sa.Boolean(), nullable=False, default=True
+            "email_notifications_enabled", sa.Boolean(), nullable=True, default=True
         ),
         sa.Column(
-            "weekly_planning_reminder", sa.Boolean(), nullable=False, default=True
+            "weekly_planning_reminder", sa.Boolean(), nullable=True, default=True
         ),
-        sa.Column("reminder_day_of_week", sa.Integer(), nullable=False, default=0),
+        sa.Column("reminder_day_of_week", sa.Integer(), nullable=True, default=0),
         sa.Column(
-            "reminder_time", sa.Time(), nullable=False, default=sa.text("'09:00:00'")
+            "reminder_time", sa.Time(), nullable=True, default=sa.text("'09:00:00'")
         ),
-        sa.Column("timezone", sa.String(), nullable=False, default="UTC"),
+        sa.Column("timezone", sa.String(), nullable=True, default="UTC"),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(op.f("ix_users_email"), "users", ["email"], unique=True)
     op.create_index(op.f("ix_users_id"), "users", ["id"], unique=False)
     op.create_index(op.f("ix_users_username"), "users", ["username"], unique=True)
 
-    # Create recipes table
     op.create_table(
         "recipes",
         sa.Column("id", sa.Integer(), nullable=False),
@@ -67,12 +70,11 @@ def upgrade() -> None:
         sa.Column("prep_time_minutes", sa.Integer(), nullable=True),
         sa.Column("cook_time_minutes", sa.Integer(), nullable=True),
         sa.Column("servings", sa.Integer(), nullable=True),
-        sa.Column("tags", sa.JSON(), nullable=True),
-        sa.Column("source_urls", sa.JSON(), nullable=True),
+        sa.Column("tags", postgresql.ARRAY(sa.String()), nullable=True),
+        sa.Column("source_urls", postgresql.ARRAY(sa.String()), nullable=True),
         sa.Column("cuisine", sa.String(), nullable=True),
         sa.Column("difficulty", sa.String(), nullable=True),
         sa.Column("source", sa.String(), nullable=True),
-        # Nutrition information
         sa.Column("calories", sa.Float(), nullable=True),
         sa.Column("protein_g", sa.Float(), nullable=True),
         sa.Column("carbs_g", sa.Float(), nullable=True),
@@ -80,21 +82,16 @@ def upgrade() -> None:
         sa.Column("fiber_g", sa.Float(), nullable=True),
         sa.Column("sugar_g", sa.Float(), nullable=True),
         sa.Column("sodium_mg", sa.Float(), nullable=True),
-        # Timestamps
         sa.Column("image_url", sa.String(), nullable=True),
         sa.Column("created_at", sa.DateTime(), nullable=True),
         sa.Column("updated_at", sa.DateTime(), nullable=True),
-        sa.ForeignKeyConstraint(
-            ["user_id"],
-            ["users.id"],
-        ),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"]),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(op.f("ix_recipes_cuisine"), "recipes", ["cuisine"], unique=False)
     op.create_index(op.f("ix_recipes_id"), "recipes", ["id"], unique=False)
     op.create_index(op.f("ix_recipes_name"), "recipes", ["name"], unique=False)
 
-    # Create recipe_feedbacks table
     op.create_table(
         "recipe_feedbacks",
         sa.Column("id", sa.Integer(), nullable=False),
@@ -106,23 +103,17 @@ def upgrade() -> None:
         sa.Column("would_make_again", sa.Boolean(), nullable=True),
         sa.Column("difficulty_rating", sa.Integer(), nullable=True),
         sa.Column("taste_rating", sa.Integer(), nullable=True),
+        sa.Column("liked", sa.Boolean(), nullable=True),
         sa.Column("created_at", sa.DateTime(), nullable=True),
         sa.Column("updated_at", sa.DateTime(), nullable=True),
-        sa.ForeignKeyConstraint(
-            ["recipe_id"],
-            ["recipes.id"],
-        ),
-        sa.ForeignKeyConstraint(
-            ["user_id"],
-            ["users.id"],
-        ),
+        sa.ForeignKeyConstraint(["recipe_id"], ["recipes.id"]),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"]),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(
         op.f("ix_recipe_feedbacks_id"), "recipe_feedbacks", ["id"], unique=False
     )
 
-    # Create meal_plans table
     op.create_table(
         "meal_plans",
         sa.Column("id", sa.Integer(), nullable=False),
@@ -131,15 +122,19 @@ def upgrade() -> None:
         sa.Column("start_date", sa.Date(), nullable=False),
         sa.Column("end_date", sa.Date(), nullable=False),
         sa.Column("created_at", sa.DateTime(), nullable=True),
-        sa.ForeignKeyConstraint(
-            ["user_id"],
-            ["users.id"],
-        ),
+        sa.Column("description", sa.Text(), nullable=True),
+        sa.Column("theme", sa.String(), nullable=True),
+        sa.Column("occasion", sa.String(), nullable=True),
+        sa.Column("budget_target", sa.Float(), nullable=True),
+        sa.Column("prep_time_preference", sa.String(), nullable=True),
+        sa.Column("special_notes", sa.JSON(), nullable=True, default=dict),
+        sa.Column("week_dietary_restrictions", sa.JSON(), nullable=True, default=list),
+        sa.Column("week_food_preferences", sa.JSON(), nullable=True, default=dict),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"]),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(op.f("ix_meal_plans_id"), "meal_plans", ["id"], unique=False)
 
-    # Create meal_plan_items table
     op.create_table(
         "meal_plan_items",
         sa.Column("id", sa.Integer(), nullable=False),
@@ -149,21 +144,14 @@ def upgrade() -> None:
         sa.Column("meal_type", sa.String(), nullable=True),
         sa.Column("servings", sa.Integer(), nullable=True, default=1),
         sa.Column("recipe_data", sa.JSON(), nullable=True),
-        sa.ForeignKeyConstraint(
-            ["meal_plan_id"],
-            ["meal_plans.id"],
-        ),
-        sa.ForeignKeyConstraint(
-            ["recipe_id"],
-            ["recipes.id"],
-        ),
+        sa.ForeignKeyConstraint(["meal_plan_id"], ["meal_plans.id"]),
+        sa.ForeignKeyConstraint(["recipe_id"], ["recipes.id"]),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(
         op.f("ix_meal_plan_items_id"), "meal_plan_items", ["id"], unique=False
     )
 
-    # Create grocery_lists table (without unique constraint on meal_plan_id)
     op.create_table(
         "grocery_lists",
         sa.Column("id", sa.Integer(), nullable=False),
@@ -171,19 +159,12 @@ def upgrade() -> None:
         sa.Column("meal_plan_id", sa.Integer(), nullable=True),
         sa.Column("created_at", sa.DateTime(), nullable=True),
         sa.Column("updated_at", sa.DateTime(), nullable=True),
-        sa.ForeignKeyConstraint(
-            ["meal_plan_id"],
-            ["meal_plans.id"],
-        ),
-        sa.ForeignKeyConstraint(
-            ["user_id"],
-            ["users.id"],
-        ),
+        sa.ForeignKeyConstraint(["meal_plan_id"], ["meal_plans.id"]),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"]),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(op.f("ix_grocery_lists_id"), "grocery_lists", ["id"], unique=False)
 
-    # Create grocery_items table
     op.create_table(
         "grocery_items",
         sa.Column("id", sa.Integer(), nullable=False),
@@ -192,18 +173,14 @@ def upgrade() -> None:
         sa.Column("quantity", sa.Float(), nullable=True),
         sa.Column("unit", sa.String(), nullable=True),
         sa.Column("category", sa.String(), nullable=True),
-        sa.Column("checked", sa.Integer(), nullable=True, default=0),
-        sa.ForeignKeyConstraint(
-            ["grocery_list_id"],
-            ["grocery_lists.id"],
-        ),
+        sa.Column("checked", sa.Boolean(), nullable=False, default=False),
+        sa.ForeignKeyConstraint(["grocery_list_id"], ["grocery_lists.id"]),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(op.f("ix_grocery_items_id"), "grocery_items", ["id"], unique=False)
 
 
 def downgrade() -> None:
-    # Drop all tables in reverse order
     op.drop_index(op.f("ix_grocery_items_id"), table_name="grocery_items")
     op.drop_table("grocery_items")
 

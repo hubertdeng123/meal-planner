@@ -72,8 +72,8 @@ describe('RecipesPage', () => {
     render(<RecipesPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('No recipes yet')).toBeInTheDocument();
-      expect(screen.getByText('Start by generating your first recipe!')).toBeInTheDocument();
+      expect(screen.getByText('No recipes yet...yet')).toBeInTheDocument();
+      expect(screen.getByText('Kick things off with your first recipe.')).toBeInTheDocument();
     });
   });
 
@@ -85,7 +85,7 @@ describe('RecipesPage', () => {
 
     await waitFor(() => {
       // Since the component doesn't show error state, check that it shows empty state
-      expect(screen.getByText('No recipes yet')).toBeInTheDocument();
+      expect(screen.getByText('No recipes yet...yet')).toBeInTheDocument();
     });
   });
 
@@ -95,7 +95,7 @@ describe('RecipesPage', () => {
     render(<RecipesPage />);
 
     await waitFor(() => {
-      const generateButton = screen.getByText('Generate Recipe');
+      const generateButton = screen.getByText('Make a recipe');
       expect(generateButton.closest('a')).toHaveAttribute('href', '/generate');
     });
   });
@@ -158,7 +158,7 @@ describe('RecipesPage', () => {
     await user.click(deleteButton);
 
     await waitFor(() => {
-      expect(global.alert).toHaveBeenCalledWith('Failed to delete recipe. Please try again.');
+      expect(global.alert).toHaveBeenCalledWith('Could not delete that recipe. Try again?');
     });
   });
 
@@ -174,14 +174,14 @@ describe('RecipesPage', () => {
     });
   });
 
-  it('shows "Generate New Recipe" button when recipes exist', async () => {
+  it('shows "New recipe, please" button when recipes exist', async () => {
     const recipes = [{ ...mockRecipe, id: 1, name: 'Test Recipe' }];
     mockGetRecipes.mockResolvedValue(recipes);
 
     render(<RecipesPage />);
 
     await waitFor(() => {
-      const generateButton = screen.getByText('Generate New Recipe');
+      const generateButton = screen.getByText('New recipe, please');
       expect(generateButton.closest('a')).toHaveAttribute('href', '/generate');
     });
   });

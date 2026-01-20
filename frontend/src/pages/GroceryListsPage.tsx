@@ -4,6 +4,9 @@ import { ShoppingCartIcon, PlusIcon, TrashIcon, CalendarIcon } from '@heroicons/
 import groceryService from '../services/grocery.service';
 import recipeService from '../services/recipe.service';
 import type { GroceryList, Recipe } from '../types';
+import { PageHeader } from '../components/ui/PageHeader';
+import { EmptyState } from '../components/ui/EmptyState';
+import { ModalShell } from '../components/ui/ModalShell';
 
 export default function GroceryListsPage() {
   const [groceryLists, setGroceryLists] = useState<GroceryList[]>([]);
@@ -43,7 +46,7 @@ export default function GroceryListsPage() {
       setSelectedRecipes([]);
     } catch (error) {
       console.error('Failed to create grocery list:', error);
-      alert('Failed to create grocery list. Please try again.');
+      alert('Could not build that list. Try again?');
     } finally {
       setCreating(false);
     }
@@ -59,7 +62,7 @@ export default function GroceryListsPage() {
       setGroceryLists(groceryLists.filter(list => list.id !== id));
     } catch (error) {
       console.error('Failed to delete grocery list:', error);
-      alert('Failed to delete grocery list. Please try again.');
+      alert('Could not delete that list. Try again?');
     }
   };
 
@@ -72,7 +75,7 @@ export default function GroceryListsPage() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#f97316]"></div>
       </div>
     );
   }
@@ -81,42 +84,40 @@ export default function GroceryListsPage() {
     <div>
       <div className="sm:flex sm:items-center">
         <div className="sm:flex-auto">
-          <h1 className="text-2xl font-semibold text-gray-900">Grocery Lists</h1>
-          <p className="mt-2 text-sm text-gray-700">
-            Manage your shopping lists and create them from your recipes
-          </p>
+          <PageHeader
+            title="Grocery Lists"
+            subtitle="Turn recipes into a shopping plan that behaves"
+          />
         </div>
         <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
           <button onClick={() => setShowCreateModal(true)} className="btn-primary">
             <PlusIcon className="h-4 w-4 mr-2" />
-            Create from Recipes
+            Build from recipes
           </button>
         </div>
       </div>
 
       {groceryLists.length === 0 ? (
-        <div className="text-center py-12">
-          <ShoppingCartIcon className="mx-auto h-12 w-12 text-gray-400" />
-          <h3 className="mt-2 text-sm font-medium text-gray-900">No grocery lists</h3>
-          <p className="mt-1 text-sm text-gray-500">
-            Get started by creating a grocery list from your recipes.
-          </p>
-          <div className="mt-6">
+        <EmptyState
+          icon={<ShoppingCartIcon className="h-12 w-12" />}
+          title="No lists yet"
+          description="Pick a few recipes and we'll do the list."
+          action={
             <button onClick={() => setShowCreateModal(true)} className="btn-primary">
               <PlusIcon className="h-4 w-4 mr-2" />
-              Create your first grocery list
+              Create a list
             </button>
-          </div>
-        </div>
+          }
+        />
       ) : (
         <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {groceryLists.map(groceryList => (
-            <div key={groceryList.id} className="card p-6">
+            <div key={groceryList.id} className="card card-hover p-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
-                  <ShoppingCartIcon className="h-8 w-8 text-green-500" />
+                  <ShoppingCartIcon className="h-8 w-8 text-emerald-500" />
                   <div className="ml-3">
-                    <h3 className="text-lg font-medium text-gray-900">Grocery List</h3>
+                    <h3 className="text-lg font-medium text-gray-900">Grocery list</h3>
                     <p className="text-sm text-gray-500 flex items-center">
                       <CalendarIcon className="h-4 w-4 mr-1" />
                       {new Date(groceryList.created_at).toLocaleDateString()}
@@ -125,7 +126,7 @@ export default function GroceryListsPage() {
                 </div>
                 <button
                   onClick={() => handleDeleteGroceryList(groceryList.id)}
-                  className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors duration-200"
+                  className="icon-button-danger"
                 >
                   <TrashIcon className="h-4 w-4" />
                 </button>
@@ -135,9 +136,9 @@ export default function GroceryListsPage() {
                 <p className="text-sm text-gray-600">{groceryList.items.length} items</p>
                 <div className="mt-2">
                   <div className="flex items-center">
-                    <div className="flex-1 bg-gray-200 rounded-full h-2">
+                    <div className="flex-1 bg-slate-200 rounded-full h-2">
                       <div
-                        className="bg-green-500 h-2 rounded-full"
+                        className="bg-emerald-500 h-2 rounded-full"
                         style={{
                           width: `${
                             groceryList.items.length > 0
@@ -171,72 +172,68 @@ export default function GroceryListsPage() {
 
       {/* Create Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-11/12 max-w-2xl shadow-lg rounded-md bg-white">
-            <div className="mt-3">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">
-                Create Grocery List from Recipes
-              </h3>
+        <ModalShell size="lg">
+          <div className="mt-3">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">
+              Build a grocery list from recipes
+            </h3>
 
-              <p className="text-sm text-gray-600 mb-4">
-                Select the recipes you want to include in your grocery list:
-              </p>
+            <p className="text-sm text-gray-600 mb-4">Pick the recipes you want on this list:</p>
 
-              <div className="max-h-96 overflow-y-auto">
-                {recipes.length === 0 ? (
-                  <p className="text-gray-500 text-center py-8">
-                    No recipes available.{' '}
-                    <Link to="/generate" className="text-blue-600 hover:underline">
-                      Create some recipes first
-                    </Link>
-                    .
-                  </p>
-                ) : (
-                  <div className="space-y-3">
-                    {recipes.map(recipe => (
-                      <label
-                        key={recipe.id}
-                        className="flex items-center p-3 border rounded-lg hover:bg-gray-50 cursor-pointer"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedRecipes.includes(recipe.id)}
-                          onChange={() => toggleRecipeSelection(recipe.id)}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                        />
-                        <div className="ml-3 flex-1">
-                          <p className="text-sm font-medium text-gray-900">{recipe.name}</p>
-                          <p className="text-xs text-gray-500">
-                            {recipe.ingredients.length} ingredients
-                          </p>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </div>
+            <div className="max-h-96 overflow-y-auto">
+              {recipes.length === 0 ? (
+                <p className="text-gray-500 text-center py-8">
+                  No recipes yet.{' '}
+                  <Link to="/generate" className="text-[#f97316] hover:underline">
+                    Make a recipe
+                  </Link>
+                  .
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {recipes.map(recipe => (
+                    <label
+                      key={recipe.id}
+                      className="flex items-center p-3 border border-slate-200/70 rounded-2xl hover:bg-slate-50 cursor-pointer transition-colors"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedRecipes.includes(recipe.id)}
+                        onChange={() => toggleRecipeSelection(recipe.id)}
+                        className="h-4 w-4 text-[#f97316] focus:ring-[#f97316]/40 border-slate-300 rounded"
+                      />
+                      <div className="ml-3 flex-1">
+                        <p className="text-sm font-medium text-gray-900">{recipe.name}</p>
+                        <p className="text-xs text-gray-500">
+                          {recipe.ingredients.length} ingredients
+                        </p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
 
-              <div className="mt-6 flex justify-end space-x-3">
-                <button
-                  onClick={() => {
-                    setShowCreateModal(false);
-                    setSelectedRecipes([]);
-                  }}
-                  className="btn-secondary"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleCreateFromRecipes}
-                  disabled={creating || selectedRecipes.length === 0}
-                  className="btn-primary"
-                >
-                  {creating ? 'Creating...' : `Create List (${selectedRecipes.length} recipes)`}
-                </button>
-              </div>
+            <div className="mt-6 flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowCreateModal(false);
+                  setSelectedRecipes([]);
+                }}
+                className="btn-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateFromRecipes}
+                disabled={creating || selectedRecipes.length === 0}
+                className="btn-primary"
+              >
+                {creating ? 'Building...' : `Build list (${selectedRecipes.length} recipes)`}
+              </button>
             </div>
           </div>
-        </div>
+        </ModalShell>
       )}
     </div>
   );

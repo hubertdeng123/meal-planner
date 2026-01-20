@@ -143,7 +143,7 @@ export function BasicPreferencesComponent({ preferences, onChange }: PreferenceC
     <div className="space-y-6">
       {/* Cuisines */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-3">Favorite Cuisines</label>
+        <label className="block text-sm font-medium text-gray-700 mb-3">Cuisine crushes</label>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           {CUISINES.map(cuisine => (
             <label key={cuisine} className="flex items-center space-x-2 cursor-pointer">
@@ -159,7 +159,7 @@ export function BasicPreferencesComponent({ preferences, onChange }: PreferenceC
                     },
                   })
                 }
-                className="rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                className="rounded border-gray-300 text-[#f97316] focus:ring-[#f97316]/40"
               />
               <span className="text-sm text-gray-700">{cuisine}</span>
             </label>
@@ -169,14 +169,12 @@ export function BasicPreferencesComponent({ preferences, onChange }: PreferenceC
 
       {/* Spice Level Preference */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-3">
-          Preferred Spice Level
-        </label>
+        <label className="block text-sm font-medium text-gray-700 mb-3">Spice level</label>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {SPICE_LEVELS.map(level => (
             <label
               key={level.value}
-              className="flex items-start space-x-3 cursor-pointer p-3 border rounded-lg hover:bg-gray-50 transition-colors"
+              className="flex items-start space-x-3 cursor-pointer p-3 border rounded-lg hover:bg-slate-50 transition-colors"
             >
               <input
                 type="radio"
@@ -192,7 +190,7 @@ export function BasicPreferencesComponent({ preferences, onChange }: PreferenceC
                     },
                   })
                 }
-                className="mt-1 border-gray-300 text-orange-600 focus:ring-orange-500"
+                className="mt-1 border-gray-300 text-[#f97316] focus:ring-[#f97316]/40"
               />
               <div>
                 <span className="text-sm font-medium text-gray-700">{level.label}</span>
@@ -205,9 +203,7 @@ export function BasicPreferencesComponent({ preferences, onChange }: PreferenceC
 
       {/* Flavor Profiles */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-3">
-          Favorite Flavor Profiles
-        </label>
+        <label className="block text-sm font-medium text-gray-700 mb-3">Flavor vibes</label>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           {FLAVOR_PROFILES.map(profile => (
             <label key={profile} className="flex items-center space-x-2 cursor-pointer">
@@ -226,7 +222,7 @@ export function BasicPreferencesComponent({ preferences, onChange }: PreferenceC
                     },
                   })
                 }
-                className="rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                className="rounded border-gray-300 text-[#f97316] focus:ring-[#f97316]/40"
               />
               <span className="text-sm text-gray-700">{profile}</span>
             </label>
@@ -254,7 +250,7 @@ export function BasicPreferencesComponent({ preferences, onChange }: PreferenceC
                     ),
                   })
                 }
-                className="rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                className="rounded border-gray-300 text-[#f97316] focus:ring-[#f97316]/40"
               />
               <span className="text-sm text-gray-700">{restriction}</span>
             </label>
@@ -339,8 +335,8 @@ export function IngredientRulesComponent({ preferences, onChange }: PreferenceCo
             onClick={() => setActiveCategory(category.key)}
             className={`px-3 py-2 rounded text-sm font-medium transition-all ${
               activeCategory === category.key
-                ? 'bg-orange-100 text-orange-800 border-2 border-orange-300'
-                : 'bg-gray-100 text-gray-600 border-2 border-transparent hover:bg-gray-200'
+                ? 'bg-[#f97316]/10 text-[#ea580c] border-2 border-[#f97316]/30'
+                : 'bg-slate-100 text-gray-600 border-2 border-transparent hover:bg-slate-200'
             }`}
           >
             {category.title}
@@ -389,7 +385,7 @@ export function IngredientRulesComponent({ preferences, onChange }: PreferenceCo
         {/* Current Items */}
         <div className="space-y-2 max-h-48 overflow-y-auto">
           {(preferences.ingredient_rules?.[activeCategory] || []).map((item, index) => (
-            <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
+            <div key={index} className="flex items-center justify-between bg-slate-50 p-2 rounded">
               <div>
                 <span className="font-medium text-sm">{item.ingredient}</span>
                 {item.reason && <span className="text-gray-500 text-sm ml-2">({item.reason})</span>}
@@ -403,19 +399,19 @@ export function IngredientRulesComponent({ preferences, onChange }: PreferenceCo
             </div>
           ))}
           {(preferences.ingredient_rules?.[activeCategory] || []).length === 0 && (
-            <p className="text-gray-500 text-sm italic">No ingredients added yet</p>
+            <p className="text-gray-500 text-sm italic">Nothing here yet</p>
           )}
         </div>
 
         {/* Quick Add Common Ingredients */}
         <div className="mt-4">
-          <h4 className="font-medium text-gray-900 mb-2">Quick Add:</h4>
+          <h4 className="font-medium text-gray-900 mb-2">Quick picks:</h4>
           <div className="flex flex-wrap gap-1">
             {COMMON_INGREDIENTS.slice(0, 8).map(ingredient => (
               <button
                 key={ingredient}
                 onClick={() => addIngredientRule(activeCategory, ingredient, 'Common ingredient')}
-                className="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs text-gray-700 transition-colors"
+                className="px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded text-xs text-gray-700 transition-colors"
               >
                 + {ingredient}
               </button>
@@ -432,7 +428,7 @@ export function FoodTypeRulesComponent({ preferences, onChange }: PreferenceComp
     <div className="space-y-6">
       {/* Protein Preferences */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-3">Preferred Proteins</label>
+        <label className="block text-sm font-medium text-gray-700 mb-3">Protein picks</label>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           {PROTEINS.map(protein => (
             <label key={protein} className="flex items-center space-x-2 cursor-pointer">
@@ -451,7 +447,7 @@ export function FoodTypeRulesComponent({ preferences, onChange }: PreferenceComp
                     },
                   })
                 }
-                className="rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                className="rounded border-gray-300 text-[#f97316] focus:ring-[#f97316]/40"
               />
               <span className="text-sm text-gray-700">{protein}</span>
             </label>
@@ -462,7 +458,7 @@ export function FoodTypeRulesComponent({ preferences, onChange }: PreferenceComp
       {/* Cooking Methods */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-3">
-          Preferred Cooking Methods
+          Cooking methods you like
         </label>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           {COOKING_METHODS.map(method => (
@@ -482,7 +478,7 @@ export function FoodTypeRulesComponent({ preferences, onChange }: PreferenceComp
                     },
                   })
                 }
-                className="rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                className="rounded border-gray-300 text-[#f97316] focus:ring-[#f97316]/40"
               />
               <span className="text-sm text-gray-700">{method}</span>
             </label>
@@ -492,9 +488,7 @@ export function FoodTypeRulesComponent({ preferences, onChange }: PreferenceComp
 
       {/* Meal Complexity */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-3">
-          Preferred Meal Complexity
-        </label>
+        <label className="block text-sm font-medium text-gray-700 mb-3">Meal complexity</label>
         <div className="grid grid-cols-3 gap-3">
           {(['simple', 'medium', 'complex'] as const).map(complexity => (
             <label key={complexity} className="flex items-center space-x-2 cursor-pointer">
@@ -512,7 +506,7 @@ export function FoodTypeRulesComponent({ preferences, onChange }: PreferenceComp
                     },
                   })
                 }
-                className="border-gray-300 text-orange-600 focus:ring-orange-500"
+                className="border-gray-300 text-[#f97316] focus:ring-[#f97316]/40"
               />
               <span className="text-sm text-gray-700 capitalize">{complexity}</span>
             </label>
@@ -767,7 +761,7 @@ export function NutritionalRulesComponent({ preferences, onChange }: PreferenceC
                     },
                   })
                 }
-                className="rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                className="rounded border-gray-300 text-[#f97316] focus:ring-[#f97316]/40"
               />
               <span className="text-sm text-gray-700">{need}</span>
             </label>
@@ -783,9 +777,7 @@ export function SchedulingRulesComponent({ preferences, onChange }: PreferenceCo
     <div className="space-y-6">
       {/* Preferred Cooking Days */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-3">
-          Preferred Cooking Days
-        </label>
+        <label className="block text-sm font-medium text-gray-700 mb-3">Best cooking days</label>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(
             day => (
@@ -805,7 +797,7 @@ export function SchedulingRulesComponent({ preferences, onChange }: PreferenceCo
                       },
                     })
                   }
-                  className="rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                  className="rounded border-gray-300 text-[#f97316] focus:ring-[#f97316]/40"
                 />
                 <span className="text-sm text-gray-700">{day}</span>
               </label>
@@ -873,7 +865,7 @@ export function SchedulingRulesComponent({ preferences, onChange }: PreferenceCo
                 },
               })
             }
-            className="rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+            className="rounded border-gray-300 text-[#f97316] focus:ring-[#f97316]/40"
           />
           <span className="text-sm font-medium text-gray-700">I prefer batch cooking</span>
         </label>
@@ -901,7 +893,7 @@ export function SchedulingRulesComponent({ preferences, onChange }: PreferenceCo
                     },
                   })
                 }
-                className="border-gray-300 text-orange-600 focus:ring-orange-500"
+                className="border-gray-300 text-[#f97316] focus:ring-[#f97316]/40"
               />
               <span className="text-sm text-gray-700 capitalize">{tolerance}</span>
             </label>
@@ -938,7 +930,7 @@ export function DietaryRulesComponent({ preferences, onChange }: PreferenceCompo
                     },
                   })
                 }
-                className="rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                className="rounded border-gray-300 text-[#f97316] focus:ring-[#f97316]/40"
               />
               <span className="text-sm text-gray-700">{condition}</span>
             </label>
@@ -974,7 +966,7 @@ export function DietaryRulesComponent({ preferences, onChange }: PreferenceCompo
                     },
                   })
                 }
-                className="rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                className="rounded border-gray-300 text-[#f97316] focus:ring-[#f97316]/40"
               />
               <span className="text-sm text-gray-700">{choice}</span>
             </label>
@@ -1005,7 +997,7 @@ export function DietaryRulesComponent({ preferences, onChange }: PreferenceCompo
                     },
                   })
                 }
-                className="rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                className="rounded border-gray-300 text-[#f97316] focus:ring-[#f97316]/40"
               />
               <span className="text-sm text-gray-700">{law}</span>
             </label>

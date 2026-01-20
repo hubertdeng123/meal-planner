@@ -4,6 +4,7 @@ import recipeService, { type StreamCallbacks } from '../services/recipe.service'
 import type { RecipeGenerationRequest } from '../types';
 import { RecipeForm } from '../components/recipe/RecipeForm';
 import { LoadingModal } from '../components/LoadingModal';
+import { PageHeader } from '../components/ui/PageHeader';
 
 export default function GenerateRecipePage() {
   const navigate = useNavigate();
@@ -28,7 +29,7 @@ export default function GenerateRecipePage() {
   useEffect(() => {
     if (loading) {
       const timeout = setTimeout(() => {
-        setError('Generation is taking longer than expected. Please try again.');
+        setError('This is taking longer than expected. Please try again.');
         setLoading(false);
       }, 90000);
       return () => clearTimeout(timeout);
@@ -88,7 +89,7 @@ export default function GenerateRecipePage() {
       await recipeService.generateRecipeStream(formData, callbacks);
     } catch (err: unknown) {
       const errorMessage =
-        err instanceof Error ? err.message : 'Failed to generate recipe. Please try again.';
+        err instanceof Error ? err.message : 'Could not generate a recipe. Try again?';
       setError(errorMessage);
       setLoading(false);
     }
@@ -102,29 +103,26 @@ export default function GenerateRecipePage() {
 
   return (
     <div className="max-w-7xl mx-auto">
-      <div className="mb-8 text-center">
-        <h1 className="text-5xl font-bold bg-gradient-to-r from-orange-600 via-orange-500 to-yellow-500 bg-clip-text text-transparent animate-gradient mb-3">
-          Generate Your Recipe
-        </h1>
-        <p className="text-xl text-gray-600">
-          Let Hungry Helper craft a personalized recipe just for you
-        </p>
-      </div>
+      <PageHeader
+        center
+        className="mb-8"
+        badge={<span className="badge">Recipe Lab</span>}
+        title="Generate Your Recipe"
+        subtitle="Tell us the vibe. We'll handle the recipe."
+      />
 
       {error && (
         <div className="mb-6 card p-6 bg-red-50 border-2 border-red-200 animate-shake">
           <div className="flex items-start gap-4">
             <span className="text-4xl">😞</span>
             <div className="flex-1">
-              <h3 className="text-lg font-semibold text-red-900 mb-2">
-                Oops! Something went wrong
-              </h3>
+              <h3 className="text-lg font-semibold text-red-900 mb-2">Whoops. That didn't land.</h3>
               <p className="text-red-700 mb-4">{error}</p>
               <button
                 onClick={handleRetry}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+                className="px-4 py-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors font-medium"
               >
-                Try Again
+                Give it another go
               </button>
             </div>
           </div>
