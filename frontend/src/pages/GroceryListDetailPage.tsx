@@ -50,6 +50,7 @@ export default function GroceryListDetailPage() {
   });
   const [showSendDropdown, setShowSendDropdown] = useState(false);
   const [hideChecked, setHideChecked] = useState(false);
+  const [recentlyChecked, setRecentlyChecked] = useState<Set<number>>(new Set());
 
   const loadGroceryList = useCallback(async () => {
     if (!id) return;
@@ -74,12 +75,26 @@ export default function GroceryListDetailPage() {
   const handleToggleItem = async (item: GroceryItem) => {
     if (!groceryList) return;
 
+    const isChecking = !item.checked;
+
     try {
       const updatedItem = await groceryService.toggleGroceryItem(
         groceryList.id,
         item.id,
         !item.checked
       );
+
+      // Track recently checked items for animation
+      if (isChecking) {
+        setRecentlyChecked(prev => new Set(prev).add(item.id));
+        setTimeout(() => {
+          setRecentlyChecked(prev => {
+            const next = new Set(prev);
+            next.delete(item.id);
+            return next;
+          });
+        }, 500);
+      }
 
       setGroceryList({
         ...groceryList,
@@ -279,7 +294,10 @@ export default function GroceryListDetailPage() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#f97316]"></div>
+        <div
+          className="animate-spin rounded-full h-12 w-12 border-b-2"
+          style={{ borderBottomColor: 'var(--primary)' }}
+        ></div>
       </div>
     );
   }
@@ -287,7 +305,7 @@ export default function GroceryListDetailPage() {
   if (!groceryList) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500">We couldn't find that list.</p>
+        <p className="text-stone-500">We couldn't find that list.</p>
       </div>
     );
   }
@@ -329,8 +347,10 @@ export default function GroceryListDetailPage() {
           <div className="flex items-center flex-1">
             <ShoppingCartIcon className="h-8 w-8 text-emerald-500 mr-3" />
             <div>
-              <h1 className="text-2xl font-semibold text-gray-900">Grocery list</h1>
-              <p className="text-sm text-gray-500">
+              <h1 className="text-2xl font-semibold text-stone-900">
+                {groceryList.name || 'Grocery list'}
+              </h1>
+              <p className="text-sm text-stone-500">
                 Created {new Date(groceryList.created_at).toLocaleDateString()}
               </p>
             </div>
@@ -362,7 +382,7 @@ export default function GroceryListDetailPage() {
                 <button
                   onClick={() => setShowSendDropdown(!showSendDropdown)}
                   disabled={sendingNotification}
-                  className="rounded-r-full border border-l-0 border-slate-200 bg-white px-2 py-2 text-slate-600 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#f97316]/30"
+                  className="rounded-r-full border border-l-0 border-slate-200 bg-white px-2 py-2 text-slate-600 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary-soft"
                   title="More sending options"
                 >
                   <ChevronDownIcon
@@ -406,29 +426,46 @@ export default function GroceryListDetailPage() {
           </div>
         </div>
 
-        {/* Progress */}
-        <div className="surface progress-fun p-4">
+        {/* Progress with celebration at 100% */}
+        <div
+          className={`surface progress-fun p-4 transition-all duration-500 ${
+            getCompletionPercentage() === 100
+              ? 'animate-celebration-glow ring-2 ring-emerald-300'
+              : ''
+          }`}
+        >
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-700">Progress</span>
-            <span className="text-sm text-gray-500">
+            <span className="text-sm font-medium text-stone-700">Progress</span>
+            <span className="text-sm text-stone-500">
               {groceryList.items.filter(item => item.checked).length} of {groceryList.items.length}{' '}
               checked
             </span>
           </div>
-          <div className="w-full bg-slate-200 rounded-full h-2">
+          <div className="relative w-full bg-stone-200 rounded-full h-2.5 overflow-hidden">
             <div
-              className="bg-emerald-500 h-2 rounded-full transition-all duration-300"
+              className={`h-full rounded-full transition-all duration-500 ease-out ${
+                getCompletionPercentage() === 100 ? 'bg-emerald-500' : 'bg-emerald-500'
+              }`}
               style={{ width: `${getCompletionPercentage()}%` }}
             />
+            {getCompletionPercentage() === 100 && (
+              <div className="absolute inset-0 bg-emerald-400/30 animate-pulse rounded-full" />
+            )}
           </div>
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs text-gray-500">
-            <p>{getCompletionPercentage()}% done</p>
-            <label className="inline-flex items-center space-x-2">
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs">
+            {getCompletionPercentage() === 100 ? (
+              <p className="text-emerald-600 font-semibold animate-bounce-in flex items-center gap-1">
+                <span>🎉</span> All done!
+              </p>
+            ) : (
+              <p className="text-stone-500">{getCompletionPercentage()}% done</p>
+            )}
+            <label className="inline-flex items-center space-x-2 text-stone-500">
               <input
                 type="checkbox"
                 checked={hideChecked}
                 onChange={() => setHideChecked(!hideChecked)}
-                className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                className="h-4 w-4 rounded border-stone-300 text-emerald-600 focus:ring-emerald-500"
               />
               <span>Hide checked items</span>
             </label>
@@ -464,23 +501,33 @@ export default function GroceryListDetailPage() {
           {categories.map(category => (
             <div key={category} className="card overflow-hidden">
               <div className="category-header-fun px-4 py-3 border-b border-slate-200/70 bg-slate-50">
-                <h3 className="text-lg font-medium text-gray-900">{category}</h3>
-                <p className="text-sm text-gray-500">
+                <h3 className="text-lg font-medium text-stone-900">{category}</h3>
+                <p className="text-sm text-stone-500">
                   {groupedItems[category].filter(item => item.checked).length} of{' '}
                   {groupedItems[category].length} checked
                 </p>
               </div>
-              <div className="divide-y divide-slate-200/70">
+              <div className="divide-y divide-stone-200/70">
                 {filteredGroupedItems[category].map(item => (
-                  <div key={item.id} className="px-4 py-3 flex items-center">
-                    <label className="flex items-center mr-3">
+                  <div
+                    key={item.id}
+                    className={`px-4 py-3 flex items-center transition-all duration-200 ${
+                      recentlyChecked.has(item.id) ? 'bg-emerald-50' : ''
+                    }`}
+                  >
+                    <label className="flex items-center mr-3 relative">
                       <input
                         type="checkbox"
                         checked={item.checked}
                         onChange={() => handleToggleItem(item)}
-                        className="h-5 w-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                        className={`h-5 w-5 rounded border-stone-300 text-emerald-600 focus:ring-emerald-500 transition-transform ${
+                          recentlyChecked.has(item.id) ? 'animate-check-in' : ''
+                        }`}
                         aria-label={`Mark ${item.name} as ${item.checked ? 'unchecked' : 'checked'}`}
                       />
+                      {recentlyChecked.has(item.id) && (
+                        <span className="absolute inset-0 rounded-full bg-emerald-400/30 animate-success-ripple" />
+                      )}
                     </label>
 
                     {editingItem?.id === item.id ? (
@@ -491,17 +538,31 @@ export default function GroceryListDetailPage() {
                       />
                     ) : (
                       <div className="flex-1 flex items-center justify-between">
-                        <div
-                          className={`flex-1 ${item.checked ? 'line-through text-gray-500' : ''}`}
-                        >
+                        <div className="flex-1 relative">
                           <div className="flex items-center">
-                            <span className="font-medium">{item.name}</span>
+                            <span
+                              className={`font-medium transition-colors duration-200 ${
+                                item.checked ? 'text-stone-400' : 'text-stone-900'
+                              }`}
+                            >
+                              {item.name}
+                            </span>
                             {item.quantity && (
-                              <span className="ml-2 text-sm text-gray-500">
+                              <span
+                                className={`ml-2 text-sm transition-colors duration-200 ${
+                                  item.checked ? 'text-stone-300' : 'text-stone-500'
+                                }`}
+                              >
                                 {item.quantity} {item.unit}
                               </span>
                             )}
                           </div>
+                          {item.checked && (
+                            <span
+                              className="absolute left-0 top-1/2 h-px bg-stone-400 animate-strike"
+                              style={{ width: '100%', maxWidth: '200px' }}
+                            />
+                          )}
                         </div>
                         <div className="flex items-center space-x-2">
                           <button
@@ -530,11 +591,11 @@ export default function GroceryListDetailPage() {
       {/* Add Item Modal */}
       {showAddModal && (
         <ModalShell size="sm">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Add item</h3>
+          <h3 className="text-lg font-medium text-stone-900 mb-4">Add item</h3>
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Item name *</label>
+              <label className="block text-sm font-medium text-stone-700 mb-1">Item name *</label>
               <input
                 type="text"
                 value={newItem.name}
@@ -546,7 +607,7 @@ export default function GroceryListDetailPage() {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+                <label className="block text-sm font-medium text-stone-700 mb-1">Quantity</label>
                 <input
                   type="number"
                   value={newItem.quantity || ''}
@@ -561,7 +622,7 @@ export default function GroceryListDetailPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Unit</label>
+                <label className="block text-sm font-medium text-stone-700 mb-1">Unit</label>
                 <input
                   type="text"
                   value={newItem.unit || ''}
@@ -573,7 +634,7 @@ export default function GroceryListDetailPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+              <label className="block text-sm font-medium text-stone-700 mb-1">Category</label>
               <select
                 value={newItem.category || ''}
                 onChange={e => setNewItem({ ...newItem, category: e.target.value })}
@@ -602,14 +663,14 @@ export default function GroceryListDetailPage() {
       {/* Send Notification Modal */}
       {showNotificationModal && (
         <ModalShell size="sm">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Send grocery list</h3>
+          <h3 className="text-lg font-medium text-stone-900 mb-4">Send grocery list</h3>
 
-          <p className="text-sm text-gray-600 mb-4">
+          <p className="text-sm text-stone-600 mb-4">
             Send this list to extra emails. We'll include unchecked items by category.
           </p>
 
           <div className="space-y-3">
-            <label className="block text-sm font-medium text-gray-700">
+            <label className="block text-sm font-medium text-stone-700">
               Additional recipients (optional)
             </label>
 
@@ -641,7 +702,8 @@ export default function GroceryListDetailPage() {
 
             <button
               onClick={addEmailField}
-              className="text-sm text-[#f97316] hover:text-[#ea580c] flex items-center"
+              className="text-sm flex items-center transition-colors"
+              style={{ color: 'var(--primary)' }}
             >
               <PlusIcon className="h-4 w-4 mr-1" />
               Add another email

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ExclamationCircleIcon } from '@heroicons/react/24/outline';
 import type { RecipeGenerationRequest } from '../../types';
 
@@ -39,6 +39,24 @@ export function RecipeForm({
   className = '',
 }: RecipeFormProps) {
   const [ingredientInput, setIngredientInput] = useState('');
+  const [recentlyAdded, setRecentlyAdded] = useState<Set<number>>(new Set());
+  const ingredientCountRef = useRef(formData.ingredients_to_use.length);
+
+  // Track newly added ingredients for animation
+  useEffect(() => {
+    if (formData.ingredients_to_use.length > ingredientCountRef.current) {
+      const newIndex = formData.ingredients_to_use.length - 1;
+      setRecentlyAdded(prev => new Set(prev).add(newIndex));
+      setTimeout(() => {
+        setRecentlyAdded(prev => {
+          const next = new Set(prev);
+          next.delete(newIndex);
+          return next;
+        });
+      }, 500);
+    }
+    ingredientCountRef.current = formData.ingredients_to_use.length;
+  }, [formData.ingredients_to_use.length]);
 
   const addIngredient = () => {
     if (ingredientInput.trim()) {
@@ -74,7 +92,7 @@ export function RecipeForm({
 
       <div className={`grid grid-cols-1 gap-6 ${compact ? '' : 'sm:grid-cols-2'}`}>
         <div>
-          <label htmlFor="meal_type" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="meal_type" className="block text-sm font-medium text-stone-700">
             Meal type
           </label>
           <select
@@ -94,7 +112,7 @@ export function RecipeForm({
         </div>
 
         <div>
-          <label htmlFor="cuisine" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="cuisine" className="block text-sm font-medium text-stone-700">
             Cuisine
           </label>
           <select
@@ -116,7 +134,7 @@ export function RecipeForm({
 
       <div className={`grid grid-cols-1 gap-6 ${compact ? '' : 'sm:grid-cols-3'}`}>
         <div>
-          <label htmlFor="difficulty" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="difficulty" className="block text-sm font-medium text-stone-700">
             Difficulty
           </label>
           <select
@@ -136,7 +154,7 @@ export function RecipeForm({
         </div>
 
         <div>
-          <label htmlFor="max_time" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="max_time" className="block text-sm font-medium text-stone-700">
             Max time (min)
           </label>
           <input
@@ -156,7 +174,7 @@ export function RecipeForm({
         </div>
 
         <div>
-          <label htmlFor="servings" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="servings" className="block text-sm font-medium text-stone-700">
             Servings
           </label>
           <input
@@ -172,7 +190,7 @@ export function RecipeForm({
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700">Ingredients to use</label>
+        <label className="block text-sm font-medium text-stone-700">Ingredients to use</label>
         <div className="mt-2 flex items-center gap-2">
           <input
             type="text"
@@ -196,14 +214,18 @@ export function RecipeForm({
           {formData.ingredients_to_use.map((ingredient, index) => (
             <span
               key={index}
-              className="inline-flex items-center rounded-full bg-[#f97316]/10 px-3 py-0.5 text-sm font-medium text-[#ea580c]"
+              className={`inline-flex items-center rounded-full px-3 py-0.5 text-sm font-medium transition-all duration-200 ${
+                recentlyAdded.has(index) ? 'animate-bounce-in-scale' : ''
+              }`}
+              style={{ backgroundColor: 'var(--primary-soft)', color: 'var(--primary-hover)' }}
             >
               {ingredient}
               <button
                 type="button"
                 onClick={() => removeIngredient(index)}
                 disabled={loading}
-                className="ml-1 inline-flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full text-[#f97316] hover:bg-[#f97316]/15 disabled:opacity-50"
+                className="ml-1.5 inline-flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full transition-all duration-200 hover:scale-125 disabled:opacity-50"
+                style={{ color: 'var(--primary)' }}
               >
                 <span className="sr-only">Remove {ingredient}</span>
                 <svg className="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
@@ -216,7 +238,7 @@ export function RecipeForm({
       </div>
 
       <div>
-        <label htmlFor="comments" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="comments" className="block text-sm font-medium text-stone-700">
           Notes for the chef (you)
         </label>
         <textarea
@@ -229,7 +251,7 @@ export function RecipeForm({
           disabled={loading}
         />
         {!compact && (
-          <p className="mt-1 text-sm text-gray-500">Optional: notes, swaps, or hard no's.</p>
+          <p className="mt-1 text-sm text-stone-500">Optional: notes, swaps, or hard no's.</p>
         )}
       </div>
 
@@ -240,10 +262,15 @@ export function RecipeForm({
       </div>
 
       {statusMessage && !isStreaming && (
-        <div className="rounded-2xl bg-[#fff6f7] p-4">
+        <div
+          className="rounded-2xl p-4 animate-slide-in-up"
+          style={{ backgroundColor: 'var(--surface-warm)' }}
+        >
           <div className="flex">
             <div className="ml-3">
-              <h3 className="text-sm font-medium text-[#ea580c]">{statusMessage}</h3>
+              <h3 className="text-sm font-medium" style={{ color: 'var(--primary-hover)' }}>
+                {statusMessage}
+              </h3>
             </div>
           </div>
         </div>

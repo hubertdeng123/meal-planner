@@ -159,7 +159,7 @@ export function BasicPreferencesComponent({ preferences, onChange }: PreferenceC
                     },
                   })
                 }
-                className="rounded border-gray-300 text-[#f97316] focus:ring-[#f97316]/40"
+                className="rounded border-gray-300 text-primary focus:ring-primary-soft"
               />
               <span className="text-sm text-gray-700">{cuisine}</span>
             </label>
@@ -190,7 +190,7 @@ export function BasicPreferencesComponent({ preferences, onChange }: PreferenceC
                     },
                   })
                 }
-                className="mt-1 border-gray-300 text-[#f97316] focus:ring-[#f97316]/40"
+                className="mt-1 border-gray-300 text-primary focus:ring-primary-soft"
               />
               <div>
                 <span className="text-sm font-medium text-gray-700">{level.label}</span>
@@ -222,7 +222,7 @@ export function BasicPreferencesComponent({ preferences, onChange }: PreferenceC
                     },
                   })
                 }
-                className="rounded border-gray-300 text-[#f97316] focus:ring-[#f97316]/40"
+                className="rounded border-gray-300 text-primary focus:ring-primary-soft"
               />
               <span className="text-sm text-gray-700">{profile}</span>
             </label>
@@ -250,7 +250,7 @@ export function BasicPreferencesComponent({ preferences, onChange }: PreferenceC
                     ),
                   })
                 }
-                className="rounded border-gray-300 text-[#f97316] focus:ring-[#f97316]/40"
+                className="rounded border-gray-300 text-primary focus:ring-primary-soft"
               />
               <span className="text-sm text-gray-700">{restriction}</span>
             </label>
@@ -335,7 +335,7 @@ export function IngredientRulesComponent({ preferences, onChange }: PreferenceCo
             onClick={() => setActiveCategory(category.key)}
             className={`px-3 py-2 rounded text-sm font-medium transition-all ${
               activeCategory === category.key
-                ? 'bg-[#f97316]/10 text-[#ea580c] border-2 border-[#f97316]/30'
+                ? 'bg-primary-soft text-primary-hover border-2 border-primary/30'
                 : 'bg-slate-100 text-gray-600 border-2 border-transparent hover:bg-slate-200'
             }`}
           >
@@ -447,7 +447,7 @@ export function FoodTypeRulesComponent({ preferences, onChange }: PreferenceComp
                     },
                   })
                 }
-                className="rounded border-gray-300 text-[#f97316] focus:ring-[#f97316]/40"
+                className="rounded border-gray-300 text-primary focus:ring-primary-soft"
               />
               <span className="text-sm text-gray-700">{protein}</span>
             </label>
@@ -478,7 +478,7 @@ export function FoodTypeRulesComponent({ preferences, onChange }: PreferenceComp
                     },
                   })
                 }
-                className="rounded border-gray-300 text-[#f97316] focus:ring-[#f97316]/40"
+                className="rounded border-gray-300 text-primary focus:ring-primary-soft"
               />
               <span className="text-sm text-gray-700">{method}</span>
             </label>
@@ -506,7 +506,7 @@ export function FoodTypeRulesComponent({ preferences, onChange }: PreferenceComp
                     },
                   })
                 }
-                className="border-gray-300 text-[#f97316] focus:ring-[#f97316]/40"
+                className="border-gray-300 text-primary focus:ring-primary-soft"
               />
               <span className="text-sm text-gray-700 capitalize">{complexity}</span>
             </label>
@@ -761,7 +761,7 @@ export function NutritionalRulesComponent({ preferences, onChange }: PreferenceC
                     },
                   })
                 }
-                className="rounded border-gray-300 text-[#f97316] focus:ring-[#f97316]/40"
+                className="rounded border-gray-300 text-primary focus:ring-primary-soft"
               />
               <span className="text-sm text-gray-700">{need}</span>
             </label>
@@ -797,7 +797,7 @@ export function SchedulingRulesComponent({ preferences, onChange }: PreferenceCo
                       },
                     })
                   }
-                  className="rounded border-gray-300 text-[#f97316] focus:ring-[#f97316]/40"
+                  className="rounded border-gray-300 text-primary focus:ring-primary-soft"
                 />
                 <span className="text-sm text-gray-700">{day}</span>
               </label>
@@ -865,7 +865,7 @@ export function SchedulingRulesComponent({ preferences, onChange }: PreferenceCo
                 },
               })
             }
-            className="rounded border-gray-300 text-[#f97316] focus:ring-[#f97316]/40"
+            className="rounded border-gray-300 text-primary focus:ring-primary-soft"
           />
           <span className="text-sm font-medium text-gray-700">I prefer batch cooking</span>
         </label>
@@ -893,7 +893,7 @@ export function SchedulingRulesComponent({ preferences, onChange }: PreferenceCo
                     },
                   })
                 }
-                className="border-gray-300 text-[#f97316] focus:ring-[#f97316]/40"
+                className="border-gray-300 text-primary focus:ring-primary-soft"
               />
               <span className="text-sm text-gray-700 capitalize">{tolerance}</span>
             </label>
@@ -930,7 +930,7 @@ export function DietaryRulesComponent({ preferences, onChange }: PreferenceCompo
                     },
                   })
                 }
-                className="rounded border-gray-300 text-[#f97316] focus:ring-[#f97316]/40"
+                className="rounded border-gray-300 text-primary focus:ring-primary-soft"
               />
               <span className="text-sm text-gray-700">{condition}</span>
             </label>
@@ -966,7 +966,7 @@ export function DietaryRulesComponent({ preferences, onChange }: PreferenceCompo
                     },
                   })
                 }
-                className="rounded border-gray-300 text-[#f97316] focus:ring-[#f97316]/40"
+                className="rounded border-gray-300 text-primary focus:ring-primary-soft"
               />
               <span className="text-sm text-gray-700">{choice}</span>
             </label>
@@ -997,7 +997,7 @@ export function DietaryRulesComponent({ preferences, onChange }: PreferenceCompo
                     },
                   })
                 }
-                className="rounded border-gray-300 text-[#f97316] focus:ring-[#f97316]/40"
+                className="rounded border-gray-300 text-primary focus:ring-primary-soft"
               />
               <span className="text-sm text-gray-700">{law}</span>
             </label>

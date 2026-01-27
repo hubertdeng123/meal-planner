@@ -16,9 +16,14 @@ interface ModalShellProps {
 
 export function ModalShell({ children, size = 'md', className = '' }: ModalShellProps) {
   return (
-    <div className="modal-overlay overflow-y-auto h-full w-full">
+    <div className="modal-overlay overflow-y-auto h-full w-full animate-fade-in">
       <div className={`modal-container top-20 ${sizeMap[size]}`}>
-        <div className={`modal-panel ${className}`}>{children}</div>
+        <div
+          className={`modal-panel animate-scale-in animate-slide-in-up ${className}`}
+          style={{ animationDuration: '0.25s' }}
+        >
+          {children}
+        </div>
       </div>
     </div>
   );

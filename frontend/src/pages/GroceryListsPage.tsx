@@ -75,7 +75,7 @@ export default function GroceryListsPage() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#f97316]"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -117,8 +117,10 @@ export default function GroceryListsPage() {
                 <div className="flex items-center">
                   <ShoppingCartIcon className="h-8 w-8 text-emerald-500" />
                   <div className="ml-3">
-                    <h3 className="text-lg font-medium text-gray-900">Grocery list</h3>
-                    <p className="text-sm text-gray-500 flex items-center">
+                    <h3 className="text-lg font-medium text-stone-900">
+                      {groceryList.name || 'Grocery list'}
+                    </h3>
+                    <p className="text-sm text-stone-500 flex items-center">
                       <CalendarIcon className="h-4 w-4 mr-1" />
                       {new Date(groceryList.created_at).toLocaleDateString()}
                     </p>
@@ -133,7 +135,7 @@ export default function GroceryListsPage() {
               </div>
 
               <div className="mt-4">
-                <p className="text-sm text-gray-600">{groceryList.items.length} items</p>
+                <p className="text-sm text-stone-600">{groceryList.items.length} items</p>
                 <div className="mt-2">
                   <div className="flex items-center">
                     <div className="flex-1 bg-slate-200 rounded-full h-2">
@@ -150,7 +152,7 @@ export default function GroceryListsPage() {
                         }}
                       />
                     </div>
-                    <span className="ml-2 text-xs text-gray-500">
+                    <span className="ml-2 text-xs text-stone-500">
                       {groceryList.items.filter(item => item.checked).length} checked
                     </span>
                   </div>
@@ -174,17 +176,21 @@ export default function GroceryListsPage() {
       {showCreateModal && (
         <ModalShell size="lg">
           <div className="mt-3">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">
+            <h3 className="text-lg font-medium text-stone-900 mb-4">
               Build a grocery list from recipes
             </h3>
 
-            <p className="text-sm text-gray-600 mb-4">Pick the recipes you want on this list:</p>
+            <p className="text-sm text-stone-600 mb-4">Pick the recipes you want on this list:</p>
 
             <div className="max-h-96 overflow-y-auto">
               {recipes.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">
+                <p className="text-stone-500 text-center py-8">
                   No recipes yet.{' '}
-                  <Link to="/generate" className="text-[#f97316] hover:underline">
+                  <Link
+                    to="/generate"
+                    className="hover:underline"
+                    style={{ color: 'var(--primary)' }}
+                  >
                     Make a recipe
                   </Link>
                   .
@@ -200,11 +206,12 @@ export default function GroceryListsPage() {
                         type="checkbox"
                         checked={selectedRecipes.includes(recipe.id)}
                         onChange={() => toggleRecipeSelection(recipe.id)}
-                        className="h-4 w-4 text-[#f97316] focus:ring-[#f97316]/40 border-slate-300 rounded"
+                        className="h-4 w-4 border-stone-300 rounded"
+                        style={{ accentColor: 'var(--primary)' }}
                       />
                       <div className="ml-3 flex-1">
-                        <p className="text-sm font-medium text-gray-900">{recipe.name}</p>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-sm font-medium text-stone-900">{recipe.name}</p>
+                        <p className="text-xs text-stone-500">
                           {recipe.ingredients.length} ingredients
                         </p>
                       </div>

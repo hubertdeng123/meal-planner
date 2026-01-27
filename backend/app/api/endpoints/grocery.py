@@ -252,7 +252,14 @@ async def create_grocery_list_from_recipes(
             detail="One or more recipes not found",
         )
 
-    db_grocery_list = GroceryListModel(user_id=current_user.id)
+    # Generate name from recipe names
+    recipe_names = [r.name for r in recipes[:3]]
+    if len(recipes) > 3:
+        name = f"{', '.join(recipe_names[:2])} & {len(recipes) - 2} more"
+    else:
+        name = ", ".join(recipe_names)
+
+    db_grocery_list = GroceryListModel(user_id=current_user.id, name=name)
 
     db.add(db_grocery_list)
     db.commit()
@@ -383,6 +390,7 @@ def _format_grocery_list_response(grocery_list: GroceryListModel) -> dict:
         "id": grocery_list.id,
         "user_id": grocery_list.user_id,
         "meal_plan_id": grocery_list.meal_plan_id,
+        "name": grocery_list.name,
         "created_at": grocery_list.created_at,
         "updated_at": grocery_list.updated_at,
         "items": [_format_grocery_item_response(item) for item in grocery_list.items],

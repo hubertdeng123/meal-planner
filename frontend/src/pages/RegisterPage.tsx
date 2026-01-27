@@ -153,25 +153,28 @@ export default function RegisterPage() {
   const renderProgressBar = () => (
     <div className="mb-8">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-medium text-slate-700">
+        <span className="text-sm font-medium text-stone-700">
           Step {step} of {STEP_TITLES.length}
         </span>
-        <span className="text-sm text-slate-500">
+        <span className="text-sm text-stone-500">
           {Math.round((step / STEP_TITLES.length) * 100)}% Complete
         </span>
       </div>
-      <div className="w-full bg-slate-200 rounded-full h-2">
+      <div className="w-full bg-stone-200 rounded-full h-2">
         <div
-          className="bg-[#f97316] h-2 rounded-full transition-all duration-300"
-          style={{ width: `${(step / STEP_TITLES.length) * 100}%` }}
+          className="h-2 rounded-full transition-all duration-300"
+          style={{
+            width: `${(step / STEP_TITLES.length) * 100}%`,
+            backgroundColor: 'var(--primary)',
+          }}
         />
       </div>
-      <h2 className="mt-4 text-2xl font-semibold text-gray-900">{STEP_TITLES[step - 1]}</h2>
+      <h2 className="mt-4 text-2xl font-semibold text-stone-900">{STEP_TITLES[step - 1]}</h2>
       {step === 2 && (
-        <p className="mt-2 text-sm text-gray-600">Tell us your flavor compass (optional)</p>
+        <p className="mt-2 text-sm text-stone-600">Tell us your flavor compass (optional)</p>
       )}
       {step === 3 && (
-        <p className="mt-2 text-sm text-gray-600">Optional tweaks for extra finesse</p>
+        <p className="mt-2 text-sm text-stone-600">Optional tweaks for extra finesse</p>
       )}
     </div>
   );
@@ -238,80 +241,102 @@ export default function RegisterPage() {
     <div className="space-y-8">
       {/* Cuisines */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-3">
-          What cuisines make you happy? <span className="text-gray-500">(Pick any)</span>
+        <label className="block text-sm font-medium text-stone-700 mb-3">
+          What cuisines make you happy? <span className="text-stone-500">(Pick any)</span>
         </label>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {TOP_CUISINES.map(cuisine => (
-            <label
-              key={cuisine}
-              className={`
-                relative flex items-center justify-center px-4 py-3 rounded-2xl border-2 cursor-pointer transition-all
-                ${
-                  preferences.food_preferences.cuisines.includes(cuisine)
-                    ? 'border-[#f97316] bg-[#f97316]/10 text-[#ea580c]'
-                    : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+          {TOP_CUISINES.map(cuisine => {
+            const isSelected = preferences.food_preferences.cuisines.includes(cuisine);
+            return (
+              <label
+                key={cuisine}
+                className={`
+                  relative flex items-center justify-center px-4 py-3 rounded-2xl border-2 cursor-pointer transition-all
+                  ${isSelected ? '' : 'border-stone-200 bg-white text-stone-700 hover:border-stone-300'}
+                `}
+                style={
+                  isSelected
+                    ? {
+                        borderColor: 'var(--primary)',
+                        backgroundColor: 'var(--primary-soft)',
+                        color: 'var(--primary-hover)',
+                      }
+                    : undefined
                 }
-              `}
-            >
-              <input
-                type="checkbox"
-                checked={preferences.food_preferences.cuisines.includes(cuisine)}
-                onChange={() =>
-                  setPreferences(prev => ({
-                    ...prev,
-                    food_preferences: {
-                      ...prev.food_preferences,
-                      cuisines: toggleArrayItem(prev.food_preferences.cuisines, cuisine),
-                    },
-                  }))
-                }
-                className="sr-only"
-              />
-              {preferences.food_preferences.cuisines.includes(cuisine) && (
-                <CheckCircleIcon className="absolute top-2 right-2 h-5 w-5 text-[#f97316]" />
-              )}
-              <span className="text-sm font-medium">{cuisine}</span>
-            </label>
-          ))}
+              >
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={() =>
+                    setPreferences(prev => ({
+                      ...prev,
+                      food_preferences: {
+                        ...prev.food_preferences,
+                        cuisines: toggleArrayItem(prev.food_preferences.cuisines, cuisine),
+                      },
+                    }))
+                  }
+                  className="sr-only"
+                />
+                {isSelected && (
+                  <CheckCircleIcon
+                    className="absolute top-2 right-2 h-5 w-5"
+                    style={{ color: 'var(--primary)' }}
+                  />
+                )}
+                <span className="text-sm font-medium">{cuisine}</span>
+              </label>
+            );
+          })}
         </div>
       </div>
 
       {/* Dietary Restrictions */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-3">
-          Any dietary restrictions? <span className="text-gray-500">(Optional)</span>
+        <label className="block text-sm font-medium text-stone-700 mb-3">
+          Any dietary restrictions? <span className="text-stone-500">(Optional)</span>
         </label>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {COMMON_DIETARY_RESTRICTIONS.map(restriction => (
-            <label
-              key={restriction}
-              className={`
-                relative flex items-center justify-center px-4 py-3 rounded-2xl border-2 cursor-pointer transition-all
-                ${
-                  preferences.dietary_restrictions.includes(restriction)
-                    ? 'border-[#f97316] bg-[#f97316]/10 text-[#ea580c]'
-                    : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+          {COMMON_DIETARY_RESTRICTIONS.map(restriction => {
+            const isSelected = preferences.dietary_restrictions.includes(restriction);
+            return (
+              <label
+                key={restriction}
+                className={`
+                  relative flex items-center justify-center px-4 py-3 rounded-2xl border-2 cursor-pointer transition-all
+                  ${isSelected ? '' : 'border-stone-200 bg-white text-stone-700 hover:border-stone-300'}
+                `}
+                style={
+                  isSelected
+                    ? {
+                        borderColor: 'var(--primary)',
+                        backgroundColor: 'var(--primary-soft)',
+                        color: 'var(--primary-hover)',
+                      }
+                    : undefined
                 }
-              `}
-            >
-              <input
-                type="checkbox"
-                checked={preferences.dietary_restrictions.includes(restriction)}
-                onChange={() =>
-                  setPreferences(prev => ({
-                    ...prev,
-                    dietary_restrictions: toggleArrayItem(prev.dietary_restrictions, restriction),
-                  }))
-                }
-                className="sr-only"
-              />
-              {preferences.dietary_restrictions.includes(restriction) && (
-                <CheckCircleIcon className="absolute top-2 right-2 h-5 w-5 text-[#f97316]" />
-              )}
-              <span className="text-sm font-medium">{restriction}</span>
-            </label>
-          ))}
+              >
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={() =>
+                    setPreferences(prev => ({
+                      ...prev,
+                      dietary_restrictions: toggleArrayItem(prev.dietary_restrictions, restriction),
+                    }))
+                  }
+                  className="sr-only"
+                />
+                {isSelected && (
+                  <CheckCircleIcon
+                    className="absolute top-2 right-2 h-5 w-5"
+                    style={{ color: 'var(--primary)' }}
+                  />
+                )}
+                <span className="text-sm font-medium">{restriction}</span>
+              </label>
+            );
+          })}
         </div>
       </div>
 
@@ -340,7 +365,8 @@ export default function RegisterPage() {
           type="button"
           onClick={handleSkipToRegistration}
           disabled={loading}
-          className="text-sm text-[#f97316] hover:text-[#ea580c] underline"
+          className="text-sm underline transition-colors"
+          style={{ color: 'var(--primary)' }}
         >
           {loading ? 'Setting things up...' : 'Skip for now, finish later'}
         </button>
@@ -368,45 +394,50 @@ export default function RegisterPage() {
 
       {/* Meal Complexity Preference */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-3">
+        <label className="block text-sm font-medium text-stone-700 mb-3">
           How ambitious are you feeling?
         </label>
         <div className="grid grid-cols-3 gap-3">
-          {(['simple', 'medium', 'complex'] as const).map(complexity => (
-            <label
-              key={complexity}
-              className={`
-                relative flex flex-col items-center justify-center px-4 py-4 rounded-2xl border-2 cursor-pointer transition-all
-                ${
-                  preferences.food_type_rules.meal_complexity_preference === complexity
-                    ? 'border-[#f97316] bg-[#f97316]/10'
-                    : 'border-slate-200 bg-white hover:border-slate-300'
+          {(['simple', 'medium', 'complex'] as const).map(complexity => {
+            const isSelected =
+              preferences.food_type_rules.meal_complexity_preference === complexity;
+            return (
+              <label
+                key={complexity}
+                className={`
+                  relative flex flex-col items-center justify-center px-4 py-4 rounded-2xl border-2 cursor-pointer transition-all
+                  ${isSelected ? '' : 'border-stone-200 bg-white hover:border-stone-300'}
+                `}
+                style={
+                  isSelected
+                    ? { borderColor: 'var(--primary)', backgroundColor: 'var(--primary-soft)' }
+                    : undefined
                 }
-              `}
-            >
-              <input
-                type="radio"
-                name="complexity"
-                checked={preferences.food_type_rules.meal_complexity_preference === complexity}
-                onChange={() =>
-                  setPreferences(prev => ({
-                    ...prev,
-                    food_type_rules: {
-                      ...prev.food_type_rules,
-                      meal_complexity_preference: complexity,
-                    },
-                  }))
-                }
-                className="sr-only"
-              />
-              <span className="text-sm font-medium capitalize text-gray-900">{complexity}</span>
-              <span className="text-xs text-gray-500 mt-1 text-center">
-                {complexity === 'simple' && '15-30 min'}
-                {complexity === 'medium' && '30-60 min'}
-                {complexity === 'complex' && '60+ min'}
-              </span>
-            </label>
-          ))}
+              >
+                <input
+                  type="radio"
+                  name="complexity"
+                  checked={isSelected}
+                  onChange={() =>
+                    setPreferences(prev => ({
+                      ...prev,
+                      food_type_rules: {
+                        ...prev.food_type_rules,
+                        meal_complexity_preference: complexity,
+                      },
+                    }))
+                  }
+                  className="sr-only"
+                />
+                <span className="text-sm font-medium capitalize text-stone-900">{complexity}</span>
+                <span className="text-xs text-stone-500 mt-1 text-center">
+                  {complexity === 'simple' && '15-30 min'}
+                  {complexity === 'medium' && '30-60 min'}
+                  {complexity === 'complex' && '60+ min'}
+                </span>
+              </label>
+            );
+          })}
         </div>
       </div>
 
@@ -446,7 +477,7 @@ export default function RegisterPage() {
           type="button"
           onClick={handleSkipToRegistration}
           disabled={loading}
-          className="w-full py-3 px-4 rounded-2xl border-2 border-dashed border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-white transition-all font-medium"
+          className="w-full py-3 px-4 rounded-2xl border-2 border-dashed border-stone-200 text-stone-600 hover:border-stone-300 hover:bg-white transition-all font-medium"
         >
           Skip for now - I'll finish in Settings
         </button>
@@ -485,9 +516,13 @@ export default function RegisterPage() {
         </div>
 
         {/* Footer */}
-        <p className="text-center text-sm text-gray-600 mt-6">
+        <p className="text-center text-sm text-stone-600 mt-6">
           Already have an account?{' '}
-          <Link to="/login" className="font-semibold text-[#f97316] hover:text-[#ea580c]">
+          <Link
+            to="/login"
+            className="font-semibold transition-colors"
+            style={{ color: 'var(--primary)' }}
+          >
             Sign in
           </Link>
         </p>

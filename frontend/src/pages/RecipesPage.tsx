@@ -52,7 +52,8 @@ export default function RecipesPage() {
     return (
       <div className="flex justify-center items-center h-64">
         <div
-          className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#f97316]"
+          className="animate-spin rounded-full h-12 w-12 border-b-2"
+          style={{ borderBottomColor: 'var(--primary)' }}
           data-testid="loading-spinner"
         ></div>
       </div>
@@ -87,8 +88,12 @@ export default function RecipesPage() {
       </div>
 
       <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {recipes.map(recipe => (
-          <div key={recipe.id} className="card card-hover overflow-hidden relative">
+        {recipes.map((recipe, index) => (
+          <div
+            key={recipe.id}
+            className="card card-hover overflow-hidden relative opacity-0 animate-slide-in-up"
+            style={{ animationDelay: `${index * 75}ms`, animationFillMode: 'forwards' }}
+          >
             {/* Delete Button */}
             <button
               onClick={e => handleDelete(recipe.id, e)}
@@ -105,11 +110,16 @@ export default function RecipesPage() {
 
             {/* Clickable Content */}
             <Link to={`/recipes/${recipe.id}`} className="group block p-6 pr-12">
-              <h3 className="text-lg font-semibold text-gray-900 group-hover:text-[#f97316] transition-colors">
-                {recipe.name}
+              <h3
+                className="text-lg font-semibold text-stone-900 transition-colors"
+                style={{ '--hover-color': 'var(--primary)' } as React.CSSProperties}
+              >
+                <span className="group-hover:text-primary" style={{ color: 'inherit' }}>
+                  {recipe.name}
+                </span>
               </h3>
-              <p className="mt-2 text-sm text-gray-600 line-clamp-2">{recipe.description}</p>
-              <div className="mt-4 flex items-center text-sm text-gray-500 space-x-4">
+              <p className="mt-2 text-sm text-stone-600 line-clamp-2">{recipe.description}</p>
+              <div className="mt-4 flex items-center text-sm text-stone-500 space-x-4">
                 <div className="flex items-center">
                   <ClockIcon className="h-4 w-4 mr-1" />
                   {(recipe.prep_time_minutes || 0) + (recipe.cook_time_minutes || 0)} min
@@ -121,7 +131,10 @@ export default function RecipesPage() {
               </div>
               <div className="mt-3">
                 {recipe.source_urls && recipe.source_urls.length > 0 && (
-                  <div className="flex items-center text-xs text-[#f97316] mb-2">
+                  <div
+                    className="flex items-center text-xs mb-2"
+                    style={{ color: 'var(--primary)' }}
+                  >
                     <svg
                       className="h-3 w-3 mr-1"
                       fill="none"
@@ -147,7 +160,11 @@ export default function RecipesPage() {
                     {recipe.tags.slice(0, 3).map(tag => (
                       <span
                         key={tag}
-                        className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-[#f97316]/10 text-[#ea580c]"
+                        className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
+                        style={{
+                          backgroundColor: 'var(--primary-soft)',
+                          color: 'var(--primary-hover)',
+                        }}
                       >
                         {tag}
                       </span>

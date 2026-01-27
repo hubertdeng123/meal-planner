@@ -23,6 +23,8 @@ export default function RecipeDetailPage() {
   const [rating, setRating] = useState(0);
   const [hoveredRating, setHoveredRating] = useState(0);
   const [liked, setLiked] = useState(false);
+  const [justLiked, setJustLiked] = useState(false);
+  const [justRated, setJustRated] = useState(false);
   const [notes, setNotes] = useState('');
   const [savingFeedback, setSavingFeedback] = useState(false);
   const [creatingList, setCreatingList] = useState(false);
@@ -114,7 +116,10 @@ export default function RecipeDetailPage() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#f97316]"></div>
+        <div
+          className="animate-spin rounded-full h-12 w-12 border-b-2"
+          style={{ borderBottomColor: 'var(--primary)' }}
+        ></div>
       </div>
     );
   }
@@ -131,16 +136,17 @@ export default function RecipeDetailPage() {
       <div className="surface p-6">
         <div className="flex justify-between items-start mb-4">
           <div className="flex-1">
-            <h1 className="font-display text-3xl font-semibold text-gray-900">{recipe.name}</h1>
-            {recipe.description && <p className="mt-2 text-gray-600">{recipe.description}</p>}
+            <h1 className="font-display text-3xl font-semibold text-stone-900">{recipe.name}</h1>
+            {recipe.description && <p className="mt-2 text-stone-600">{recipe.description}</p>}
             {recipe.source_urls && recipe.source_urls.length > 0 && (
-              <div className="mt-4 p-4 bg-[#fff6f7] rounded-2xl border border-[#f97316]/20">
+              <div className="mt-4 p-4 rounded-2xl surface-warm">
                 <div className="flex items-center space-x-2 mb-2">
                   <svg
-                    className="h-4 w-4 text-[#f97316]"
+                    className="h-4 w-4"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
+                    style={{ color: 'var(--primary)' }}
                   >
                     <path
                       strokeLinecap="round"
@@ -149,7 +155,7 @@ export default function RecipeDetailPage() {
                       d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
                     />
                   </svg>
-                  <span className="text-sm font-medium text-[#ea580c]">
+                  <span className="text-sm font-medium" style={{ color: 'var(--primary-hover)' }}>
                     {recipe.source_urls.length === 1
                       ? 'Inspired by:'
                       : `Inspired by ${recipe.source_urls.length} sources:`}
@@ -186,7 +192,8 @@ export default function RecipeDetailPage() {
                         href={url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-white text-[#f97316] border border-[#f97316]/30 hover:bg-[#f97316]/10 hover:border-[#f97316]/40 transition-colors duration-200"
+                        className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-white border transition-colors duration-200 hover:bg-primary-soft"
+                        style={{ color: 'var(--primary)', borderColor: 'var(--primary-soft)' }}
                       >
                         {getDomainName(url)}
                         <svg
@@ -229,7 +236,7 @@ export default function RecipeDetailPage() {
           </div>
         </div>
 
-        <div className="mt-4 flex items-center text-sm text-gray-500 space-x-4">
+        <div className="mt-4 flex items-center text-sm text-stone-500 space-x-4">
           <div className="flex items-center">
             <ClockIcon className="h-5 w-5 mr-1" />
             {(recipe.prep_time_minutes || 0) + (recipe.cook_time_minutes || 0)} minutes
@@ -241,39 +248,66 @@ export default function RecipeDetailPage() {
         </div>
 
         {/* Rating and Feedback Section */}
-        <div className="mt-6 p-5 bg-slate-50 rounded-2xl border border-slate-200/70">
-          <h3 className="text-lg font-semibold mb-3">How did it go?</h3>
+        <div
+          className="mt-6 p-6 rounded-2xl border"
+          style={{ backgroundColor: 'var(--surface-muted)', borderColor: 'rgba(28, 25, 23, 0.06)' }}
+        >
+          <h3 className="text-lg font-semibold text-stone-900 mb-4">How did it go?</h3>
 
-          <div className="flex items-center space-x-4 mb-4">
-            {/* Like button */}
-            <button onClick={() => setLiked(!liked)} className="flex items-center space-x-2">
+          <div className="flex items-center space-x-6 mb-4">
+            {/* Like button with heartbeat */}
+            <button
+              onClick={() => {
+                if (!liked) {
+                  setJustLiked(true);
+                  setTimeout(() => setJustLiked(false), 600);
+                }
+                setLiked(!liked);
+              }}
+              className="flex items-center space-x-2 group"
+            >
               {liked ? (
-                <HeartSolidIcon className="h-6 w-6 text-red-500" />
+                <HeartSolidIcon
+                  className={`h-6 w-6 text-red-500 transition-transform ${justLiked ? 'animate-heartbeat' : ''}`}
+                />
               ) : (
-                <HeartIcon className="h-6 w-6 text-gray-400 hover:text-red-500 transition-colors" />
+                <HeartIcon className="h-6 w-6 text-stone-400 group-hover:text-red-500 group-hover:scale-110 transition-all duration-200" />
               )}
-              <span className="text-sm">{liked ? 'Loved it' : 'Like'}</span>
+              <span
+                className={`text-sm transition-colors ${liked ? 'text-red-600 font-medium' : 'text-stone-600'}`}
+              >
+                {liked ? 'Loved it!' : 'Like'}
+              </span>
             </button>
 
-            {/* Star rating */}
+            {/* Star rating with bounce animation */}
             <div className="flex items-center space-x-1">
-              {[1, 2, 3, 4, 5].map(star => (
+              {[1, 2, 3, 4, 5].map((star, idx) => (
                 <button
                   key={star}
-                  onClick={() => setRating(star)}
+                  onClick={() => {
+                    setRating(star);
+                    setJustRated(true);
+                    setTimeout(() => setJustRated(false), 500);
+                  }}
                   onMouseEnter={() => setHoveredRating(star)}
                   onMouseLeave={() => setHoveredRating(0)}
-                  className="p-1"
+                  className="p-1 transition-transform duration-150 hover:scale-125"
                 >
                   {star <= (hoveredRating || rating) ? (
-                    <StarSolidIcon className="h-6 w-6 text-yellow-400" />
+                    <StarSolidIcon
+                      className={`h-6 w-6 text-yellow-400 ${
+                        justRated && star <= rating ? 'animate-bounce-in' : ''
+                      }`}
+                      style={justRated ? { animationDelay: `${idx * 50}ms` } : undefined}
+                    />
                   ) : (
-                    <StarIcon className="h-6 w-6 text-gray-300" />
+                    <StarIcon className="h-6 w-6 text-stone-300" />
                   )}
                 </button>
               ))}
               {rating > 0 && (
-                <span className="ml-2 text-sm text-gray-600">
+                <span className="ml-2 text-sm text-stone-600 animate-fade-in">
                   {rating} star{rating > 1 ? 's' : ''}
                 </span>
               )}
@@ -282,7 +316,7 @@ export default function RecipeDetailPage() {
 
           {/* Notes */}
           <div className="mb-4">
-            <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="notes" className="block text-sm font-medium text-stone-700 mb-1">
               Notes (optional)
             </label>
             <textarea
@@ -306,10 +340,10 @@ export default function RecipeDetailPage() {
             <ul className="space-y-2">
               {recipe.ingredients.map((ingredient, index) => (
                 <li key={index} className="flex items-start">
-                  <span className="text-gray-700">
+                  <span className="text-stone-700">
                     {ingredient.quantity} {ingredient.unit} {ingredient.name}
                     {ingredient.notes && (
-                      <span className="text-gray-500"> ({ingredient.notes})</span>
+                      <span className="text-stone-500"> ({ingredient.notes})</span>
                     )}
                   </span>
                 </li>
@@ -351,8 +385,10 @@ export default function RecipeDetailPage() {
           <ol className="space-y-3">
             {recipe.instructions.map((instruction, index) => (
               <li key={index} className="flex">
-                <span className="font-semibold text-[#f97316] mr-3">{index + 1}.</span>
-                <span className="text-gray-700">{instruction}</span>
+                <span className="font-semibold mr-3" style={{ color: 'var(--primary)' }}>
+                  {index + 1}.
+                </span>
+                <span className="text-stone-700">{instruction}</span>
               </li>
             ))}
           </ol>

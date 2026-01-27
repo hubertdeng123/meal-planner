@@ -12,11 +12,27 @@ from app.api.endpoints import (
     users,
 )
 from app.services.scheduler_service import scheduler_service
+from braintrust import init_logger
+from braintrust.otel import BraintrustSpanProcessor
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from pydantic_ai.agent import Agent
 
 # Initialize Sentry for error tracking
 import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+
+
+init_logger(project="Hungry Helper")
+
+# Set up tracing for the agent to automatically log to Braintrust
+provider = TracerProvider()
+trace.set_tracer_provider(provider)
+
+provider.add_span_processor(BraintrustSpanProcessor())
+
+Agent.instrument_all()
 
 # Configure Sentry
 SENTRY_DSN = os.getenv("SENTRY_DSN")

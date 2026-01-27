@@ -186,7 +186,7 @@ export default function SettingsPage() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#f97316]"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -195,8 +195,8 @@ export default function SettingsPage() {
     return (
       <div className="text-center py-12">
         <ExclamationCircleIcon className="mx-auto h-12 w-12 text-red-400" />
-        <h2 className="mt-4 text-lg font-semibold text-gray-900">Settings are taking a nap</h2>
-        <p className="mt-2 text-gray-600">Give the page a refresh to wake them up.</p>
+        <h2 className="mt-4 text-lg font-semibold text-stone-900">Settings are taking a nap</h2>
+        <p className="mt-2 text-stone-600">Give the page a refresh to wake them up.</p>
       </div>
     );
   }
@@ -205,22 +205,22 @@ export default function SettingsPage() {
     <div className="space-y-6">
       <div className="card p-6">
         <div className="flex items-center mb-4">
-          <UserIcon className="h-6 w-6 text-gray-500 mr-3" />
-          <h2 className="text-xl font-semibold text-gray-900">Account info</h2>
+          <UserIcon className="h-6 w-6 text-stone-500 mr-3" />
+          <h2 className="text-xl font-semibold text-stone-900">Account info</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
-            <div className="input bg-slate-50 text-gray-500">
+            <label className="block text-sm font-medium text-stone-700 mb-1">Username</label>
+            <div className="input bg-slate-50 text-stone-500">
               {user?.username || 'Not available'}
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <div className="input bg-slate-50 text-gray-500">{user?.email || 'Not available'}</div>
+            <label className="block text-sm font-medium text-stone-700 mb-1">Email</label>
+            <div className="input bg-slate-50 text-stone-500">{user?.email || 'Not available'}</div>
           </div>
         </div>
-        <p className="text-sm text-gray-500 mt-4">
+        <p className="text-sm text-stone-500 mt-4">
           Need to change account info? Reach out to support.
         </p>
       </div>
@@ -231,16 +231,16 @@ export default function SettingsPage() {
     <div className="space-y-6">
       <div className="card p-6">
         <div className="flex items-center mb-6">
-          <EnvelopeIcon className="h-6 w-6 text-gray-500 mr-3" />
-          <h2 className="text-xl font-semibold text-gray-900">Email notifications</h2>
+          <EnvelopeIcon className="h-6 w-6 text-stone-500 mr-3" />
+          <h2 className="text-xl font-semibold text-stone-900">Email notifications</h2>
         </div>
 
         <div className="space-y-6">
           {/* Master Toggle */}
           <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-200/70">
             <div>
-              <h3 className="text-sm font-medium text-gray-900">Email notifications</h3>
-              <p className="text-sm text-gray-500">Flip all email nudges on or off</p>
+              <h3 className="text-sm font-medium text-stone-900">Email notifications</h3>
+              <p className="text-sm text-stone-500">Flip all email nudges on or off</p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
               <input
@@ -254,7 +254,7 @@ export default function SettingsPage() {
                 }
                 className="sr-only peer"
               />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#f97316]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#f97316]"></div>
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-soft rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
             </label>
           </div>
 
@@ -265,8 +265,8 @@ export default function SettingsPage() {
                 <div className="flex items-center">
                   <BellIcon className="h-5 w-5 text-gray-400 mr-2" />
                   <div>
-                    <h3 className="text-sm font-medium text-gray-900">Weekly planning reminder</h3>
-                    <p className="text-sm text-gray-500">A gentle nudge to plan the week</p>
+                    <h3 className="text-sm font-medium text-stone-900">Weekly planning reminder</h3>
+                    <p className="text-sm text-stone-500">A gentle nudge to plan the week</p>
                   </div>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
@@ -281,14 +281,14 @@ export default function SettingsPage() {
                     }
                     className="sr-only peer"
                   />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#f97316]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#f97316]"></div>
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-soft rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                 </label>
               </div>
 
               {notificationPreferences.weekly_planning_reminder && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 pt-4 border-t border-slate-200/70">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-stone-700 mb-2">
                       Day of Week
                     </label>
                     <select
@@ -310,7 +310,7 @@ export default function SettingsPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+                    <label className="block text-sm font-medium text-stone-700 mb-2 flex items-center">
                       <ClockIcon className="h-4 w-4 mr-1" />
                       Time
                     </label>
@@ -325,7 +325,7 @@ export default function SettingsPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+                    <label className="block text-sm font-medium text-stone-700 mb-2 flex items-center">
                       <GlobeAltIcon className="h-4 w-4 mr-1" />
                       Timezone
                     </label>
@@ -345,8 +345,8 @@ export default function SettingsPage() {
               )}
 
               {notificationPreferences.weekly_planning_reminder && reminderSchedule && (
-                <div className="mt-4 p-3 bg-[#fff6f7] rounded-2xl border border-[#f97316]/15">
-                  <p className="text-sm text-[#ea580c]">
+                <div className="mt-4 p-3 bg-[#fff6f7] rounded-2xl border border-primary/15">
+                  <p className="text-sm text-primary-hover">
                     <strong>Next reminder:</strong> {reminderSchedule.message}
                   </p>
                 </div>
@@ -408,9 +408,9 @@ export default function SettingsPage() {
             {(() => {
               const activeTabData = PREFERENCE_TABS.find(tab => tab.id === activeTab);
               const Icon = activeTabData?.icon;
-              return Icon ? <Icon className="h-6 w-6 text-gray-500 mr-3" /> : null;
+              return Icon ? <Icon className="h-6 w-6 text-stone-500 mr-3" /> : null;
             })()}
-            <h2 className="text-xl font-semibold text-gray-900">
+            <h2 className="text-xl font-semibold text-stone-900">
               {PREFERENCE_TABS.find(tab => tab.id === activeTab)?.name}
             </h2>
           </div>
@@ -486,13 +486,11 @@ export default function SettingsPage() {
                   onClick={() => setActiveTab(tab.id)}
                   className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
                     isActive
-                      ? 'bg-[#f97316]/10 text-[#ea580c] border-r-2 border-[#f97316]'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-white/70'
+                      ? 'bg-primary/10 text-primary-hover border-r-2 border-primary'
+                      : 'text-stone-600 hover:text-stone-900 hover:bg-white/70'
                   }`}
                 >
-                  <Icon
-                    className={`mr-3 h-5 w-5 ${isActive ? 'text-[#f97316]' : 'text-gray-400'}`}
-                  />
+                  <Icon className={`mr-3 h-5 w-5 ${isActive ? 'text-primary' : 'text-gray-400'}`} />
                   {tab.name}
                 </button>
               );

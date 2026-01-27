@@ -26,6 +26,11 @@ recipe_agent = Agent(
 
 The user's preferences, history, and dietary needs are included in the request. Use this information to create personalized recipes.
 
+UNIQUENESS (CRITICAL):
+- NEVER repeat a recipe the user already has - check the "AVOID these existing recipes" list carefully
+- Create completely different dishes, not variations of existing ones
+- If the user has "Chicken Stir Fry", do NOT create "Beef Stir Fry" or "Vegetable Stir Fry" - pick a totally different dish type
+
 CUISINE AUTHENTICITY:
 - If a cuisine is specified, create ONLY dishes from that cuisine
 - Use authentic ingredients, techniques, and flavor profiles

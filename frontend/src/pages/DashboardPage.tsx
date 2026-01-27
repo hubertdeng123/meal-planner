@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  SparklesIcon,
-  BookOpenIcon,
-  ArrowRightIcon,
-  FireIcon,
-  ShoppingBagIcon,
-} from '@heroicons/react/24/outline';
+import { ArrowRightIcon } from '@heroicons/react/24/outline';
 import recipeService from '../services/recipe.service';
 import type { Recipe } from '../types';
+import {
+  SparkleWandIcon,
+  RecipeBookIcon,
+  ShoppingCartCheckIcon,
+  FireStatsIcon,
+} from '../components/ui/BrandIcons';
 
 export default function DashboardPage() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
@@ -83,27 +83,44 @@ export default function DashboardPage() {
               <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
                 Snapshot
               </p>
-              <FireIcon className="h-5 w-5 text-[#f97316]" />
+              <FireStatsIcon size={28} />
             </div>
             {loading ? (
               <div className="flex items-center justify-center py-10">
-                <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-[#f97316]"></div>
+                <div
+                  className="h-8 w-8 animate-spin rounded-full border-b-2"
+                  style={{ borderBottomColor: 'var(--primary)' }}
+                ></div>
               </div>
             ) : (
               <div className="mt-6 space-y-4">
-                <div className="rounded-2xl border border-slate-200/70 bg-[#fff6f7] px-4 py-3">
-                  <p className="text-xs font-semibold text-slate-500">Total recipes</p>
-                  <p className="text-2xl font-semibold text-slate-900">{totalRecipes}</p>
+                <div
+                  className="rounded-2xl border px-4 py-3 opacity-0 animate-slide-in-up"
+                  style={{
+                    backgroundColor: 'var(--surface-warm)',
+                    borderColor: 'var(--primary-soft)',
+                    animationDelay: '100ms',
+                    animationFillMode: 'forwards',
+                  }}
+                >
+                  <p className="text-xs font-semibold text-stone-500">Total recipes</p>
+                  <p className="text-2xl font-semibold text-stone-900">{totalRecipes}</p>
                 </div>
-                <div className="rounded-2xl border border-emerald-100/70 bg-emerald-50/60 px-4 py-3">
-                  <p className="text-xs font-semibold text-slate-500">Most cooked tag</p>
-                  <p className="text-lg font-semibold text-slate-800 capitalize">
+                <div
+                  className="rounded-2xl border border-emerald-100/70 bg-emerald-50/60 px-4 py-3 opacity-0 animate-slide-in-up"
+                  style={{ animationDelay: '200ms', animationFillMode: 'forwards' }}
+                >
+                  <p className="text-xs font-semibold text-stone-500">Most cooked tag</p>
+                  <p className="text-lg font-semibold text-stone-800 capitalize">
                     {favoriteCuisine}
                   </p>
                 </div>
-                <div className="rounded-2xl border border-slate-200/70 bg-slate-50 px-4 py-3">
-                  <p className="text-xs font-semibold text-slate-500">Average cook time</p>
-                  <p className="text-lg font-semibold text-slate-800">
+                <div
+                  className="rounded-2xl border border-stone-200/70 bg-stone-50 px-4 py-3 opacity-0 animate-slide-in-up"
+                  style={{ animationDelay: '300ms', animationFillMode: 'forwards' }}
+                >
+                  <p className="text-xs font-semibold text-stone-500">Average cook time</p>
+                  <p className="text-lg font-semibold text-stone-800">
                     {avgCookTime > 0 ? `${avgCookTime} minutes` : 'No data yet'}
                   </p>
                 </div>
@@ -121,36 +138,38 @@ export default function DashboardPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <Link
               to="/generate"
-              className="group relative overflow-hidden rounded-3xl border border-slate-200/70 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-slate-300"
+              className="group relative overflow-hidden rounded-3xl border border-stone-200/70 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-stone-300 opacity-0 animate-slide-in-up"
+              style={{ animationDelay: '100ms', animationFillMode: 'forwards' }}
             >
               <div className="relative space-y-4">
                 <div className="flex items-center justify-between">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f97316]/10 text-[#f97316]">
-                    <SparklesIcon className="h-6 w-6" />
+                  <div className="icon-container-premium icon-container-orange">
+                    <SparkleWandIcon size={26} />
                   </div>
-                  <ArrowRightIcon className="h-5 w-5 text-slate-400 transition-all duration-300 group-hover:translate-x-1 group-hover:text-[#f97316]" />
+                  <ArrowRightIcon className="h-5 w-5 text-stone-400 transition-all duration-300 group-hover:translate-x-1 group-hover:text-primary" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-slate-900">Whip up a recipe</h3>
-                  <p className="mt-2 text-sm text-slate-600">Get a fresh recipe in minutes.</p>
+                  <h3 className="text-lg font-semibold text-stone-900">Whip up a recipe</h3>
+                  <p className="mt-2 text-sm text-stone-600">Get a fresh recipe in minutes.</p>
                 </div>
               </div>
             </Link>
 
             <Link
               to="/recipes"
-              className="group relative overflow-hidden rounded-3xl border border-slate-200/70 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-slate-300"
+              className="group relative overflow-hidden rounded-3xl border border-stone-200/70 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-stone-300 opacity-0 animate-slide-in-up"
+              style={{ animationDelay: '200ms', animationFillMode: 'forwards' }}
             >
               <div className="relative space-y-4">
                 <div className="flex items-center justify-between">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600">
-                    <BookOpenIcon className="h-6 w-6" />
+                  <div className="icon-container-premium icon-container-amber">
+                    <RecipeBookIcon size={26} />
                   </div>
-                  <ArrowRightIcon className="h-5 w-5 text-slate-400 transition-all duration-300 group-hover:translate-x-1 group-hover:text-emerald-500" />
+                  <ArrowRightIcon className="h-5 w-5 text-stone-400 transition-all duration-300 group-hover:translate-x-1 group-hover:text-amber-500" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-slate-900">Browse recipes</h3>
-                  <p className="mt-2 text-sm text-slate-600">
+                  <h3 className="text-lg font-semibold text-stone-900">Browse recipes</h3>
+                  <p className="mt-2 text-sm text-stone-600">
                     Revisit the hits and rate your faves.
                   </p>
                 </div>
@@ -159,18 +178,19 @@ export default function DashboardPage() {
 
             <Link
               to="/grocery"
-              className="group relative overflow-hidden rounded-3xl border border-slate-200/70 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-slate-300 sm:col-span-2"
+              className="group relative overflow-hidden rounded-3xl border border-stone-200/70 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-stone-300 sm:col-span-2 opacity-0 animate-slide-in-up"
+              style={{ animationDelay: '300ms', animationFillMode: 'forwards' }}
             >
               <div className="relative space-y-4">
                 <div className="flex items-center justify-between">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100 text-amber-600">
-                    <ShoppingBagIcon className="h-6 w-6" />
+                  <div className="icon-container-premium icon-container-emerald">
+                    <ShoppingCartCheckIcon size={26} />
                   </div>
-                  <ArrowRightIcon className="h-5 w-5 text-slate-400 transition-all duration-300 group-hover:translate-x-1 group-hover:text-amber-500" />
+                  <ArrowRightIcon className="h-5 w-5 text-stone-400 transition-all duration-300 group-hover:translate-x-1 group-hover:text-emerald-500" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-slate-900">Build a grocery list</h3>
-                  <p className="mt-2 text-sm text-slate-600">
+                  <h3 className="text-lg font-semibold text-stone-900">Build a grocery list</h3>
+                  <p className="mt-2 text-sm text-stone-600">
                     Turn recipes into a tidy shopping plan.
                   </p>
                 </div>
@@ -189,11 +209,14 @@ export default function DashboardPage() {
 
           {loading ? (
             <div className="flex items-center justify-center py-10">
-              <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-[#f97316]"></div>
+              <div
+                className="h-8 w-8 animate-spin rounded-full border-b-2"
+                style={{ borderBottomColor: 'var(--primary)' }}
+              ></div>
             </div>
           ) : recipes.length === 0 ? (
-            <div className="mt-6 rounded-2xl border border-dashed border-slate-200/70 bg-slate-50 p-6 text-center">
-              <p className="text-sm text-slate-600">
+            <div className="mt-6 rounded-2xl border border-dashed border-stone-200/70 bg-stone-50 p-6 text-center">
+              <p className="text-sm text-stone-600">
                 Your newest recipes will land here once you make a few.
               </p>
               <Link to="/generate" className="btn-primary mt-4 inline-flex">
@@ -202,26 +225,31 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="mt-6 space-y-3">
-              {recipes.slice(0, 3).map(recipe => (
+              {recipes.slice(0, 3).map((recipe, index) => (
                 <Link
                   key={recipe.id}
                   to={`/recipes/${recipe.id}`}
-                  className="group flex items-start justify-between rounded-2xl border border-slate-200/70 bg-white px-4 py-3 transition-all duration-300 hover:-translate-y-0.5 hover:border-slate-300"
+                  className="group flex items-start justify-between rounded-2xl border border-stone-200/70 bg-white px-4 py-3 transition-all duration-300 hover:-translate-y-0.5 hover:border-stone-300 opacity-0 animate-slide-in-up"
+                  style={{ animationDelay: `${index * 100}ms`, animationFillMode: 'forwards' }}
                 >
                   <div className="space-y-2">
-                    <p className="text-sm font-semibold text-slate-900">{recipe.name}</p>
+                    <p className="text-sm font-semibold text-stone-900">{recipe.name}</p>
                     <div className="flex flex-wrap gap-2">
                       {recipe.tags.slice(0, 3).map(tag => (
                         <span
                           key={tag}
-                          className="rounded-full bg-[#f97316]/10 px-2 py-1 text-[0.65rem] font-semibold text-[#ea580c]"
+                          className="rounded-full px-2 py-1 text-[0.65rem] font-semibold"
+                          style={{
+                            backgroundColor: 'var(--primary-soft)',
+                            color: 'var(--primary-hover)',
+                          }}
                         >
                           {tag}
                         </span>
                       ))}
                     </div>
                   </div>
-                  <ArrowRightIcon className="h-4 w-4 text-slate-400 transition-all duration-300 group-hover:translate-x-1 group-hover:text-[#f97316]" />
+                  <ArrowRightIcon className="h-4 w-4 text-stone-400 transition-all duration-300 group-hover:translate-x-1" />
                 </Link>
               ))}
             </div>

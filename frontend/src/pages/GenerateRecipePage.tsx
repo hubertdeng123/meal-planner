@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, useMemo, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import recipeService, { type StreamCallbacks } from '../services/recipe.service';
 import type { RecipeGenerationRequest } from '../types';
@@ -6,12 +6,85 @@ import { RecipeForm } from '../components/recipe/RecipeForm';
 import { LoadingModal } from '../components/LoadingModal';
 import { PageHeader } from '../components/ui/PageHeader';
 
+// Floating sparkle component for celebration
+function FloatingSparkle({ style }: { style: React.CSSProperties }) {
+  return (
+    <div className="absolute text-xl pointer-events-none animate-sparkle-float" style={style}>
+      ✨
+    </div>
+  );
+}
+
+// Success celebration component with recipe name and sparkles
+function SuccessCelebration({
+  recipeName,
+  onComplete,
+}: {
+  recipeName: string;
+  onComplete: () => void;
+}) {
+  // Generate stable random positions for sparkles
+  const sparkleStyles = useMemo(() => {
+    return Array.from({ length: 8 }).map((_, idx) => ({
+      left: `${5 + idx * 12 + Math.random() * 5}%`,
+      bottom: `${-10 - Math.random() * 20}%`,
+      animationDelay: `${idx * 0.15}s`,
+      animationDuration: `${2.5 + Math.random() * 1}s`,
+    }));
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(onComplete, 2000);
+    return () => clearTimeout(timer);
+  }, [onComplete]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+      {/* Celebration sparkles in background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {sparkleStyles.map((style, idx) => (
+          <FloatingSparkle key={idx} style={style} />
+        ))}
+      </div>
+
+      <div className="glass-panel p-10 text-center max-w-md animate-scale-in">
+        {/* Big celebration emoji */}
+        <div className="text-6xl mb-4 animate-bounce-in">🎉</div>
+
+        {/* Success message */}
+        <h2 className="text-2xl font-semibold text-stone-900 mb-2 animate-slide-in-up">
+          Recipe Ready!
+        </h2>
+
+        {/* THE RECIPE NAME - personalized! */}
+        <p
+          className="text-lg font-medium mb-3 animate-slide-in-up"
+          style={{ color: 'var(--primary)', animationDelay: '100ms' }}
+        >
+          {recipeName}
+        </p>
+
+        {/* Anticipation message */}
+        <p
+          className="text-stone-500 text-sm animate-slide-in-up"
+          style={{ animationDelay: '200ms' }}
+        >
+          Taking you to your new favorite...
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function GenerateRecipePage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [thinkingTokens, setThinkingTokens] = useState<string[]>([]);
   const [isThinking, setIsThinking] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [pendingRecipeId, setPendingRecipeId] = useState<number | null>(null);
+  const [recipeName, setRecipeName] = useState<string>('');
   const [formData, setFormData] = useState<RecipeGenerationRequest>({
     meal_type: '',
     cuisine: '',
@@ -42,6 +115,7 @@ export default function GenerateRecipePage() {
     setLoading(true);
     setThinkingTokens([]);
     setIsThinking(false);
+    setRecipeName('');
 
     const callbacks: StreamCallbacks = {
       onStatus: () => {},
@@ -63,7 +137,10 @@ export default function GenerateRecipePage() {
       onToolStarted: () => {},
       onToolCompleted: () => {},
       onRecipeStart: () => {},
-      onRecipeName: () => {},
+      onRecipeName: name => {
+        // Capture the recipe name for the success celebration
+        setRecipeName(name);
+      },
       onRecipeDescription: () => {},
       onRecipeMetadata: () => {},
       onIngredientsStart: () => {},
@@ -75,7 +152,8 @@ export default function GenerateRecipePage() {
       onComplete: recipeId => {
         setLoading(false);
         setIsThinking(false);
-        navigate(`/recipes/${recipeId}`);
+        setPendingRecipeId(recipeId);
+        setShowSuccess(true);
       },
 
       onError: errorMsg => {
@@ -99,6 +177,12 @@ export default function GenerateRecipePage() {
     setError('');
     const fakeEvent = { preventDefault: () => {} } as FormEvent<HTMLFormElement>;
     void handleSubmit(fakeEvent);
+  };
+
+  const handleSuccessComplete = () => {
+    if (pendingRecipeId) {
+      navigate(`/recipes/${pendingRecipeId}`);
+    }
   };
 
   return (
@@ -136,7 +220,14 @@ export default function GenerateRecipePage() {
         isThinking={isThinking}
       />
 
-      {!loading && (
+      {showSuccess && (
+        <SuccessCelebration
+          recipeName={recipeName || 'Your Recipe'}
+          onComplete={handleSuccessComplete}
+        />
+      )}
+
+      {!loading && !showSuccess && (
         <div className="max-w-3xl mx-auto">
           <RecipeForm
             formData={formData}

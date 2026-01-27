@@ -5,7 +5,6 @@ import {
   Bars3Icon,
   XMarkIcon,
   UserCircleIcon,
-  SparklesIcon,
   Cog6ToothIcon,
   BookOpenIcon,
   ShoppingBagIcon,
@@ -13,6 +12,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { HungryHelperLogo } from './ui/BrandIcons';
 
 function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(' ');
@@ -64,7 +64,10 @@ export default function Layout({ children, breadcrumbs }: LayoutProps) {
             <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
               <div className="relative overflow-hidden glass-panel">
                 <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_top,_rgba(255,223,210,0.45),_rgba(255,255,255,0.9))]" />
-                <div className="absolute right-10 top-4 h-12 w-12 rounded-full bg-[#f97316]/15 blur-xl pointer-events-none" />
+                <div
+                  className="absolute right-10 top-4 h-12 w-12 rounded-full blur-xl pointer-events-none"
+                  style={{ backgroundColor: 'var(--primary-soft)' }}
+                />
                 <div className="absolute bottom-2 left-8 h-10 w-10 rounded-full bg-emerald-200/40 blur-xl pointer-events-none" />
 
                 <div className="relative flex h-16 justify-between px-4 sm:px-6">
@@ -74,8 +77,8 @@ export default function Layout({ children, breadcrumbs }: LayoutProps) {
                         to="/dashboard"
                         className="flex items-center space-x-3 rounded-full border border-slate-200/70 bg-white/90 px-3 py-1.5 shadow-sm transition-all duration-200 hover:-translate-y-0.5"
                       >
-                        <div className="h-8 w-8 rounded-xl gradient-primary flex items-center justify-center">
-                          <SparklesIcon className="h-5 w-5 text-white" />
+                        <div className="h-8 w-8 rounded-xl gradient-primary flex items-center justify-center overflow-hidden">
+                          <HungryHelperLogo size={28} />
                         </div>
                         <h1 className="font-display text-lg font-semibold text-slate-900">
                           Hungry Helper
@@ -85,17 +88,28 @@ export default function Layout({ children, breadcrumbs }: LayoutProps) {
                     <div className="hidden md:ml-6 md:flex md:items-center md:space-x-2">
                       {navigation.map(item => {
                         const Icon = item.icon;
+                        const active = isActive(item.href);
                         return (
                           <Link
                             key={item.href}
                             to={item.href}
                             className={classNames(
-                              'nav-pill',
-                              isActive(item.href) ? 'nav-pill-active' : ''
+                              'relative nav-pill transition-all duration-200',
+                              active ? 'nav-pill-active' : ''
                             )}
+                            style={active ? { color: 'var(--primary-hover)' } : undefined}
                           >
-                            <Icon className="mr-2 h-4 w-4" />
+                            <Icon
+                              className={classNames('mr-2 h-4 w-4', active ? '' : '')}
+                              style={active ? { color: 'var(--primary)' } : undefined}
+                            />
                             {item.name}
+                            {active && (
+                              <span
+                                className="absolute -bottom-0.5 left-0 right-0 mx-auto w-3/5 h-0.5 rounded-full animate-scale-in origin-center"
+                                style={{ backgroundColor: 'var(--primary)' }}
+                              />
+                            )}
                           </Link>
                         );
                       })}
@@ -106,10 +120,11 @@ export default function Layout({ children, breadcrumbs }: LayoutProps) {
                       <button
                         ref={buttonRef}
                         onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-                        className="flex rounded-full bg-white/90 p-2 text-sm shadow-sm ring-1 ring-slate-200 transition-all duration-200 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[#f97316]/40 focus:ring-offset-2"
+                        className="flex rounded-full bg-white/90 p-2 text-sm shadow-sm ring-1 ring-stone-200 transition-all duration-200 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-offset-2"
+                        style={{ '--tw-ring-color': 'var(--primary-soft)' } as React.CSSProperties}
                       >
                         <span className="sr-only">Open user menu</span>
-                        <UserCircleIcon className="h-5 w-5 text-[#f97316]" />
+                        <UserCircleIcon className="h-5 w-5" style={{ color: 'var(--primary)' }} />
                       </button>
 
                       {isProfileMenuOpen &&
@@ -150,7 +165,10 @@ export default function Layout({ children, breadcrumbs }: LayoutProps) {
                     </div>
                   </div>
                   <div className="-mr-2 flex items-center sm:hidden">
-                    <Disclosure.Button className="inline-flex items-center justify-center rounded-full border border-slate-200/70 bg-white/90 p-2 text-slate-700 shadow-sm transition-all duration-200 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#f97316]/40">
+                    <Disclosure.Button
+                      className="inline-flex items-center justify-center rounded-full border border-stone-200/70 bg-white/90 p-2 text-stone-700 shadow-sm transition-all duration-200 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-inset"
+                      style={{ '--tw-ring-color': 'var(--primary-soft)' } as React.CSSProperties}
+                    >
                       <span className="sr-only">Open main menu</span>
                       {open ? (
                         <XMarkIcon className="block h-6 w-6" aria-hidden="true" />
@@ -163,38 +181,52 @@ export default function Layout({ children, breadcrumbs }: LayoutProps) {
               </div>
 
               <Disclosure.Panel className="md:hidden">
-                <div className="mt-3 rounded-3xl border border-slate-200/70 bg-white/95 p-3 shadow-sm">
+                <div className="mt-3 rounded-3xl border border-stone-200/70 bg-white/95 p-3 shadow-sm animate-slide-in-up">
                   <div className="space-y-1">
-                    {navigation.map(item => {
+                    {navigation.map((item, index) => {
                       const Icon = item.icon;
+                      const active = isActive(item.href);
                       return (
                         <Link
                           key={item.href}
                           to={item.href}
                           className={classNames(
-                            'flex w-full items-center rounded-2xl px-3 py-2 text-left text-base font-medium transition-all duration-200',
-                            isActive(item.href)
-                              ? 'bg-[#f97316]/10 text-[#ea580c]'
-                              : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                            'flex w-full items-center rounded-2xl px-3 py-2 text-left text-base font-medium transition-all duration-200 opacity-0 animate-slide-in-up',
+                            active
+                              ? 'text-stone-600 hover:bg-stone-50 hover:text-stone-900'
+                              : 'text-stone-600 hover:bg-stone-50 hover:text-stone-900'
                           )}
+                          style={{
+                            animationDelay: `${index * 50}ms`,
+                            animationFillMode: 'forwards',
+                            ...(active
+                              ? {
+                                  backgroundColor: 'var(--primary-soft)',
+                                  color: 'var(--primary-hover)',
+                                }
+                              : {}),
+                          }}
                         >
-                          <Icon className="mr-3 h-5 w-5" />
+                          <Icon
+                            className="mr-3 h-5 w-5"
+                            style={active ? { color: 'var(--primary)' } : undefined}
+                          />
                           {item.name}
                         </Link>
                       );
                     })}
                   </div>
-                  <div className="mt-3 border-t border-slate-100 pt-3">
+                  <div className="mt-3 border-t border-stone-100 pt-3">
                     <Link
                       to="/settings"
-                      className="flex w-full items-center rounded-2xl px-3 py-2 text-left text-base font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all duration-200"
+                      className="flex w-full items-center rounded-2xl px-3 py-2 text-left text-base font-medium text-stone-600 hover:bg-stone-50 hover:text-stone-900 transition-all duration-200"
                     >
-                      <Cog6ToothIcon className="mr-3 h-5 w-5 text-slate-400" />
+                      <Cog6ToothIcon className="mr-3 h-5 w-5 text-stone-400" />
                       Settings
                     </Link>
                     <button
                       onClick={handleLogout}
-                      className="flex w-full items-center rounded-2xl px-3 py-2 text-left text-base font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all duration-200"
+                      className="flex w-full items-center rounded-2xl px-3 py-2 text-left text-base font-medium text-stone-600 hover:bg-stone-50 hover:text-stone-900 transition-all duration-200"
                     >
                       Sign out
                     </button>

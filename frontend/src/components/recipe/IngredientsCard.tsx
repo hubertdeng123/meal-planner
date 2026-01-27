@@ -49,7 +49,7 @@ export function IngredientsCard({
                 className="flex items-start gap-3 p-3 rounded-2xl hover:bg-slate-50 transition-all duration-200 animate-slide-in-left"
                 style={{ animationDelay: `${idx * 50}ms` }}
               >
-                <span className="text-[#f97316] text-xl flex-shrink-0">•</span>
+                <span className="text-primary text-xl flex-shrink-0">•</span>
                 <div className="flex-1">
                   <span className="font-semibold text-gray-900">
                     {ing.quantity} {ing.unit}

@@ -32,6 +32,7 @@ class GroceryItem(GroceryItemBase):
 
 class GroceryListBase(BaseModel):
     meal_plan_id: Optional[int] = None
+    name: Optional[str] = None
 
 
 class GroceryListCreate(GroceryListBase):

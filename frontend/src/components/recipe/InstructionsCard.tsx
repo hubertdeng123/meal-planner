@@ -43,7 +43,7 @@ export function InstructionsCard({
                 style={{ animationDelay: `${inst.step * 100}ms` }}
               >
                 <div className="flex-shrink-0">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#f97316] to-[#ea580c] flex items-center justify-center text-white font-bold shadow-lg group-hover:scale-110 transition-transform">
+                  <div className="w-10 h-10 rounded-full gradient-primary flex items-center justify-center text-white font-bold shadow-lg group-hover:scale-110 transition-transform">
                     {inst.step}
                   </div>
                 </div>

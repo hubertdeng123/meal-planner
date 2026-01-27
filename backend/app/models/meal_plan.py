@@ -75,6 +75,7 @@ class GroceryList(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
     meal_plan_id = Column(Integer, ForeignKey("meal_plans.id"), nullable=True)
+    name = Column(String(255), nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(
         DateTime,

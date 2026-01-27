@@ -26,13 +26,37 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
+def _has_actual_values(d: dict) -> bool:
+    """Check if a dict has any non-null, non-empty values."""
+    if not d:
+        return False
+    for v in d.values():
+        if v is not None and v != "" and v != [] and v != {}:
+            return True
+    return False
+
+
+def _format_nutritional_goals(rules: dict) -> str:
+    """Format nutritional rules as readable text, excluding null values."""
+    parts = []
+    if rules.get("daily_calorie_target"):
+        parts.append(f"Target calories: {rules['daily_calorie_target']}")
+    if rules.get("daily_calorie_range"):
+        parts.append(f"Calorie range: {rules['daily_calorie_range']}")
+    if rules.get("macro_targets"):
+        parts.append(f"Macro targets: {rules['macro_targets']}")
+    if rules.get("specific_goals"):
+        parts.append(f"Goals: {rules['specific_goals']}")
+    return ", ".join(parts) if parts else ""
+
+
 def prefetch_user_context(user_id: int, db: Session) -> dict:
     """Prefetch all user context data to avoid slow LLM tool calls"""
     # Get user preferences
     user = db.query(User).filter(User.id == user_id).first()
     preferences = {
         "food_preferences": user.food_preferences or {} if user else {},
-        "dietary_restrictions": user.dietary_restrictions or {} if user else {},
+        "dietary_restrictions": user.dietary_restrictions or [] if user else [],
         "ingredient_rules": user.ingredient_rules or {} if user else {},
         "nutritional_rules": user.nutritional_rules or {} if user else {},
     }
@@ -124,7 +148,7 @@ async def generate_recipe_stream(
             # Include past recipes to avoid duplicates
             if user_context["past_recipe_names"]:
                 prompt_parts.append(
-                    f"- AVOID these existing recipes (create something different): {', '.join(user_context['past_recipe_names'][:10])}"
+                    f"- AVOID these existing recipes (create something completely different): {', '.join(user_context['past_recipe_names'][:20])}"
                 )
 
             # Include liked recipes for inspiration
@@ -140,17 +164,19 @@ async def generate_recipe_stream(
                     f"- AVOID these ingredients: {', '.join(user_context['disliked_ingredients'][:10])}"
                 )
 
-            # Include nutritional goals/preferences
-            if user_context["preferences"]["nutritional_rules"]:
-                prompt_parts.append(
-                    f"- Nutritional Goals: {user_context['preferences']['nutritional_rules']}"
-                )
+            # Include nutritional goals/preferences (only if actual values exist)
+            nutritional_rules = user_context["preferences"]["nutritional_rules"]
+            if _has_actual_values(nutritional_rules):
+                formatted_goals = _format_nutritional_goals(nutritional_rules)
+                if formatted_goals:
+                    prompt_parts.append(f"- Nutritional Goals: {formatted_goals}")
 
-            prompt_parts.append("- Choose a cuisine from the user's saved preferences")
-            if user_context["preferences"]["food_preferences"].get("cuisines"):
-                prompt_parts.append(
-                    f"- Preferred cuisines: {user_context['preferences']['food_preferences']['cuisines']}"
-                )
+            # Include preferred cuisines (only if list is non-empty)
+            food_prefs = user_context["preferences"]["food_preferences"]
+            cuisines = food_prefs.get("cuisines") if food_prefs else []
+            if cuisines:
+                prompt_parts.append(f"- Preferred cuisines: {', '.join(cuisines)}")
+
             if request.meal_type:
                 prompt_parts.append(f"- Meal Type: {request.meal_type}")
             if selected_cuisine:

@@ -192,6 +192,7 @@ export interface GroceryList {
   id: number;
   user_id: number;
   meal_plan_id?: number;
+  name?: string;
   created_at: string;
   updated_at: string;
   items: GroceryItem[];
