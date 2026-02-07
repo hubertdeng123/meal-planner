@@ -19,11 +19,13 @@ services:
   backend:
     image: ghcr.io/hubertdeng123/meal-planner-backend:latest
     restart: always
+    command: ["uv", "run", "--no-dev", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-meal_planner}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       TOGETHER_API_KEY: ${TOGETHER_API_KEY}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      BRAINTRUST_API_KEY: ${BRAINTRUST_API_KEY}
       SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USERNAME: ${SMTP_USERNAME}
@@ -36,6 +38,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    ports:
+      - 127.0.0.1:8000:8000
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -47,21 +51,13 @@ services:
     restart: always
     depends_on:
       - backend
+    ports:
+      - 127.0.0.1:8080:80
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:80/health"]
       interval: 30s
       timeout: 3s
       retries: 3
-
-  cloudflared:
-    image: cloudflare/cloudflared:2025.6.1
-    restart: always
-    command: tunnel --no-autoupdate run
-    environment:
-      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
-    depends_on:
-      - frontend
-      - backend
 
 volumes:
   postgres_data:
