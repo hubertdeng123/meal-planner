@@ -44,7 +44,7 @@ class Settings(BaseSettings):
     SMTP_USERNAME: str = ""
     SMTP_PASSWORD: str = ""
     SMTP_USE_TLS: bool = True
-    FROM_EMAIL: str = "noreply@mealassistant.com"
+    FROM_EMAIL: str = "noreply@hungry-helper.com"
     FROM_NAME: str = "Hungry Helper"
 
     # App settings

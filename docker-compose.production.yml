@@ -31,7 +31,7 @@ services:
       SMTP_USERNAME: ${SMTP_USERNAME}
       SMTP_PASSWORD: ${SMTP_PASSWORD}
       SMTP_USE_TLS: ${SMTP_USE_TLS:-true}
-      FROM_EMAIL: ${FROM_EMAIL:-noreply@mealassistant.com}
+      FROM_EMAIL: ${FROM_EMAIL:-noreply@hungry-helper.com}
       FROM_NAME: ${FROM_NAME:-Hungry Helper}
       SENTRY_DSN: ${SENTRY_DSN}
       ENVIRONMENT: production
