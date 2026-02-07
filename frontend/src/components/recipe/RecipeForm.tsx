@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ExclamationCircleIcon } from '@heroicons/react/24/outline';
+import { ExclamationCircleIcon } from '../ui/AppIcons';
 import type { RecipeGenerationRequest } from '../../types';
 
 const MEAL_TYPES = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
@@ -39,6 +39,7 @@ export function RecipeForm({
   className = '',
 }: RecipeFormProps) {
   const [ingredientInput, setIngredientInput] = useState('');
+  const [avoidIngredientInput, setAvoidIngredientInput] = useState('');
   const [recentlyAdded, setRecentlyAdded] = useState<Set<number>>(new Set());
   const ingredientCountRef = useRef(formData.ingredients_to_use.length);
 
@@ -72,6 +73,23 @@ export function RecipeForm({
     setFormData({
       ...formData,
       ingredients_to_use: formData.ingredients_to_use.filter((_, i) => i !== index),
+    });
+  };
+
+  const addAvoidIngredient = () => {
+    if (avoidIngredientInput.trim()) {
+      setFormData({
+        ...formData,
+        ingredients_to_avoid: [...formData.ingredients_to_avoid, avoidIngredientInput.trim()],
+      });
+      setAvoidIngredientInput('');
+    }
+  };
+
+  const removeAvoidIngredient = (index: number) => {
+    setFormData({
+      ...formData,
+      ingredients_to_avoid: formData.ingredients_to_avoid.filter((_, i) => i !== index),
     });
   };
 
@@ -235,6 +253,67 @@ export function RecipeForm({
             </span>
           ))}
         </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-stone-700">Ingredients to avoid</label>
+        <div className="mt-2 flex items-center gap-2">
+          <input
+            type="text"
+            value={avoidIngredientInput}
+            onChange={e => setAvoidIngredientInput(e.target.value)}
+            onKeyPress={e => e.key === 'Enter' && (e.preventDefault(), addAvoidIngredient())}
+            className="input"
+            placeholder="Add ingredient to avoid"
+            disabled={loading}
+          />
+          <button
+            type="button"
+            onClick={addAvoidIngredient}
+            disabled={loading}
+            className="btn-secondary"
+          >
+            Add
+          </button>
+        </div>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {formData.ingredients_to_avoid.map((ingredient, index) => (
+            <span
+              key={`${ingredient}-${index}`}
+              className="inline-flex items-center rounded-full px-3 py-0.5 text-sm font-medium bg-red-50 text-red-700"
+            >
+              {ingredient}
+              <button
+                type="button"
+                onClick={() => removeAvoidIngredient(index)}
+                disabled={loading}
+                className="ml-1.5 inline-flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full transition-all duration-200 hover:scale-125 disabled:opacity-50 text-red-500"
+              >
+                <span className="sr-only">Remove {ingredient}</span>
+                <svg className="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
+                  <path strokeLinecap="round" strokeWidth="1.5" d="M1 1l6 6m0-6L1 7" />
+                </svg>
+              </button>
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between rounded-2xl border border-slate-200/70 bg-slate-50 p-4">
+        <div>
+          <p className="text-sm font-medium text-stone-900">Use web inspiration</p>
+          <p className="text-xs text-stone-500">Blend pantry and preferences with online ideas</p>
+        </div>
+        <label className="relative inline-flex items-center cursor-pointer">
+          <input
+            type="checkbox"
+            checked={Boolean(formData.search_online)}
+            onChange={e => setFormData({ ...formData, search_online: e.target.checked })}
+            className="sr-only peer"
+            disabled={loading}
+          />
+          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-soft rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+        </label>
       </div>
 
       <div>

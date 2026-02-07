@@ -1,5 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from math import ceil
+from typing import Literal
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
+from sqlalchemy import asc, desc
 from sqlalchemy.orm import Session
 import json
 import logging
@@ -17,6 +21,7 @@ from app.schemas.recipe import (
     RecipeGenerationRequest,
     RecipeFeedbackCreate,
     RecipeFeedback,
+    PaginatedRecipes,
 )
 from app.agents.pydantic_recipe_agent import recipe_agent
 from app.agents.recipe_deps import RecipeAgentDeps
@@ -107,11 +112,28 @@ def prefetch_user_context(user_id: int, db: Session) -> dict:
     # Sort liked recipes by rating (highest first) and limit to 10
     liked_info = liked_info[:10]
 
+    # Optional pantry context
+    pantry_names: list[str] = []
+    try:
+        from app.models import PantryItem as PantryItemModel
+
+        pantry_rows = (
+            db.query(PantryItemModel.name)
+            .filter(PantryItemModel.user_id == user_id)
+            .order_by(PantryItemModel.updated_at.desc())
+            .limit(20)
+            .all()
+        )
+        pantry_names = [row[0] for row in pantry_rows]
+    except Exception:
+        pantry_names = []
+
     return {
         "preferences": preferences,
         "past_recipe_names": past_recipe_names,
         "liked_recipes": liked_info,
         "disliked_ingredients": sorted(list(disliked_ingredients)),
+        "pantry_names": pantry_names,
     }
 
 
@@ -202,10 +224,21 @@ async def generate_recipe_stream(
                 prompt_parts.append(
                     f"- Must Use: {', '.join(request.ingredients_to_use)}"
                 )
+            if request.ingredients_to_avoid:
+                prompt_parts.append(
+                    f"- Must Avoid: {', '.join(request.ingredients_to_avoid)}"
+                )
+            if user_context["pantry_names"]:
+                prompt_parts.append(
+                    f"- Pantry On Hand: {', '.join(user_context['pantry_names'][:12])}"
+                )
             if request.dietary_restrictions:
                 prompt_parts.append(
                     f"- Dietary: {', '.join(request.dietary_restrictions)}"
                 )
+            prompt_parts.append(
+                f"- Web Inspiration: {'enabled' if request.search_online else 'disabled'}"
+            )
             prompt_parts.append(f"- Servings: {request.servings}")
             if request.comments:
                 prompt_parts.append(f"\nSpecial Requests: {request.comments}")
@@ -217,7 +250,7 @@ async def generate_recipe_stream(
 
             yield f"data: {json.dumps({'type': 'status', 'message': 'Starting recipe generation...'})}\n\n"
 
-            logger.info("Recipe generation started with DeepSeek R1")
+            logger.info("Recipe generation started")
 
             # Stream with thinking tokens
             recipe_llm = None
@@ -348,6 +381,54 @@ async def get_recipes(
     return [_format_recipe_response(recipe) for recipe in recipes]
 
 
+@router.get("/list", response_model=PaginatedRecipes)
+async def get_recipes_paginated(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(12, ge=1, le=100),
+    q: str | None = Query(default=None, min_length=1),
+    tags: list[str] | None = Query(default=None),
+    sort: Literal["created_at", "name"] = Query(default="created_at"),
+    order: Literal["asc", "desc"] = Query(default="desc"),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    """Get paginated recipes with optional search and tag filters."""
+    query = db.query(RecipeModel).filter(RecipeModel.user_id == current_user.id)
+
+    if q:
+        like = f"%{q.strip()}%"
+        query = query.filter(
+            (RecipeModel.name.ilike(like)) | (RecipeModel.description.ilike(like))
+        )
+
+    sort_column = RecipeModel.created_at if sort == "created_at" else RecipeModel.name
+    sort_direction = desc if order == "desc" else asc
+    query = query.order_by(sort_direction(sort_column))
+
+    if tags:
+        recipes_all = query.all()
+        filtered = [
+            recipe
+            for recipe in recipes_all
+            if all(tag in (recipe.tags or []) for tag in tags)
+        ]
+        total = len(filtered)
+        offset = (page - 1) * page_size
+        recipes = filtered[offset : offset + page_size]
+    else:
+        total = query.count()
+        offset = (page - 1) * page_size
+        recipes = query.offset(offset).limit(page_size).all()
+
+    return {
+        "items": [_format_recipe_response(recipe) for recipe in recipes],
+        "page": page,
+        "page_size": page_size,
+        "total": total,
+        "total_pages": ceil(total / page_size) if total else 0,
+    }
+
+
 @router.get("/{recipe_id}", response_model=Recipe)
 async def get_recipe(
     recipe_id: int,
@@ -444,7 +525,11 @@ async def add_recipe_feedback(
     db: Session = Depends(get_db),
 ):
     """Add feedback for a recipe"""
-    recipe = db.query(RecipeModel).filter(RecipeModel.id == recipe_id).first()
+    recipe = (
+        db.query(RecipeModel)
+        .filter(RecipeModel.id == recipe_id, RecipeModel.user_id == current_user.id)
+        .first()
+    )
     if not recipe:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Recipe not found"
@@ -465,7 +550,7 @@ async def add_recipe_feedback(
         existing.notes = feedback.notes
         db.commit()
         db.refresh(existing)
-        return existing
+        return _format_feedback_response(existing)
 
     db_feedback = RecipeFeedbackModel(
         user_id=current_user.id,
@@ -479,7 +564,20 @@ async def add_recipe_feedback(
     db.commit()
     db.refresh(db_feedback)
 
-    return db_feedback
+    return _format_feedback_response(db_feedback)
+
+
+def _format_feedback_response(feedback: RecipeFeedbackModel) -> dict:
+    return {
+        "id": feedback.id,
+        "user_id": feedback.user_id,
+        "recipe_id": feedback.recipe_id,
+        "liked": bool(feedback.liked),
+        "rating": feedback.rating,
+        "notes": feedback.notes,
+        "created_at": feedback.created_at,
+        "updated_at": feedback.updated_at,
+    }
 
 
 def _format_recipe_response(recipe: RecipeModel) -> dict:

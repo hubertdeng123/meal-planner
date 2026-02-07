@@ -157,10 +157,17 @@ export interface RecipeGenerationRequest {
 }
 
 export interface RecipeFeedback {
-  recipe_id: number;
   liked: boolean;
   rating?: number;
   notes?: string;
+}
+
+export interface RecipeFeedbackResponse extends RecipeFeedback {
+  id: number;
+  user_id: number;
+  recipe_id: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface GroceryItem {
@@ -200,6 +207,136 @@ export interface GroceryList {
 
 export interface GroceryListCreate {
   meal_plan_id?: number;
+}
+
+export interface PaginatedResponse<T> {
+  items: T[];
+  page: number;
+  page_size: number;
+  total: number;
+  total_pages: number;
+}
+
+export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
+
+export interface MealPlanItem {
+  id: number;
+  meal_plan_id: number;
+  date: string;
+  meal_type: MealType;
+  servings: number;
+  recipe_id?: number | null;
+  recipe_data?: Record<string, unknown> | null;
+  recipe?: Recipe | null;
+}
+
+export interface MealPlan {
+  id: number;
+  user_id: number;
+  name?: string;
+  start_date: string;
+  end_date: string;
+  description?: string;
+  theme?: string;
+  occasion?: string;
+  budget_target?: number;
+  prep_time_preference?: string;
+  special_notes?: Record<string, unknown>;
+  week_dietary_restrictions?: string[];
+  week_food_preferences?: Record<string, unknown>;
+  created_at: string;
+  items: MealPlanItem[];
+}
+
+export interface MealPlanList {
+  id: number;
+  name?: string;
+  start_date: string;
+  end_date: string;
+  theme?: string;
+  created_at: string;
+  item_count: number;
+}
+
+export interface MealPlanCreate {
+  name?: string;
+  start_date: string;
+  end_date: string;
+  description?: string;
+  theme?: string;
+  occasion?: string;
+  budget_target?: number;
+  prep_time_preference?: string;
+  special_notes?: Record<string, unknown>;
+  week_dietary_restrictions?: string[];
+  week_food_preferences?: Record<string, unknown>;
+  items?: Array<{
+    date: string;
+    meal_type: MealType;
+    servings: number;
+    recipe_id?: number;
+    recipe_data?: Record<string, unknown>;
+  }>;
+}
+
+export interface MealPlanItemCreate {
+  date: string;
+  meal_type: MealType;
+  servings: number;
+  recipe_id?: number;
+  recipe_data?: Record<string, unknown>;
+}
+
+export interface WeeklyMealPlan {
+  user_id: number;
+  name?: string;
+  start_date: string;
+  end_date: string;
+  meal_slots: Array<{
+    date: string;
+    meal_type: MealType;
+    recipe_suggestions: Array<{
+      name: string;
+      description: string;
+      cuisine: string;
+      ingredients: Ingredient[];
+      instructions: string[];
+      prep_time: number;
+      cook_time: number;
+      servings: number;
+      difficulty: string;
+      nutrition?: NutritionFacts;
+      source_urls?: string[];
+    }>;
+  }>;
+}
+
+export interface PantryItem {
+  id: number;
+  user_id: number;
+  name: string;
+  quantity?: number;
+  unit?: string;
+  category?: string;
+  expires_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PantryItemCreate {
+  name: string;
+  quantity?: number;
+  unit?: string;
+  category?: string;
+  expires_at?: string;
+}
+
+export interface PantryItemUpdate {
+  name?: string;
+  quantity?: number;
+  unit?: string;
+  category?: string;
+  expires_at?: string;
 }
 
 export interface APIError {

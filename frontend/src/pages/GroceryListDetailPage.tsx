@@ -10,9 +10,8 @@ import {
   ArrowLeftIcon,
   EnvelopeIcon,
   ChevronDownIcon,
-  BookOpenIcon,
   ArchiveBoxIcon,
-} from '@heroicons/react/24/outline';
+} from '../components/ui/AppIcons';
 import groceryService from '../services/grocery.service';
 import notificationService from '../services/notification.service';
 import type {
@@ -23,7 +22,11 @@ import type {
   APIError,
 } from '../types';
 import { EmptyState } from '../components/ui/EmptyState';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
+import { InlineStatus } from '../components/ui/InlineStatus';
 import { ModalShell } from '../components/ui/ModalShell';
+import { SectionCard } from '../components/ui/SectionCard';
+import { useToast } from '../contexts/ToastContext';
 
 interface GroupedItems {
   [category: string]: GroceryItem[];
@@ -32,6 +35,7 @@ interface GroupedItems {
 export default function GroceryListDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { addToast } = useToast();
   const [groceryList, setGroceryList] = useState<GroceryList | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -53,6 +57,9 @@ export default function GroceryListDetailPage() {
   const [showSendDropdown, setShowSendDropdown] = useState(false);
   const [hideChecked, setHideChecked] = useState(false);
   const [recentlyChecked, setRecentlyChecked] = useState<Set<number>>(new Set());
+  const [itemToDelete, setItemToDelete] = useState<GroceryItem | null>(null);
+  const [showArchiveDialog, setShowArchiveDialog] = useState(false);
+  const [archiving, setArchiving] = useState(false);
 
   const loadGroceryList = useCallback(async () => {
     if (!id) return;
@@ -120,7 +127,7 @@ export default function GroceryListDetailPage() {
       setShowAddModal(false);
     } catch (error) {
       console.error('Failed to add item:', error);
-      alert('Could not add that item. Try again?');
+      addToast('Could not add that item. Try again?', 'error');
     }
   };
 
@@ -137,22 +144,38 @@ export default function GroceryListDetailPage() {
       setEditingItem(null);
     } catch (error) {
       console.error('Failed to update item:', error);
-      alert('Could not save that edit. Try again?');
+      addToast('Could not save that edit. Try again?', 'error');
     }
   };
 
-  const handleDeleteItem = async (item: GroceryItem) => {
-    if (!groceryList || !window.confirm('Delete this item?')) return;
+  const handleDeleteItem = async () => {
+    if (!groceryList || !itemToDelete) return;
 
     try {
-      await groceryService.deleteGroceryItem(groceryList.id, item.id);
+      await groceryService.deleteGroceryItem(groceryList.id, itemToDelete.id);
       setGroceryList({
         ...groceryList,
-        items: groceryList.items.filter(i => i.id !== item.id),
+        items: groceryList.items.filter(i => i.id !== itemToDelete.id),
       });
+      setItemToDelete(null);
     } catch (error) {
       console.error('Failed to delete item:', error);
-      alert('Could not delete that item. Try again?');
+      addToast('Could not delete that item. Try again?', 'error');
+    }
+  };
+
+  const handleArchiveList = async () => {
+    if (!groceryList) return;
+    setArchiving(true);
+    try {
+      await groceryService.deleteGroceryList(groceryList.id);
+      addToast('Grocery list archived.', 'success');
+      navigate('/grocery');
+    } catch (error) {
+      console.error('Failed to archive list:', error);
+      addToast('Could not archive that list. Try again?', 'error');
+    } finally {
+      setArchiving(false);
     }
   };
 
@@ -430,7 +453,7 @@ export default function GroceryListDetailPage() {
 
         {/* Progress with celebration at 100% */}
         <div
-          className={`surface progress-fun p-4 transition-all duration-500 ${
+          className={`surface progress-fun p-4 transition-all duration-500 sticky top-20 z-20 ${
             getCompletionPercentage() === 100
               ? 'animate-celebration-glow ring-2 ring-emerald-300'
               : ''
@@ -456,11 +479,9 @@ export default function GroceryListDetailPage() {
           </div>
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs">
             {getCompletionPercentage() === 100 ? (
-              <p className="text-emerald-600 font-semibold animate-bounce-in flex items-center gap-1">
-                <span>🎉</span> All done!
-              </p>
+              <InlineStatus label="All done" tone="success" className="animate-bounce-in" />
             ) : (
-              <p className="text-stone-500">{getCompletionPercentage()}% done</p>
+              <InlineStatus label={`${getCompletionPercentage()}% done`} tone="neutral" />
             )}
             <label className="inline-flex items-center space-x-2 text-stone-500">
               <input
@@ -489,31 +510,10 @@ export default function GroceryListDetailPage() {
                 <p className="text-emerald-700 text-sm mt-1">Ready to start cooking?</p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => navigate('/recipes')}
-                  className="flex items-center px-4 py-2 rounded-full bg-white border border-emerald-300 text-emerald-700 text-sm font-medium hover:bg-emerald-50 transition-colors"
-                >
-                  <BookOpenIcon className="h-4 w-4 mr-2" />
-                  View recipes
+                <button onClick={() => navigate('/meal-plans')} className="btn-secondary">
+                  Back to meal plans
                 </button>
-                <button
-                  onClick={async () => {
-                    if (
-                      window.confirm(
-                        'Archive this list? It will be removed from your grocery lists.'
-                      )
-                    ) {
-                      try {
-                        await groceryService.deleteGroceryList(groceryList.id);
-                        navigate('/grocery');
-                      } catch (error) {
-                        console.error('Failed to archive list:', error);
-                        alert('Could not archive that list. Try again?');
-                      }
-                    }
-                  }}
-                  className="flex items-center px-4 py-2 rounded-full bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors"
-                >
+                <button onClick={() => setShowArchiveDialog(true)} className="btn-danger">
                   <ArchiveBoxIcon className="h-4 w-4 mr-2" />
                   Archive list
                 </button>
@@ -549,100 +549,113 @@ export default function GroceryListDetailPage() {
       ) : (
         <div className="space-y-6">
           {categories.map(category => (
-            <div key={category} className="card overflow-hidden">
-              <div className="category-header-fun px-4 py-3 border-b border-slate-200/70 bg-slate-50">
-                <h3 className="text-lg font-medium text-stone-900">{category}</h3>
-                <p className="text-sm text-stone-500">
-                  {groupedItems[category].filter(item => item.checked).length} of{' '}
-                  {groupedItems[category].length} checked
-                </p>
-              </div>
-              <div className="divide-y divide-stone-200/70">
-                {filteredGroupedItems[category].map(item => (
-                  <div
-                    key={item.id}
-                    className={`px-4 py-3 flex items-center transition-all duration-200 ${
-                      recentlyChecked.has(item.id) ? 'bg-emerald-50' : ''
-                    }`}
-                  >
-                    <label className="flex items-center mr-3 relative">
-                      <input
-                        type="checkbox"
-                        checked={item.checked}
-                        onChange={() => handleToggleItem(item)}
-                        className={`h-5 w-5 rounded border-stone-300 text-emerald-600 focus:ring-emerald-500 transition-transform ${
-                          recentlyChecked.has(item.id) ? 'animate-check-in' : ''
-                        }`}
-                        aria-label={`Mark ${item.name} as ${item.checked ? 'unchecked' : 'checked'}`}
-                      />
-                      {recentlyChecked.has(item.id) && (
-                        <span className="absolute inset-0 rounded-full bg-emerald-400/30 animate-success-ripple" />
-                      )}
-                    </label>
+            <SectionCard
+              key={category}
+              bare
+              className="overflow-hidden"
+              title={category}
+              subtitle={`${groupedItems[category].filter(item => item.checked).length} of ${groupedItems[category].length} checked`}
+              headerClassName="category-header-fun px-4 py-3 border-b border-slate-200/70 bg-slate-50 mb-0"
+              contentClassName="divide-y divide-stone-200/70"
+            >
+              {filteredGroupedItems[category].map(item => (
+                <div
+                  key={item.id}
+                  className={`px-4 py-3 flex items-center transition-all duration-200 ${
+                    recentlyChecked.has(item.id) ? 'bg-emerald-50' : ''
+                  }`}
+                >
+                  <label className="flex items-center mr-3 relative">
+                    <input
+                      type="checkbox"
+                      checked={item.checked}
+                      onChange={() => handleToggleItem(item)}
+                      className={`h-5 w-5 rounded border-stone-300 text-emerald-600 focus:ring-emerald-500 transition-transform ${
+                        recentlyChecked.has(item.id) ? 'animate-check-in' : ''
+                      }`}
+                      aria-label={`Mark ${item.name} as ${item.checked ? 'unchecked' : 'checked'}`}
+                    />
+                    {recentlyChecked.has(item.id) && (
+                      <span className="absolute inset-0 rounded-full bg-emerald-400/30 animate-success-ripple" />
+                    )}
+                  </label>
 
-                    {editingItem?.id === item.id ? (
-                      <EditItemForm
-                        item={item}
-                        onSave={updates => handleUpdateItem(item, updates)}
-                        onCancel={() => setEditingItem(null)}
-                      />
-                    ) : (
-                      <div className="flex-1 flex items-center justify-between">
-                        <div className="flex-1 relative">
-                          <div className="flex items-center">
+                  {editingItem?.id === item.id ? (
+                    <EditItemForm
+                      item={item}
+                      onSave={updates => handleUpdateItem(item, updates)}
+                      onCancel={() => setEditingItem(null)}
+                    />
+                  ) : (
+                    <div className="flex-1 flex items-center justify-between">
+                      <div className="flex-1 relative">
+                        <div className="flex items-center">
+                          <span
+                            className={`font-medium transition-colors duration-200 ${
+                              item.checked ? 'text-stone-400' : 'text-stone-900'
+                            }`}
+                          >
+                            {item.name}
+                          </span>
+                          {item.quantity && (
                             <span
-                              className={`font-medium transition-colors duration-200 ${
-                                item.checked ? 'text-stone-400' : 'text-stone-900'
+                              className={`ml-2 text-sm transition-colors duration-200 ${
+                                item.checked ? 'text-stone-300' : 'text-stone-500'
                               }`}
                             >
-                              {item.name}
+                              {item.quantity} {item.unit}
                             </span>
-                            {item.quantity && (
-                              <span
-                                className={`ml-2 text-sm transition-colors duration-200 ${
-                                  item.checked ? 'text-stone-300' : 'text-stone-500'
-                                }`}
-                              >
-                                {item.quantity} {item.unit}
-                              </span>
-                            )}
-                          </div>
-                          {item.checked && (
-                            <span
-                              className="absolute left-0 top-1/2 h-px bg-stone-400 animate-strike"
-                              style={{ width: '100%', maxWidth: '200px' }}
-                            />
                           )}
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <button
-                            onClick={() => setEditingItem(item)}
-                            className="icon-button-muted"
-                          >
-                            <PencilIcon className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteItem(item)}
-                            className="icon-button-danger"
-                          >
-                            <TrashIcon className="h-4 w-4" />
-                          </button>
-                        </div>
+                        {item.checked && (
+                          <span
+                            className="absolute left-0 top-1/2 h-px bg-stone-400 animate-strike"
+                            style={{ width: '100%', maxWidth: '200px' }}
+                          />
+                        )}
                       </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
+                      <div className="flex items-center space-x-2">
+                        <button onClick={() => setEditingItem(item)} className="icon-button-muted">
+                          <PencilIcon className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => setItemToDelete(item)}
+                          className="icon-button-danger"
+                          title={`Delete ${item.name}`}
+                        >
+                          <TrashIcon className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </SectionCard>
           ))}
         </div>
       )}
 
       {/* Add Item Modal */}
       {showAddModal && (
-        <ModalShell size="sm">
-          <h3 className="text-lg font-medium text-stone-900 mb-4">Add item</h3>
-
+        <ModalShell
+          size="sm"
+          title="Add item"
+          onClose={() => setShowAddModal(false)}
+          footer={
+            <>
+              <button onClick={() => setShowAddModal(false)} className="btn-secondary">
+                Cancel
+              </button>
+              <button
+                onClick={handleAddItem}
+                disabled={!newItem.name.trim()}
+                className="btn-primary"
+              >
+                Add item
+              </button>
+            </>
+          }
+        >
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-stone-700 mb-1">Item name *</label>
@@ -698,27 +711,52 @@ export default function GroceryListDetailPage() {
               </select>
             </div>
           </div>
-
-          <div className="mt-6 flex justify-end space-x-3">
-            <button onClick={() => setShowAddModal(false)} className="btn-secondary">
-              Cancel
-            </button>
-            <button onClick={handleAddItem} disabled={!newItem.name.trim()} className="btn-primary">
-              Add item
-            </button>
-          </div>
         </ModalShell>
       )}
 
       {/* Send Notification Modal */}
       {showNotificationModal && (
-        <ModalShell size="sm">
-          <h3 className="text-lg font-medium text-stone-900 mb-4">Send grocery list</h3>
-
-          <p className="text-sm text-stone-600 mb-4">
-            Send this list to extra emails. We'll include unchecked items by category.
-          </p>
-
+        <ModalShell
+          size="sm"
+          title="Send grocery list"
+          description="Send this list to extra emails. We'll include unchecked items by category."
+          onClose={() => {
+            setShowNotificationModal(false);
+            setAdditionalEmails(['']);
+            setEmailErrors([]);
+          }}
+          footer={
+            <>
+              <button
+                onClick={() => {
+                  setShowNotificationModal(false);
+                  setAdditionalEmails(['']);
+                  setEmailErrors([]);
+                }}
+                className="btn-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSendWithEmails}
+                disabled={sendingNotification}
+                className="btn-primary flex items-center"
+              >
+                {sendingNotification ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <EnvelopeIcon className="h-4 w-4 mr-2" />
+                    Send list
+                  </>
+                )}
+              </button>
+            </>
+          }
+        >
           <div className="space-y-3">
             <label className="block text-sm font-medium text-stone-700">
               Additional recipients (optional)
@@ -759,38 +797,37 @@ export default function GroceryListDetailPage() {
               Add another email
             </button>
           </div>
-
-          <div className="mt-6 flex justify-end space-x-3">
-            <button
-              onClick={() => {
-                setShowNotificationModal(false);
-                setAdditionalEmails(['']);
-                setEmailErrors([]);
-              }}
-              className="btn-secondary"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSendWithEmails}
-              disabled={sendingNotification}
-              className="btn-primary flex items-center"
-            >
-              {sendingNotification ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                  Sending...
-                </>
-              ) : (
-                <>
-                  <EnvelopeIcon className="h-4 w-4 mr-2" />
-                  Send list
-                </>
-              )}
-            </button>
-          </div>
         </ModalShell>
       )}
+
+      <ConfirmDialog
+        isOpen={Boolean(itemToDelete)}
+        title="Delete item?"
+        description={
+          itemToDelete
+            ? `"${itemToDelete.name}" will be removed from this grocery list.`
+            : 'This item will be removed from this grocery list.'
+        }
+        confirmLabel="Delete item"
+        tone="danger"
+        onCancel={() => setItemToDelete(null)}
+        onConfirm={handleDeleteItem}
+      />
+
+      <ConfirmDialog
+        isOpen={showArchiveDialog}
+        title="Archive this grocery list?"
+        description="This removes the list from Grocery Lists once your shopping is complete."
+        confirmLabel="Archive list"
+        tone="danger"
+        loading={archiving}
+        onCancel={() => {
+          if (!archiving) {
+            setShowArchiveDialog(false);
+          }
+        }}
+        onConfirm={handleArchiveList}
+      />
     </div>
   );
 }

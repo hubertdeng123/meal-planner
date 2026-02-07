@@ -84,3 +84,16 @@ class MealPlanList(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class PaginatedMealPlans(BaseModel):
+    items: List[MealPlanList]
+    page: int
+    page_size: int
+    total: int
+    total_pages: int
+
+
+class MealPlanAutofillResponse(BaseModel):
+    created_count: int
+    message: str

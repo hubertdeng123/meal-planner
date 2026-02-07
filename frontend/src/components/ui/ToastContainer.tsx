@@ -1,5 +1,5 @@
 import { useToast, type ToastType } from '../../contexts/ToastContext';
-import { XMarkIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon } from './AppIcons';
 
 const toastStyles: Record<ToastType, string> = {
   success: 'bg-green-500 text-white',

@@ -51,3 +51,11 @@ class GroceryList(GroceryListBase):
     items: List[GroceryItem] = []
 
     model_config = {"from_attributes": True}
+
+
+class PaginatedGroceryLists(BaseModel):
+    items: List[GroceryList]
+    page: int
+    page_size: int
+    total: int
+    total_pages: int

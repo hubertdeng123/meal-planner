@@ -7,11 +7,14 @@ import {
   StarIcon,
   HeartIcon,
   ShoppingBagIcon,
-} from '@heroicons/react/24/outline';
-import { StarIcon as StarSolidIcon, HeartIcon as HeartSolidIcon } from '@heroicons/react/24/solid';
+  StarSolidIcon,
+  HeartSolidIcon,
+} from '../components/ui/AppIcons';
 import recipeService from '../services/recipe.service';
 import groceryService from '../services/grocery.service';
 import Breadcrumbs from '../components/Breadcrumbs';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
+import { SectionCard } from '../components/ui/SectionCard';
 import { useToast } from '../contexts/ToastContext';
 import type { Recipe, RecipeFeedback } from '../types';
 
@@ -30,6 +33,7 @@ export default function RecipeDetailPage() {
   const [notes, setNotes] = useState('');
   const [savingFeedback, setSavingFeedback] = useState(false);
   const [creatingList, setCreatingList] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const loadRecipe = useCallback(
     async (recipeId: number) => {
@@ -89,7 +93,7 @@ export default function RecipeDetailPage() {
 
     setSavingFeedback(true);
     try {
-      const feedback: Omit<RecipeFeedback, 'recipe_id'> = {
+      const feedback: RecipeFeedback = {
         liked,
         rating: rating > 0 ? rating : undefined,
         notes: notes.trim() || undefined,
@@ -145,9 +149,9 @@ export default function RecipeDetailPage() {
                 {creatingList ? 'Building list...' : 'Add to grocery list'}
               </button>
               <button
-                onClick={handleDelete}
+                onClick={() => setShowDeleteDialog(true)}
                 disabled={deleting}
-                className="p-2 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors disabled:opacity-50"
+                className="icon-button-danger disabled:opacity-50"
                 title="Delete recipe"
               >
                 <TrashIcon className="h-5 w-5" />
@@ -246,9 +250,8 @@ export default function RecipeDetailPage() {
           </div>
         </div>
 
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div>
-            <h2 className="text-xl font-semibold mb-4">Ingredients</h2>
+        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+          <SectionCard title="Ingredients">
             <ul className="space-y-2">
               {recipe.ingredients.map((ingredient, index) => (
                 <li key={index} className="flex items-start">
@@ -261,39 +264,41 @@ export default function RecipeDetailPage() {
                 </li>
               ))}
             </ul>
-          </div>
+          </SectionCard>
 
-          <div>
-            <h2 className="text-xl font-semibold mb-4">Nutrition snapshot</h2>
-            <div className="surface-muted p-4">
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                {recipe.nutrition.calories && (
-                  <div>
-                    <span className="font-medium">Calories:</span> {recipe.nutrition.calories}
-                  </div>
+          <SectionCard title="Nutrition snapshot">
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              {recipe.nutrition.calories && (
+                <div>
+                  <span className="font-medium">Calories:</span> {recipe.nutrition.calories}
+                </div>
+              )}
+              {recipe.nutrition.protein_g && (
+                <div>
+                  <span className="font-medium">Protein:</span> {recipe.nutrition.protein_g}g
+                </div>
+              )}
+              {recipe.nutrition.carbs_g && (
+                <div>
+                  <span className="font-medium">Carbs:</span> {recipe.nutrition.carbs_g}g
+                </div>
+              )}
+              {recipe.nutrition.fat_g && (
+                <div>
+                  <span className="font-medium">Fat:</span> {recipe.nutrition.fat_g}g
+                </div>
+              )}
+              {!recipe.nutrition.calories &&
+                !recipe.nutrition.protein_g &&
+                !recipe.nutrition.carbs_g &&
+                !recipe.nutrition.fat_g && (
+                  <p className="col-span-2 text-stone-500">No nutrition estimate available.</p>
                 )}
-                {recipe.nutrition.protein_g && (
-                  <div>
-                    <span className="font-medium">Protein:</span> {recipe.nutrition.protein_g}g
-                  </div>
-                )}
-                {recipe.nutrition.carbs_g && (
-                  <div>
-                    <span className="font-medium">Carbs:</span> {recipe.nutrition.carbs_g}g
-                  </div>
-                )}
-                {recipe.nutrition.fat_g && (
-                  <div>
-                    <span className="font-medium">Fat:</span> {recipe.nutrition.fat_g}g
-                  </div>
-                )}
-              </div>
             </div>
-          </div>
+          </SectionCard>
         </div>
 
-        <div className="mt-8">
-          <h2 className="text-xl font-semibold mb-4">Steps</h2>
+        <SectionCard title="Steps" className="mt-8">
           <ol className="space-y-3">
             {recipe.instructions.map((instruction, index) => (
               <li key={index} className="flex">
@@ -304,16 +309,16 @@ export default function RecipeDetailPage() {
               </li>
             ))}
           </ol>
-        </div>
+        </SectionCard>
 
         {/* Rating and Feedback Section - After cooking */}
-        <div
-          className="mt-8 p-6 rounded-2xl border"
-          style={{ backgroundColor: 'var(--surface-muted)', borderColor: 'rgba(28, 25, 23, 0.06)' }}
+        <SectionCard
+          title="How did it go?"
+          subtitle="Made this recipe? Let us know what you thought."
+          className="mt-8"
         >
-          <h3 className="text-lg font-semibold text-stone-900 mb-2">How did it go?</h3>
           <p className="text-sm text-stone-500 mb-4">
-            Made this recipe? Let us know what you thought.
+            Your feedback helps improve future recommendations.
           </p>
 
           <div className="flex flex-wrap items-center gap-6 mb-4">
@@ -394,8 +399,23 @@ export default function RecipeDetailPage() {
           <button onClick={handleSaveFeedback} disabled={savingFeedback} className="btn-primary">
             {savingFeedback ? 'Saving...' : 'Save notes'}
           </button>
-        </div>
+        </SectionCard>
       </div>
+
+      <ConfirmDialog
+        isOpen={showDeleteDialog}
+        title="Delete recipe?"
+        description="This will permanently remove the recipe and any saved feedback."
+        confirmLabel="Delete recipe"
+        tone="danger"
+        loading={deleting}
+        onCancel={() => {
+          if (!deleting) {
+            setShowDeleteDialog(false);
+          }
+        }}
+        onConfirm={handleDelete}
+      />
     </div>
   );
 }

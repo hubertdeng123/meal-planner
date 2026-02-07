@@ -1,35 +1,64 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ShoppingCartIcon, PlusIcon, TrashIcon, CalendarIcon } from '@heroicons/react/24/outline';
+import { ShoppingCartIcon, PlusIcon, TrashIcon, CalendarIcon } from '../components/ui/AppIcons';
 import groceryService from '../services/grocery.service';
 import recipeService from '../services/recipe.service';
 import type { GroceryList, Recipe } from '../types';
 import { PageHeader } from '../components/ui/PageHeader';
 import { EmptyState } from '../components/ui/EmptyState';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { ModalShell } from '../components/ui/ModalShell';
+import { StatPill } from '../components/ui/StatPill';
+import { ToolbarRow } from '../components/ui/ToolbarRow';
+import { useToast } from '../contexts/ToastContext';
 
 export default function GroceryListsPage() {
+  const { addToast } = useToast();
   const [groceryLists, setGroceryLists] = useState<GroceryList[]>([]);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedRecipes, setSelectedRecipes] = useState<number[]>([]);
   const [creating, setCreating] = useState(false);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(0);
+  const [searchInput, setSearchInput] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [listToDelete, setListToDelete] = useState<GroceryList | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const pageSize = 9;
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [page, searchQuery]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setPage(1);
+      setSearchQuery(searchInput.trim());
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
   const loadData = async () => {
+    setLoading(true);
     try {
       const [groceryListsData, recipesData] = await Promise.all([
-        groceryService.getGroceryLists(),
+        groceryService.getGroceryListsPaginated({
+          page,
+          pageSize,
+          q: searchQuery || undefined,
+          sort: 'created_at',
+          order: 'desc',
+        }),
         recipeService.getRecipes(),
       ]);
-      setGroceryLists(groceryListsData);
+      setGroceryLists(groceryListsData.items);
+      setTotalPages(groceryListsData.total_pages);
       setRecipes(recipesData);
     } catch (error) {
       console.error('Failed to load data:', error);
+      addToast('Could not load grocery lists. Try again?', 'error');
     } finally {
       setLoading(false);
     }
@@ -44,25 +73,28 @@ export default function GroceryListsPage() {
       setGroceryLists([...groceryLists, newGroceryList]);
       setShowCreateModal(false);
       setSelectedRecipes([]);
+      addToast('Grocery list created.', 'success');
     } catch (error) {
       console.error('Failed to create grocery list:', error);
-      alert('Could not build that list. Try again?');
+      addToast('Could not build that list. Try again?', 'error');
     } finally {
       setCreating(false);
     }
   };
 
-  const handleDeleteGroceryList = async (id: number) => {
-    if (!window.confirm('Are you sure you want to delete this grocery list?')) {
-      return;
-    }
-
+  const handleDeleteGroceryList = async () => {
+    if (!listToDelete) return;
+    setDeletingId(listToDelete.id);
     try {
-      await groceryService.deleteGroceryList(id);
-      setGroceryLists(groceryLists.filter(list => list.id !== id));
+      await groceryService.deleteGroceryList(listToDelete.id);
+      setGroceryLists(groceryLists.filter(list => list.id !== listToDelete.id));
+      addToast('Grocery list deleted.', 'success');
+      setListToDelete(null);
     } catch (error) {
       console.error('Failed to delete grocery list:', error);
-      alert('Could not delete that list. Try again?');
+      addToast('Could not delete that list. Try again?', 'error');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -82,22 +114,27 @@ export default function GroceryListsPage() {
 
   return (
     <div>
-      <div className="sm:flex sm:items-center">
-        <div className="sm:flex-auto">
-          <PageHeader
-            title="Grocery Lists"
-            subtitle="Turn recipes into a shopping plan that behaves"
-          />
-        </div>
-        <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
+      <PageHeader
+        title="Grocery Lists"
+        subtitle="Turn recipes and meal plans into a shopping plan that behaves"
+        actions={
           <button onClick={() => setShowCreateModal(true)} className="btn-primary">
             <PlusIcon className="h-4 w-4 mr-2" />
             Build from recipes
           </button>
-        </div>
-      </div>
+        }
+      />
 
-      {groceryLists.length === 0 ? (
+      <ToolbarRow helper="Best flow: meal plan > grocery list">
+        <input
+          value={searchInput}
+          onChange={e => setSearchInput(e.target.value)}
+          className="input"
+          placeholder="Search lists by name"
+        />
+      </ToolbarRow>
+
+      {groceryLists.length === 0 && !searchQuery ? (
         <EmptyState
           icon={<ShoppingCartIcon className="h-12 w-12" />}
           title="Your shopping trip, sorted"
@@ -107,6 +144,23 @@ export default function GroceryListsPage() {
             <button onClick={() => setShowCreateModal(true)} className="btn-primary">
               <PlusIcon className="h-4 w-4 mr-2" />
               Build my first list
+            </button>
+          }
+        />
+      ) : groceryLists.length === 0 ? (
+        <EmptyState
+          title="No grocery lists matched"
+          description="Try another search phrase."
+          variant="compact"
+          action={
+            <button
+              className="btn-secondary"
+              onClick={() => {
+                setSearchInput('');
+                setSearchQuery('');
+              }}
+            >
+              Clear search
             </button>
           }
         />
@@ -128,15 +182,24 @@ export default function GroceryListsPage() {
                   </div>
                 </div>
                 <button
-                  onClick={() => handleDeleteGroceryList(groceryList.id)}
+                  onClick={() => setListToDelete(groceryList)}
+                  disabled={deletingId === groceryList.id}
                   className="icon-button-danger"
+                  title={`Delete ${groceryList.name || 'grocery list'}`}
                 >
                   <TrashIcon className="h-4 w-4" />
                 </button>
               </div>
 
               <div className="mt-4">
-                <p className="text-sm text-stone-600">{groceryList.items.length} items</p>
+                <div className="mb-3 grid grid-cols-2 gap-2">
+                  <StatPill label="Items" value={`${groceryList.items.length}`} />
+                  <StatPill
+                    label="Checked"
+                    value={`${groceryList.items.filter(item => item.checked).length}`}
+                    tone="success"
+                  />
+                </div>
                 <div className="mt-2">
                   <div className="flex items-center">
                     <div className="flex-1 bg-slate-200 rounded-full h-2">
@@ -173,16 +236,60 @@ export default function GroceryListsPage() {
         </div>
       )}
 
+      {totalPages > 1 && (
+        <div className="mt-8 flex items-center justify-center gap-3">
+          <button
+            className="btn-secondary"
+            disabled={page === 1}
+            onClick={() => setPage(prev => Math.max(1, prev - 1))}
+          >
+            Previous
+          </button>
+          <span className="text-sm text-stone-600">
+            Page {page} of {totalPages}
+          </span>
+          <button
+            className="btn-secondary"
+            disabled={page === totalPages}
+            onClick={() => setPage(prev => Math.min(totalPages, prev + 1))}
+          >
+            Next
+          </button>
+        </div>
+      )}
+
       {/* Create Modal */}
       {showCreateModal && (
-        <ModalShell size="lg">
+        <ModalShell
+          size="lg"
+          title="Build a grocery list from recipes"
+          description="Pick the recipes you want on this list."
+          onClose={() => {
+            setShowCreateModal(false);
+            setSelectedRecipes([]);
+          }}
+          footer={
+            <>
+              <button
+                onClick={() => {
+                  setShowCreateModal(false);
+                  setSelectedRecipes([]);
+                }}
+                className="btn-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateFromRecipes}
+                disabled={creating || selectedRecipes.length === 0}
+                className="btn-primary"
+              >
+                {creating ? 'Building...' : `Build list (${selectedRecipes.length} recipes)`}
+              </button>
+            </>
+          }
+        >
           <div className="mt-3">
-            <h3 className="text-lg font-medium text-stone-900 mb-4">
-              Build a grocery list from recipes
-            </h3>
-
-            <p className="text-sm text-stone-600 mb-4">Pick the recipes you want on this list:</p>
-
             <div className="max-h-96 overflow-y-auto">
               {recipes.length === 0 ? (
                 <p className="text-stone-500 text-center py-8">
@@ -221,28 +328,24 @@ export default function GroceryListsPage() {
                 </div>
               )}
             </div>
-
-            <div className="mt-6 flex justify-end space-x-3">
-              <button
-                onClick={() => {
-                  setShowCreateModal(false);
-                  setSelectedRecipes([]);
-                }}
-                className="btn-secondary"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleCreateFromRecipes}
-                disabled={creating || selectedRecipes.length === 0}
-                className="btn-primary"
-              >
-                {creating ? 'Building...' : `Build list (${selectedRecipes.length} recipes)`}
-              </button>
-            </div>
           </div>
         </ModalShell>
       )}
+
+      <ConfirmDialog
+        isOpen={Boolean(listToDelete)}
+        title="Delete grocery list?"
+        description="This permanently removes the list and all checked states."
+        confirmLabel="Delete list"
+        tone="danger"
+        loading={deletingId !== null}
+        onCancel={() => {
+          if (!deletingId) {
+            setListToDelete(null);
+          }
+        }}
+        onConfirm={handleDeleteGroceryList}
+      />
     </div>
   );
 }

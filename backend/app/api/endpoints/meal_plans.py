@@ -1,21 +1,30 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import timedelta
+from math import ceil
+from typing import List, Literal
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import asc, desc, func
 from sqlalchemy.orm import Session
-from sqlalchemy import func
-from typing import List
 
 from app.db.database import get_db
 from app.api.deps import get_current_active_user
+from app.models import Recipe as RecipeModel
 from app.models import User
 from app.models.meal_plan import MealPlan, MealPlanItem
+from app.models.meal_plan import GroceryItem as GroceryItemModel
+from app.models.meal_plan import GroceryList as GroceryListModel
 from app.schemas.meal_plan import (
     MealPlanCreate,
     MealPlanUpdate,
     MealPlan as MealPlanSchema,
     MealPlanList,
+    PaginatedMealPlans,
     MealPlanItemCreate,
     MealPlanItemUpdate,
     MealPlanItem as MealPlanItemSchema,
+    MealPlanAutofillResponse,
 )
+from app.schemas.grocery import GroceryList as GroceryListSchema
 
 router = APIRouter()
 
@@ -54,6 +63,60 @@ def list_meal_plans(
         )
         for mp, item_count in meal_plans
     ]
+
+
+@router.get("/list", response_model=PaginatedMealPlans)
+def list_meal_plans_paginated(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(12, ge=1, le=100),
+    q: str | None = Query(default=None, min_length=1),
+    sort: Literal["created_at", "name", "start_date"] = Query(default="created_at"),
+    order: Literal["asc", "desc"] = Query(default="desc"),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    query = (
+        db.query(
+            MealPlan,
+            func.count(MealPlanItem.id).label("item_count"),
+        )
+        .outerjoin(MealPlanItem)
+        .filter(MealPlan.user_id == current_user.id)
+    )
+
+    if q:
+        query = query.filter(MealPlan.name.ilike(f"%{q.strip()}%"))
+
+    sort_column = {
+        "created_at": MealPlan.created_at,
+        "name": MealPlan.name,
+        "start_date": MealPlan.start_date,
+    }[sort]
+    query = query.group_by(MealPlan.id).order_by(
+        desc(sort_column) if order == "desc" else asc(sort_column)
+    )
+
+    total = query.count()
+    rows = query.offset((page - 1) * page_size).limit(page_size).all()
+
+    return {
+        "items": [
+            MealPlanList(
+                id=mp.id,
+                name=mp.name,
+                start_date=mp.start_date,
+                end_date=mp.end_date,
+                theme=mp.theme,
+                created_at=mp.created_at,
+                item_count=item_count,
+            )
+            for mp, item_count in rows
+        ],
+        "page": page,
+        "page_size": page_size,
+        "total": total,
+        "total_pages": ceil(total / page_size) if total else 0,
+    }
 
 
 @router.post("/", response_model=MealPlanSchema, status_code=status.HTTP_201_CREATED)
@@ -287,3 +350,220 @@ def delete_meal_plan_item(
     db.commit()
 
     return None
+
+
+@router.post(
+    "/{meal_plan_id}/autofill",
+    response_model=MealPlanAutofillResponse,
+)
+def autofill_meal_plan_slots(
+    meal_plan_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    """Fill open breakfast/lunch/dinner slots with the user's saved recipes."""
+    meal_plan = (
+        db.query(MealPlan)
+        .filter(MealPlan.id == meal_plan_id, MealPlan.user_id == current_user.id)
+        .first()
+    )
+    if not meal_plan:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Meal plan not found",
+        )
+
+    recipes = (
+        db.query(RecipeModel)
+        .filter(RecipeModel.user_id == current_user.id)
+        .order_by(RecipeModel.created_at.desc())
+        .all()
+    )
+    if not recipes:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Create at least one recipe before autofill.",
+        )
+
+    meal_types = ["breakfast", "lunch", "dinner"]
+    existing = {(item.date, item.meal_type.lower()) for item in meal_plan.items}
+    date_cursor = meal_plan.start_date
+    recipe_index = 0
+    created = 0
+
+    while date_cursor <= meal_plan.end_date:
+        for meal_type in meal_types:
+            key = (date_cursor, meal_type)
+            if key in existing:
+                continue
+
+            recipe = recipes[recipe_index % len(recipes)]
+            recipe_index += 1
+            db.add(
+                MealPlanItem(
+                    meal_plan_id=meal_plan.id,
+                    date=date_cursor,
+                    meal_type=meal_type,
+                    servings=recipe.servings or 4,
+                    recipe_id=recipe.id,
+                )
+            )
+            created += 1
+        date_cursor += timedelta(days=1)
+
+    db.commit()
+    return {
+        "created_count": created,
+        "message": f"Added {created} meal slot(s).",
+    }
+
+
+@router.post("/{meal_plan_id}/grocery-list", response_model=GroceryListSchema)
+def create_grocery_list_from_meal_plan(
+    meal_plan_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    """Create a grocery list from all recipe-linked items in a meal plan."""
+    meal_plan = (
+        db.query(MealPlan)
+        .filter(MealPlan.id == meal_plan_id, MealPlan.user_id == current_user.id)
+        .first()
+    )
+    if not meal_plan:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Meal plan not found",
+        )
+
+    recipe_ids = [item.recipe_id for item in meal_plan.items if item.recipe_id]
+    if not recipe_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No recipe-linked slots found in this meal plan.",
+        )
+
+    recipes = (
+        db.query(RecipeModel)
+        .filter(RecipeModel.id.in_(recipe_ids), RecipeModel.user_id == current_user.id)
+        .all()
+    )
+    if not recipes:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No valid recipes found for this meal plan.",
+        )
+
+    grocery_list = GroceryListModel(
+        user_id=current_user.id,
+        meal_plan_id=meal_plan.id,
+        name=meal_plan.name or "Weekly meal plan list",
+    )
+    db.add(grocery_list)
+    db.flush()
+
+    ingredient_dict: dict[str, dict[str, str | float]] = {}
+    for recipe in recipes:
+        for ingredient in recipe.ingredients or []:
+            name = (ingredient.get("name") or "").strip().lower()
+            if not name:
+                continue
+
+            quantity = ingredient.get("quantity") or 0
+            unit = ingredient.get("unit") or ""
+            key = (
+                name
+                if name not in ingredient_dict
+                else (
+                    name
+                    if ingredient_dict[name]["unit"] == unit
+                    else f"{name} ({unit})"
+                )
+            )
+
+            if key in ingredient_dict:
+                ingredient_dict[key]["quantity"] = float(
+                    ingredient_dict[key]["quantity"]
+                ) + float(quantity)
+            else:
+                ingredient_dict[key] = {
+                    "quantity": float(quantity),
+                    "unit": unit,
+                    "category": _categorize_ingredient(name),
+                }
+
+    for name, details in ingredient_dict.items():
+        db.add(
+            GroceryItemModel(
+                grocery_list_id=grocery_list.id,
+                name=name,
+                quantity=details["quantity"],
+                unit=details["unit"],
+                category=details["category"],
+            )
+        )
+
+    db.commit()
+    db.refresh(grocery_list)
+    return {
+        "id": grocery_list.id,
+        "user_id": grocery_list.user_id,
+        "meal_plan_id": grocery_list.meal_plan_id,
+        "name": grocery_list.name,
+        "created_at": grocery_list.created_at,
+        "updated_at": grocery_list.updated_at,
+        "items": [
+            {
+                "id": item.id,
+                "grocery_list_id": item.grocery_list_id,
+                "name": item.name,
+                "quantity": item.quantity,
+                "unit": item.unit,
+                "category": item.category,
+                "checked": item.checked,
+            }
+            for item in grocery_list.items
+        ],
+    }
+
+
+def _categorize_ingredient(ingredient_name: str) -> str:
+    ingredient_name = ingredient_name.lower()
+    produce = [
+        "tomato",
+        "onion",
+        "garlic",
+        "potato",
+        "carrot",
+        "bell pepper",
+        "mushroom",
+        "spinach",
+        "lettuce",
+        "cucumber",
+        "avocado",
+        "lemon",
+        "lime",
+        "parsley",
+        "basil",
+        "cilantro",
+        "ginger",
+        "apple",
+        "banana",
+    ]
+    dairy = ["milk", "cheese", "butter", "cream", "yogurt", "egg"]
+    meat = ["chicken", "beef", "pork", "fish", "salmon", "shrimp", "turkey"]
+    pantry = ["rice", "pasta", "flour", "sugar", "salt", "pepper", "oil", "bread"]
+
+    for item in produce:
+        if item in ingredient_name:
+            return "Produce"
+    for item in dairy:
+        if item in ingredient_name:
+            return "Dairy"
+    for item in meat:
+        if item in ingredient_name:
+            return "Meat & Seafood"
+    for item in pantry:
+        if item in ingredient_name:
+            return "Pantry"
+    return "Other"

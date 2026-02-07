@@ -1,10 +1,12 @@
-import { useState, useEffect, useMemo, type FormEvent } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import recipeService, { type StreamCallbacks } from '../services/recipe.service';
 import type { RecipeGenerationRequest } from '../types';
 import { RecipeForm } from '../components/recipe/RecipeForm';
 import { LoadingModal } from '../components/LoadingModal';
 import { PageHeader } from '../components/ui/PageHeader';
+import { SectionCard } from '../components/ui/SectionCard';
+import { useToast } from '../contexts/ToastContext';
 
 // Floating sparkle component for celebration
 function FloatingSparkle({ style }: { style: React.CSSProperties }) {
@@ -83,6 +85,8 @@ function SuccessCelebration({
 
 export default function GenerateRecipePage() {
   const navigate = useNavigate();
+  const { addToast } = useToast();
+  const activeRequest = useRef<AbortController | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [thinkingTokens, setThinkingTokens] = useState<string[]>([]);
@@ -108,15 +112,41 @@ export default function GenerateRecipePage() {
   useEffect(() => {
     if (loading) {
       const timeout = setTimeout(() => {
-        setError('This is taking longer than expected. Please try again.');
+        activeRequest.current?.abort();
+        setError('Generation timed out. Please try again.');
         setLoading(false);
+        setIsThinking(false);
+        addToast('Generation timed out. Please try again.', 'warning');
       }, 90000);
       return () => clearTimeout(timeout);
     }
-  }, [loading]);
+  }, [loading, addToast]);
+
+  const cancelGeneration = useCallback(() => {
+    if (activeRequest.current) {
+      activeRequest.current.abort();
+      activeRequest.current = null;
+    }
+    setLoading(false);
+    setIsThinking(false);
+    setThinkingTokens([]);
+    addToast('Generation cancelled.', 'info');
+  }, [addToast]);
+
+  useEffect(() => {
+    return () => {
+      activeRequest.current?.abort();
+    };
+  }, []);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (loading) return;
+
+    activeRequest.current?.abort();
+    const controller = new AbortController();
+    activeRequest.current = controller;
+
     setError('');
     setLoading(true);
     setThinkingTokens([]);
@@ -162,24 +192,30 @@ export default function GenerateRecipePage() {
       onComplete: recipeId => {
         setLoading(false);
         setIsThinking(false);
+        activeRequest.current = null;
         setPendingRecipeId(recipeId);
         setShowSuccess(true);
       },
 
       onError: errorMsg => {
-        setError(errorMsg);
+        if (errorMsg !== 'Request cancelled') {
+          setError(errorMsg);
+        }
         setLoading(false);
         setIsThinking(false);
+        activeRequest.current = null;
       },
     };
 
     try {
-      await recipeService.generateRecipeStream(formData, callbacks);
+      await recipeService.generateRecipeStream(formData, callbacks, { signal: controller.signal });
     } catch (err: unknown) {
       const errorMessage =
         err instanceof Error ? err.message : 'Could not generate a recipe. Try again?';
       setError(errorMessage);
       setLoading(false);
+      setIsThinking(false);
+      activeRequest.current = null;
     }
   };
 
@@ -205,21 +241,16 @@ export default function GenerateRecipePage() {
       />
 
       {error && (
-        <div className="mb-6 card p-6 bg-red-50 border-2 border-red-200 animate-shake">
-          <div className="flex items-start gap-4">
-            <span className="text-4xl">😞</span>
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold text-red-900 mb-2">Whoops. That didn't land.</h3>
-              <p className="text-red-700 mb-4">{error}</p>
-              <button
-                onClick={handleRetry}
-                className="px-4 py-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors font-medium"
-              >
-                Give it another go
-              </button>
-            </div>
-          </div>
-        </div>
+        <SectionCard
+          className="mb-6 animate-shake border-red-200 bg-red-50"
+          title="Whoops. That didn't land."
+          contentClassName="text-red-700"
+        >
+          <p>{error}</p>
+          <button onClick={handleRetry} className="btn-danger mt-4">
+            Give it another go
+          </button>
+        </SectionCard>
       )}
 
       <LoadingModal
@@ -227,6 +258,7 @@ export default function GenerateRecipePage() {
         message="Generating your recipe..."
         thinkingTokens={thinkingTokens}
         isThinking={isThinking}
+        onCancel={cancelGeneration}
       />
 
       {showSuccess && (
@@ -239,16 +271,21 @@ export default function GenerateRecipePage() {
 
       {!loading && !showSuccess && (
         <div className="max-w-3xl mx-auto">
-          <RecipeForm
-            formData={formData}
-            setFormData={setFormData}
-            loading={false}
-            error=""
-            onSubmit={handleSubmit}
-            statusMessage=""
-            isStreaming={false}
-            compact={false}
-          />
+          <SectionCard
+            title="Recipe brief"
+            subtitle="Tell us what you want. We'll shape the recipe around your constraints."
+          >
+            <RecipeForm
+              formData={formData}
+              setFormData={setFormData}
+              loading={loading}
+              error=""
+              onSubmit={handleSubmit}
+              statusMessage=""
+              isStreaming={false}
+              compact={false}
+            />
+          </SectionCard>
         </div>
       )}
     </div>

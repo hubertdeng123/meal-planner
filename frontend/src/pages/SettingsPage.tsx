@@ -13,7 +13,7 @@ import {
   CalendarIcon,
   ScaleIcon,
   ClipboardDocumentListIcon,
-} from '@heroicons/react/24/outline';
+} from '../components/ui/AppIcons';
 import notificationService from '../services/notification.service';
 import authService from '../services/auth.service';
 import type {

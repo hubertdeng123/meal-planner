@@ -6,21 +6,25 @@ import {
   XMarkIcon,
   UserCircleIcon,
   Cog6ToothIcon,
-  BookOpenIcon,
-  ShoppingBagIcon,
   PlusCircleIcon,
-} from '@heroicons/react/24/outline';
+  PantryIcon,
+  GroceryBagIcon,
+  CalendarMealIcon,
+  RecipeBookIcon,
+} from './ui/AppIcons';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { HungryHelperLogo } from './ui/BrandIcons';
+import { HungryHelperLogo } from './ui/AppIcons';
 
 function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(' ');
 }
 
 const navigation = [
-  { name: 'Recipe Vault', href: '/recipes', icon: BookOpenIcon },
-  { name: 'Grocery Lists', href: '/grocery', icon: ShoppingBagIcon },
+  { name: 'Recipe Vault', href: '/recipes', icon: RecipeBookIcon },
+  { name: 'Meal Plans', href: '/meal-plans', icon: CalendarMealIcon },
+  { name: 'Grocery Lists', href: '/grocery', icon: GroceryBagIcon },
+  { name: 'Pantry', href: '/pantry', icon: PantryIcon },
   { name: 'Make a Recipe', href: '/generate', icon: PlusCircleIcon },
 ];
 

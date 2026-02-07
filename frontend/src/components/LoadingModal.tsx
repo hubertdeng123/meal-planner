@@ -12,6 +12,7 @@ interface LoadingModalProps {
   message?: string;
   thinkingTokens?: string[];
   isThinking?: boolean;
+  onCancel?: () => void;
 }
 
 const PHASES = [
@@ -24,6 +25,7 @@ export function LoadingModal({
   isOpen,
   message = 'Generating your recipe...',
   isThinking = false,
+  onCancel,
 }: LoadingModalProps) {
   const [currentPhase, setCurrentPhase] = useState(0);
 
@@ -187,6 +189,14 @@ export function LoadingModal({
                 ))}
               </div>
               <span className="text-sm text-stone-500 font-medium">Thinking</span>
+            </div>
+          )}
+
+          {onCancel && (
+            <div className="mt-5 flex justify-center">
+              <button onClick={onCancel} type="button" className="btn-secondary px-5 py-2.5">
+                Cancel
+              </button>
             </div>
           )}
         </div>

@@ -6,7 +6,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   CheckCircleIcon,
-} from '@heroicons/react/24/outline';
+} from '../components/ui/AppIcons';
 import authService from '../services/auth.service';
 import { useAuth } from '../hooks/useAuth';
 import type { UserCreate, UserPreferences, APIError } from '../types';

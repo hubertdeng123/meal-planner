@@ -8,6 +8,9 @@ import GenerateRecipePage from './pages/GenerateRecipePage';
 import GroceryListsPage from './pages/GroceryListsPage';
 import GroceryListDetailPage from './pages/GroceryListDetailPage';
 import SettingsPage from './pages/SettingsPage';
+import MealPlansPage from './pages/MealPlansPage';
+import MealPlanDetailPage from './pages/MealPlanDetailPage';
+import PantryPage from './pages/PantryPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './contexts/AuthContextProvider';
 import { ToastProvider } from './contexts/ToastContext';
@@ -85,6 +88,30 @@ function AppRoutes() {
           element={
             <ProtectedRoute>
               <GroceryListDetailPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/meal-plans"
+          element={
+            <ProtectedRoute>
+              <MealPlansPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/meal-plans/:id"
+          element={
+            <ProtectedRoute>
+              <MealPlanDetailPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/pantry"
+          element={
+            <ProtectedRoute>
+              <PantryPage />
             </ProtectedRoute>
           }
         />

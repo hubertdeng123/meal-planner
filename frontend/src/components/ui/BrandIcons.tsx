@@ -1,3 +1,5 @@
+import { useId } from 'react';
+
 // Premium custom illustrated SVG icons for Hungry Helper
 // Each icon uses gradients and multiple colors for depth and personality
 
@@ -6,8 +8,13 @@ interface IconProps {
   size?: number;
 }
 
-// Brand logo - A friendly chef hat with sparkle
+// Brand logo - Friendly smiling bowl with steam and sparkle
 export function HungryHelperLogo({ className = '', size = 32 }: IconProps) {
+  const iconId = useId().replace(/:/g, '');
+  const badgeGradId = `hh-badge-${iconId}`;
+  const bowlGradId = `hh-bowl-${iconId}`;
+  const steamGradId = `hh-steam-${iconId}`;
+
   return (
     <svg
       viewBox="0 0 32 32"
@@ -18,32 +25,96 @@ export function HungryHelperLogo({ className = '', size = 32 }: IconProps) {
       xmlns="http://www.w3.org/2000/svg"
     >
       <defs>
-        <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <linearGradient
+          id={badgeGradId}
+          x1="4"
+          y1="4"
+          x2="28"
+          y2="28"
+          gradientUnits="userSpaceOnUse"
+        >
           <stop offset="0%" stopColor="#fb923c" />
+          <stop offset="55%" stopColor="#f97316" />
           <stop offset="100%" stopColor="#ea580c" />
         </linearGradient>
-        <linearGradient id="logoHighlight" x1="0%" y1="0%" x2="0%" y2="100%">
+        <linearGradient
+          id={bowlGradId}
+          x1="9"
+          y1="15"
+          x2="23"
+          y2="23"
+          gradientUnits="userSpaceOnUse"
+        >
+          <stop offset="0%" stopColor="#fff7ed" />
+          <stop offset="100%" stopColor="#fed7aa" />
+        </linearGradient>
+        <linearGradient
+          id={steamGradId}
+          x1="12"
+          y1="7"
+          x2="21"
+          y2="13"
+          gradientUnits="userSpaceOnUse"
+        >
           <stop offset="0%" stopColor="#fef3c7" />
-          <stop offset="100%" stopColor="#fbbf24" />
+          <stop offset="100%" stopColor="#fde68a" />
         </linearGradient>
       </defs>
-      {/* Plate base */}
-      <ellipse cx="16" cy="24" rx="12" ry="4" fill="#f5f5f4" />
-      <ellipse cx="16" cy="24" rx="10" ry="3" fill="#e7e5e4" />
-      {/* Chef hat puff */}
-      <circle cx="10" cy="10" r="5" fill="url(#logoGrad)" />
-      <circle cx="16" cy="7" r="6" fill="url(#logoGrad)" />
-      <circle cx="22" cy="10" r="5" fill="url(#logoGrad)" />
-      {/* Hat band */}
-      <rect x="8" y="13" width="16" height="8" rx="2" fill="url(#logoGrad)" />
+
+      {/* Soft shadow */}
+      <ellipse cx="16" cy="27" rx="8" ry="2.2" fill="#cbd5e1" opacity="0.45" />
+
+      {/* Main badge */}
+      <circle cx="16" cy="16" r="13" fill={`url(#${badgeGradId})`} />
+      <circle cx="16" cy="16" r="10.2" fill="#fffaf3" opacity="0.96" />
+
+      {/* Bowl body */}
+      <path
+        d="M9.5 16.2C9.5 14.85 10.6 13.75 11.95 13.75H20.05C21.4 13.75 22.5 14.85 22.5 16.2V19.3C22.5 21.95 20.35 24.1 17.7 24.1H14.3C11.65 24.1 9.5 21.95 9.5 19.3V16.2Z"
+        fill={`url(#${bowlGradId})`}
+        stroke="#ea580c"
+        strokeWidth="1.1"
+      />
+      <path d="M9 16.15H23" stroke="#fb923c" strokeWidth="1.2" strokeLinecap="round" />
+
+      {/* Friendly face */}
+      <circle cx="13.6" cy="18.1" r="0.72" fill="#9a3412" />
+      <circle cx="18.4" cy="18.1" r="0.72" fill="#9a3412" />
+      <path
+        d="M13.4 20.25C14 20.95 14.85 21.3 16 21.3C17.15 21.3 18 20.95 18.6 20.25"
+        stroke="#9a3412"
+        strokeWidth="1"
+        strokeLinecap="round"
+      />
+
+      {/* Steam */}
+      <path
+        d="M13 12.6C12.35 11.6 12.55 10.65 13.45 9.75C14.2 9 14.35 8.2 13.9 7.25"
+        stroke={`url(#${steamGradId})`}
+        strokeWidth="1.2"
+        strokeLinecap="round"
+      />
+      <path
+        d="M16.1 12.2C15.55 11.35 15.75 10.5 16.45 9.8C17.05 9.2 17.15 8.5 16.8 7.7"
+        stroke={`url(#${steamGradId})`}
+        strokeWidth="1.2"
+        strokeLinecap="round"
+      />
+      <path
+        d="M19.1 12.55C18.55 11.75 18.7 10.9 19.35 10.2C19.95 9.55 20.05 8.8 19.65 8"
+        stroke={`url(#${steamGradId})`}
+        strokeWidth="1.2"
+        strokeLinecap="round"
+      />
+
       {/* Sparkle */}
       <path
-        d="M26 4l1.2-2.4 1.2 2.4 2.4 1.2-2.4 1.2-1.2 2.4-1.2-2.4L24 5.2z"
-        fill="url(#logoHighlight)"
+        d="M24.7 6.2L25.6 4.4L26.5 6.2L28.3 7.1L26.5 8L25.6 9.8L24.7 8L22.9 7.1L24.7 6.2Z"
+        fill="#fde68a"
       />
-      {/* Hat highlights */}
-      <circle cx="12" cy="9" r="1.5" fill="rgba(255,255,255,0.4)" />
-      <circle cx="17" cy="6" r="1.5" fill="rgba(255,255,255,0.3)" />
+
+      {/* Highlight */}
+      <circle cx="11.3" cy="10.6" r="1.3" fill="white" opacity="0.45" />
     </svg>
   );
 }

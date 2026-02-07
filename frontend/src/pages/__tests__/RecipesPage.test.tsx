@@ -8,14 +8,14 @@ import RecipesPage from '../RecipesPage';
 // Mock the recipe service
 vi.mock('../../services/recipe.service', () => ({
   default: {
-    getRecipes: vi.fn(),
+    getRecipesPaginated: vi.fn(),
     deleteRecipe: vi.fn(),
   },
 }));
 
 import recipeService from '../../services/recipe.service';
 const mockRecipeService = vi.mocked(recipeService);
-const mockGetRecipes = mockRecipeService.getRecipes;
+const mockGetRecipes = mockRecipeService.getRecipesPaginated;
 const mockDeleteRecipe = mockRecipeService.deleteRecipe;
 
 // Mock react-router-dom
@@ -56,7 +56,13 @@ describe('RecipesPage', () => {
       { ...mockRecipe, id: 1, name: 'Recipe 1' },
       { ...mockRecipe, id: 2, name: 'Recipe 2' },
     ];
-    mockGetRecipes.mockResolvedValue(recipes);
+    mockGetRecipes.mockResolvedValue({
+      items: recipes,
+      page: 1,
+      page_size: 9,
+      total: 2,
+      total_pages: 1,
+    });
 
     render(<RecipesPage />);
 
@@ -67,7 +73,13 @@ describe('RecipesPage', () => {
   });
 
   it('shows empty state when no recipes exist', async () => {
-    mockGetRecipes.mockResolvedValue([]);
+    mockGetRecipes.mockResolvedValue({
+      items: [],
+      page: 1,
+      page_size: 9,
+      total: 0,
+      total_pages: 0,
+    });
 
     render(<RecipesPage />);
 
@@ -90,7 +102,13 @@ describe('RecipesPage', () => {
   });
 
   it('navigates to generate recipe page when clicking generate button', async () => {
-    mockGetRecipes.mockResolvedValue([]);
+    mockGetRecipes.mockResolvedValue({
+      items: [],
+      page: 1,
+      page_size: 9,
+      total: 0,
+      total_pages: 0,
+    });
 
     render(<RecipesPage />);
 
@@ -110,7 +128,13 @@ describe('RecipesPage', () => {
       servings: 4,
       tags: ['easy', 'vegetarian'],
     };
-    mockGetRecipes.mockResolvedValue([recipe]);
+    mockGetRecipes.mockResolvedValue({
+      items: [recipe],
+      page: 1,
+      page_size: 9,
+      total: 1,
+      total_pages: 1,
+    });
 
     render(<RecipesPage />);
 
@@ -126,7 +150,13 @@ describe('RecipesPage', () => {
 
   it('deletes recipe when delete button is clicked', async () => {
     const recipes = [{ ...mockRecipe, id: 1, name: 'Recipe to Delete' }];
-    mockGetRecipes.mockResolvedValue(recipes);
+    mockGetRecipes.mockResolvedValue({
+      items: recipes,
+      page: 1,
+      page_size: 9,
+      total: 1,
+      total_pages: 1,
+    });
     mockDeleteRecipe.mockResolvedValue({});
 
     render(<RecipesPage />);
@@ -143,9 +173,15 @@ describe('RecipesPage', () => {
     });
   });
 
-  it('shows alert when recipe deletion fails', async () => {
+  it('keeps recipe visible when deletion fails', async () => {
     const recipes = [{ ...mockRecipe, id: 1, name: 'Recipe to Delete' }];
-    mockGetRecipes.mockResolvedValue(recipes);
+    mockGetRecipes.mockResolvedValue({
+      items: recipes,
+      page: 1,
+      page_size: 9,
+      total: 1,
+      total_pages: 1,
+    });
     mockDeleteRecipe.mockRejectedValue(new Error('Delete failed'));
 
     render(<RecipesPage />);
@@ -158,13 +194,19 @@ describe('RecipesPage', () => {
     await user.click(deleteButton);
 
     await waitFor(() => {
-      expect(global.alert).toHaveBeenCalledWith('Could not delete that recipe. Try again?');
+      expect(screen.getByText('Recipe to Delete')).toBeInTheDocument();
     });
   });
 
   it('navigates to recipe detail when recipe card is clicked', async () => {
     const recipes = [{ ...mockRecipe, id: 1, name: 'Clickable Recipe' }];
-    mockGetRecipes.mockResolvedValue(recipes);
+    mockGetRecipes.mockResolvedValue({
+      items: recipes,
+      page: 1,
+      page_size: 9,
+      total: 1,
+      total_pages: 1,
+    });
 
     render(<RecipesPage />);
 
@@ -176,7 +218,13 @@ describe('RecipesPage', () => {
 
   it('shows "New recipe, please" button when recipes exist', async () => {
     const recipes = [{ ...mockRecipe, id: 1, name: 'Test Recipe' }];
-    mockGetRecipes.mockResolvedValue(recipes);
+    mockGetRecipes.mockResolvedValue({
+      items: recipes,
+      page: 1,
+      page_size: 9,
+      total: 1,
+      total_pages: 1,
+    });
 
     render(<RecipesPage />);
 
@@ -200,7 +248,13 @@ describe('RecipesPage', () => {
       source_urls: [],
       created_at: '2023-01-01T00:00:00Z',
     };
-    mockGetRecipes.mockResolvedValue([minimalRecipe]);
+    mockGetRecipes.mockResolvedValue({
+      items: [minimalRecipe],
+      page: 1,
+      page_size: 9,
+      total: 1,
+      total_pages: 1,
+    });
 
     render(<RecipesPage />);
 
@@ -213,7 +267,13 @@ describe('RecipesPage', () => {
 
   it('shows loading state for individual recipe deletion', async () => {
     const recipes = [{ ...mockRecipe, id: 1, name: 'Recipe to Delete' }];
-    mockGetRecipes.mockResolvedValue(recipes);
+    mockGetRecipes.mockResolvedValue({
+      items: recipes,
+      page: 1,
+      page_size: 9,
+      total: 1,
+      total_pages: 1,
+    });
     mockDeleteRecipe.mockImplementation(() => new Promise(resolve => setTimeout(resolve, 100)));
 
     render(<RecipesPage />);

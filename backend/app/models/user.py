@@ -58,6 +58,9 @@ class User(Base):
     meal_plans = relationship("MealPlan", back_populates="user")
     grocery_lists = relationship("GroceryList", back_populates="user")
     recipe_feedback = relationship("RecipeFeedback", back_populates="user")
+    pantry_items = relationship(
+        "PantryItem", back_populates="user", cascade="all, delete-orphan"
+    )
 
     @property
     def preferences(self):

@@ -5,11 +5,35 @@ import type {
   GroceryItem,
   GroceryItemCreate,
   GroceryItemUpdate,
+  PaginatedResponse,
 } from '../types';
+
+export interface GroceryListParams {
+  page?: number;
+  pageSize?: number;
+  q?: string;
+  sort?: 'created_at' | 'name';
+  order?: 'asc' | 'desc';
+}
 
 class GroceryService {
   async getGroceryLists(skip = 0, limit = 20): Promise<GroceryList[]> {
     const response = await api.get<GroceryList[]>('/grocery/', { params: { skip, limit } });
+    return response.data;
+  }
+
+  async getGroceryListsPaginated(
+    params: GroceryListParams
+  ): Promise<PaginatedResponse<GroceryList>> {
+    const response = await api.get<PaginatedResponse<GroceryList>>('/grocery/list', {
+      params: {
+        page: params.page ?? 1,
+        page_size: params.pageSize ?? 12,
+        q: params.q || undefined,
+        sort: params.sort ?? 'created_at',
+        order: params.order ?? 'desc',
+      },
+    });
     return response.data;
   }
 

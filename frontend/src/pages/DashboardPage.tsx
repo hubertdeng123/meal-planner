@@ -1,14 +1,17 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRightIcon } from '@heroicons/react/24/outline';
-import recipeService from '../services/recipe.service';
-import type { Recipe } from '../types';
 import {
+  ArrowRightIcon,
   SparkleWandIcon,
   RecipeBookIcon,
   ShoppingCartCheckIcon,
   FireStatsIcon,
-} from '../components/ui/BrandIcons';
+} from '../components/ui/AppIcons';
+import recipeService from '../services/recipe.service';
+import type { Recipe } from '../types';
+import { PageHeader } from '../components/ui/PageHeader';
+import { SectionCard } from '../components/ui/SectionCard';
+import { StatPill } from '../components/ui/StatPill';
 
 export default function DashboardPage() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
@@ -58,15 +61,21 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-10">
-      <section className="relative overflow-hidden rounded-[32px] border border-slate-200/70 bg-white p-6 shadow-[0_30px_70px_-55px_rgba(15,23,42,0.8)] md:p-10">
+      <SectionCard className="relative overflow-hidden" bare>
+        <div className="p-6 md:p-10">
+          <PageHeader
+            noMargin
+            title="Ready to make dinner a little more fun?"
+            subtitle="Match what you want, what you have, and how much energy you feel like spending."
+            actions={
+              <Link to="/generate" className="btn-primary">
+                Start with a recipe
+              </Link>
+            }
+          />
+        </div>
         <div className="grid gap-10 lg:grid-cols-[1.2fr_0.8fr]">
-          <div className="space-y-5">
-            <h1 className="font-display text-4xl font-semibold text-slate-900 md:text-5xl">
-              Ready to make dinner a little more fun?
-            </h1>
-            <p className="text-lg text-slate-600">
-              Match what you want, what you have, and how much energy you feel like spending.
-            </p>
+          <div className="space-y-5 px-6 pb-6 md:px-10 md:pb-10">
             <div className="rounded-2xl border border-slate-200/70 bg-white/80 px-4 py-3 text-sm text-slate-600">
               Pick a launchpad to get moving.
             </div>
@@ -78,7 +87,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="surface p-6">
+          <div className="surface mx-6 mb-6 p-6 md:mx-10 md:mb-10">
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
                 Snapshot
@@ -94,41 +103,31 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="mt-6 space-y-4">
-                <div
-                  className="rounded-2xl border px-4 py-3 opacity-0 animate-slide-in-up"
-                  style={{
-                    backgroundColor: 'var(--surface-warm)',
-                    borderColor: 'var(--primary-soft)',
-                    animationDelay: '100ms',
-                    animationFillMode: 'forwards',
-                  }}
-                >
-                  <p className="text-xs font-semibold text-stone-500">Total recipes</p>
-                  <p className="text-2xl font-semibold text-stone-900">{totalRecipes}</p>
-                </div>
-                <div
-                  className="rounded-2xl border border-emerald-100/70 bg-emerald-50/60 px-4 py-3 opacity-0 animate-slide-in-up"
+                <StatPill
+                  label="Total recipes"
+                  value={totalRecipes}
+                  tone="warm"
+                  className="opacity-0 animate-slide-in-up"
+                  style={{ animationDelay: '100ms', animationFillMode: 'forwards' }}
+                />
+                <StatPill
+                  label="Most cooked tag"
+                  value={<span className="capitalize">{favoriteCuisine}</span>}
+                  tone="success"
+                  className="opacity-0 animate-slide-in-up"
                   style={{ animationDelay: '200ms', animationFillMode: 'forwards' }}
-                >
-                  <p className="text-xs font-semibold text-stone-500">Most cooked tag</p>
-                  <p className="text-lg font-semibold text-stone-800 capitalize">
-                    {favoriteCuisine}
-                  </p>
-                </div>
-                <div
-                  className="rounded-2xl border border-stone-200/70 bg-stone-50 px-4 py-3 opacity-0 animate-slide-in-up"
+                />
+                <StatPill
+                  label="Average cook time"
+                  value={avgCookTime > 0 ? `${avgCookTime} minutes` : 'No data yet'}
+                  className="opacity-0 animate-slide-in-up"
                   style={{ animationDelay: '300ms', animationFillMode: 'forwards' }}
-                >
-                  <p className="text-xs font-semibold text-stone-500">Average cook time</p>
-                  <p className="text-lg font-semibold text-stone-800">
-                    {avgCookTime > 0 ? `${avgCookTime} minutes` : 'No data yet'}
-                  </p>
-                </div>
+                />
               </div>
             )}
           </div>
         </div>
-      </section>
+      </SectionCard>
 
       <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
         <div className="space-y-4">

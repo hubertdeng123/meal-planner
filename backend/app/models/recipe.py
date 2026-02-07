@@ -120,8 +120,8 @@ class RecipeFeedback(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     recipe_id = Column(Integer, ForeignKey("recipes.id"), nullable=False)
-    rating = Column(Integer, nullable=False)  # 1-5 scale
-    feedback_text = Column(Text)
+    rating = Column(Integer, nullable=True)  # 1-5 scale
+    notes = Column(Text)
     made_it = Column(Boolean, default=False)  # Did they actually make it?
     would_make_again = Column(Boolean)
     liked = Column(Boolean)  # Did they like it? (separate from rating)
@@ -136,7 +136,7 @@ class RecipeFeedback(Base):
     )
 
     # Relationships
-    user = relationship("User")
+    user = relationship("User", back_populates="recipe_feedback")
     recipe = relationship("Recipe", back_populates="recipe_feedbacks")
 
     def __repr__(self):

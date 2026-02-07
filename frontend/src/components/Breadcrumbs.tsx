@@ -1,6 +1,6 @@
 import { Fragment } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronRightIcon, HomeIcon } from '@heroicons/react/24/outline';
+import { ChevronRightIcon, HomeIcon } from './ui/AppIcons';
 
 export interface BreadcrumbItem {
   label: string;

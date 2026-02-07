@@ -14,6 +14,7 @@ from app.api.endpoints import (
     notifications,
     users,
     meal_plans,
+    pantry,
 )
 from app.services.scheduler_service import scheduler_service
 from braintrust import init_logger
@@ -146,6 +147,12 @@ app.include_router(
     meal_plans.router,
     prefix=f"{settings.API_PREFIX}/meal-plans",
     tags=["meal-plans"],
+)
+
+app.include_router(
+    pantry.router,
+    prefix=f"{settings.API_PREFIX}/pantry",
+    tags=["pantry"],
 )
 
 

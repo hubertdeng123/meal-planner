@@ -179,7 +179,11 @@ export function BasicPreferencesComponent({ preferences, onChange }: PreferenceC
         onChange={value =>
           onChange({
             ...preferences,
-            food_preferences: { ...preferences.food_preferences, preferred_spice_level: value },
+            food_preferences: {
+              ...preferences.food_preferences,
+              preferred_spice_level:
+                value as UserPreferences['food_preferences']['preferred_spice_level'],
+            },
           })
         }
         columns={2}
@@ -383,7 +387,8 @@ export function FoodTypeRulesComponent({ preferences, onChange }: PreferenceComp
               ...preferences,
               food_type_rules: {
                 ...preferences.food_type_rules,
-                meal_complexity_preference: value,
+                meal_complexity_preference:
+                  value as UserPreferences['food_type_rules']['meal_complexity_preference'],
               },
             })
           }
@@ -573,7 +578,11 @@ export function SchedulingRulesComponent({ preferences, onChange }: PreferenceCo
           { value: 'high', label: 'High' },
         ]}
         value={preferences.scheduling_rules.leftover_tolerance}
-        onChange={value => updateSchedulingRules({ leftover_tolerance: value })}
+        onChange={value =>
+          updateSchedulingRules({
+            leftover_tolerance: value as UserPreferences['scheduling_rules']['leftover_tolerance'],
+          })
+        }
       />
     </div>
   );

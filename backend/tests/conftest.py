@@ -51,7 +51,14 @@ def client(db):
     from fastapi import FastAPI
     from fastapi.middleware.cors import CORSMiddleware
     from app.core.config import settings
-    from app.api.endpoints import auth, recipes, grocery, notifications
+    from app.api.endpoints import (
+        auth,
+        recipes,
+        grocery,
+        notifications,
+        meal_plans,
+        pantry,
+    )
 
     test_app = FastAPI(
         title=settings.APP_NAME,
@@ -88,6 +95,16 @@ def client(db):
         notifications.router,
         prefix=f"{settings.API_PREFIX}/notifications",
         tags=["notifications"],
+    )
+    test_app.include_router(
+        meal_plans.router,
+        prefix=f"{settings.API_PREFIX}/meal-plans",
+        tags=["meal-plans"],
+    )
+    test_app.include_router(
+        pantry.router,
+        prefix=f"{settings.API_PREFIX}/pantry",
+        tags=["pantry"],
     )
 
     test_app.dependency_overrides[get_db] = override_get_db

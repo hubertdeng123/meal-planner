@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from datetime import datetime
 
 
@@ -74,16 +74,17 @@ class Recipe(RecipeBase):
 
 
 class RecipeFeedbackCreate(BaseModel):
-    recipe_id: int
     liked: bool
-    rating: int | None = None  # 1-5
+    rating: int | None = Field(default=None, ge=1, le=5)
     notes: str | None = None
 
 
 class RecipeFeedback(RecipeFeedbackCreate):
     id: int
     user_id: int
+    recipe_id: int
     created_at: datetime
+    updated_at: datetime
 
     class Config:
         from_attributes = True
@@ -100,3 +101,11 @@ class RecipeGenerationRequest(BaseModel):
     servings: int = 4
     search_online: bool = True  # Enable web search for recipe inspiration by default
     comments: str | None = None  # Additional notes or special requests for the AI
+
+
+class PaginatedRecipes(BaseModel):
+    items: list[Recipe]
+    page: int
+    page_size: int
+    total: int
+    total_pages: int

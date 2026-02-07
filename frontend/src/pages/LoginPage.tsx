@@ -1,17 +1,17 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ExclamationCircleIcon } from '@heroicons/react/24/outline';
 import authService from '../services/auth.service';
 import { useAuth } from '../hooks/useAuth';
 import type { UserLogin, APIError } from '../types';
 import {
+  ExclamationCircleIcon,
   HungryHelperLogo,
   CalendarMealIcon,
   GroceryBagIcon,
   SuccessCheckIcon,
   OrangeCheckIcon,
   AmberCheckIcon,
-} from '../components/ui/BrandIcons';
+} from '../components/ui/AppIcons';
 
 export default function LoginPage() {
   const navigate = useNavigate();

@@ -2,8 +2,10 @@ import { api } from './api';
 import type {
   Ingredient,
   NutritionFacts,
+  PaginatedResponse,
   Recipe,
   RecipeFeedback,
+  RecipeFeedbackResponse,
   RecipeGenerationRequest,
 } from '../types';
 
@@ -65,21 +67,30 @@ export interface StreamCallbacks {
   onError?: (error: string) => void;
 }
 
+export interface GenerateRecipeStreamOptions {
+  signal?: AbortSignal;
+}
+
+export interface RecipeListParams {
+  page?: number;
+  pageSize?: number;
+  q?: string;
+  tags?: string[];
+  sort?: 'created_at' | 'name';
+  order?: 'asc' | 'desc';
+}
+
 class RecipeService {
   async generateRecipeStream(
     request: RecipeGenerationRequest,
-    callbacks: StreamCallbacks
+    callbacks: StreamCallbacks,
+    options: GenerateRecipeStreamOptions = {}
   ): Promise<void> {
     try {
-      console.log('🚀 Starting recipe stream request...', request);
-
       const token = localStorage.getItem('access_token');
       if (!token) {
         throw new Error('No authentication token found. Please log in.');
       }
-
-      console.log('🔑 Using auth token:', token.substring(0, 20) + '...');
-      console.log('📡 Stream URL:', `${api.defaults.baseURL}/recipes/generate/stream`);
 
       const response = await fetch(`${api.defaults.baseURL}/recipes/generate/stream`, {
         method: 'POST',
@@ -88,14 +99,11 @@ class RecipeService {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(request),
+        signal: options.signal,
       });
-
-      console.log('📥 Response status:', response.status);
-      console.log('📥 Response headers:', Object.fromEntries(response.headers.entries()));
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('❌ HTTP error response:', errorText);
         throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
       }
 
@@ -104,16 +112,13 @@ class RecipeService {
         throw new Error('Response body is not readable');
       }
 
-      console.log('📖 Starting to read stream...');
       const decoder = new TextDecoder();
       let buffer = '';
-      let messageCount = 0;
 
       while (true) {
         const { done, value } = await reader.read();
 
         if (done) {
-          console.log('✅ Stream completed. Total messages:', messageCount);
           break;
         }
 
@@ -126,23 +131,20 @@ class RecipeService {
         for (const line of lines) {
           if (line.startsWith('data: ')) {
             try {
-              messageCount++;
-              console.log(`📨 Message ${messageCount}:`, line);
               const data: StreamMessage = JSON.parse(line.substring(6));
               this.handleStreamMessage(data, callbacks);
             } catch (e) {
-              console.error('❌ Failed to parse SSE data:', e, line);
+              console.error('Failed to parse streaming payload', e);
             }
-          } else if (line.trim() === '') {
-            // Empty line is normal in SSE
-            continue;
-          } else {
-            console.log('⚠️ Non-SSE line received:', line);
           }
         }
       }
     } catch (error) {
-      console.error('❌ Stream error:', error);
+      if (error instanceof Error && error.name === 'AbortError') {
+        callbacks.onError?.('Request cancelled');
+        return;
+      }
+      console.error('Recipe stream failed', error);
       callbacks.onError?.(error instanceof Error ? error.message : 'Unknown streaming error');
     }
   }
@@ -219,7 +221,7 @@ class RecipeService {
         callbacks.onError?.(data.message || 'Unknown error');
         break;
       default:
-        console.log('Unknown message type:', data);
+        console.warn('Unknown stream message type', data.type);
     }
   }
 
@@ -233,6 +235,20 @@ class RecipeService {
     return response.data;
   }
 
+  async getRecipesPaginated(params: RecipeListParams): Promise<PaginatedResponse<Recipe>> {
+    const response = await api.get<PaginatedResponse<Recipe>>('/recipes/list', {
+      params: {
+        page: params.page ?? 1,
+        page_size: params.pageSize ?? 12,
+        q: params.q || undefined,
+        tags: params.tags && params.tags.length > 0 ? params.tags : undefined,
+        sort: params.sort ?? 'created_at',
+        order: params.order ?? 'desc',
+      },
+    });
+    return response.data;
+  }
+
   async updateRecipe(id: number, updates: Partial<Recipe>): Promise<Recipe> {
     const response = await api.put<Recipe>(`/recipes/${id}`, updates);
     return response.data;
@@ -242,11 +258,11 @@ class RecipeService {
     await api.delete(`/recipes/${id}`);
   }
 
-  async addFeedback(
-    recipeId: number,
-    feedback: Omit<RecipeFeedback, 'recipe_id'>
-  ): Promise<RecipeFeedback> {
-    const response = await api.post<RecipeFeedback>(`/recipes/${recipeId}/feedback`, feedback);
+  async addFeedback(recipeId: number, feedback: RecipeFeedback): Promise<RecipeFeedbackResponse> {
+    const response = await api.post<RecipeFeedbackResponse>(
+      `/recipes/${recipeId}/feedback`,
+      feedback
+    );
     return response.data;
   }
 }

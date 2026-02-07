@@ -1,4 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from math import ceil
+from typing import Literal
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import asc, desc
 from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.api.deps import get_current_active_user
@@ -14,6 +18,7 @@ from app.schemas.grocery import (
     GroceryItem,
     GroceryItemCreate,
     GroceryItemUpdate,
+    PaginatedGroceryLists,
 )
 
 router = APIRouter()
@@ -54,6 +59,41 @@ async def get_grocery_lists(
     )
 
     return [_format_grocery_list_response(gl) for gl in grocery_lists]
+
+
+@router.get("/list", response_model=PaginatedGroceryLists)
+async def get_grocery_lists_paginated(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(12, ge=1, le=100),
+    q: str | None = Query(default=None, min_length=1),
+    sort: Literal["created_at", "name"] = Query(default="created_at"),
+    order: Literal["asc", "desc"] = Query(default="desc"),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    """Get user's grocery lists with pagination and optional search."""
+    query = db.query(GroceryListModel).filter(
+        GroceryListModel.user_id == current_user.id
+    )
+
+    if q:
+        query = query.filter(GroceryListModel.name.ilike(f"%{q.strip()}%"))
+
+    sort_column = (
+        GroceryListModel.created_at if sort == "created_at" else GroceryListModel.name
+    )
+    query = query.order_by(desc(sort_column) if order == "desc" else asc(sort_column))
+
+    total = query.count()
+    grocery_lists = query.offset((page - 1) * page_size).limit(page_size).all()
+
+    return {
+        "items": [_format_grocery_list_response(gl) for gl in grocery_lists],
+        "page": page,
+        "page_size": page_size,
+        "total": total,
+        "total_pages": ceil(total / page_size) if total else 0,
+    }
 
 
 @router.get("/{grocery_list_id}", response_model=GroceryList)
