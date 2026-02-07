@@ -1,259 +1,380 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowRightIcon,
-  SparkleWandIcon,
-  RecipeBookIcon,
-  ShoppingCartCheckIcon,
+  ClockIcon,
   FireStatsIcon,
+  PantryIcon,
+  ShoppingCartCheckIcon,
+  SparkleWandIcon,
 } from '../components/ui/AppIcons';
-import recipeService from '../services/recipe.service';
-import type { Recipe } from '../types';
-import { PageHeader } from '../components/ui/PageHeader';
+import { EmptyState } from '../components/ui/EmptyState';
 import { SectionCard } from '../components/ui/SectionCard';
 import { StatPill } from '../components/ui/StatPill';
+import dashboardService from '../services/dashboard.service';
+import type { DashboardActionItem, DashboardSummary } from '../types';
+
+function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
+function actionTone(impact: DashboardActionItem['impact']) {
+  if (impact === 'high') {
+    return {
+      badge: 'bg-red-50 text-red-700 border-red-200',
+      label: 'High impact',
+    };
+  }
+  if (impact === 'medium') {
+    return {
+      badge: 'bg-amber-50 text-amber-700 border-amber-200',
+      label: 'Medium impact',
+    };
+  }
+  return {
+    badge: 'bg-stone-100 text-stone-700 border-stone-200',
+    label: 'Low impact',
+  };
+}
+
+function formatShortDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  }).format(date);
+}
+
+function titleCaseMealType(value: string) {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
 
 export default function DashboardPage() {
-  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    loadRecipes();
+    const loadSummary = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const data = await dashboardService.getDashboardSummary();
+        setSummary(data);
+      } catch (loadError) {
+        console.error('Failed to load dashboard summary:', loadError);
+        setError('Could not load your dashboard right now.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void loadSummary();
   }, []);
 
-  const loadRecipes = async () => {
-    try {
-      const data = await recipeService.getRecipes(0, 100); // Get up to 100 recipes for stats
-      setRecipes(data);
-    } catch (error) {
-      console.error('Failed to load recipes:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Calculate stats from recipes
-  const totalRecipes = recipes.length;
-
-  // Find favorite cuisine from tags
-  const cuisineCounts = recipes.reduce(
-    (acc, recipe) => {
-      recipe.tags.forEach(tag => {
-        acc[tag] = (acc[tag] || 0) + 1;
-      });
-      return acc;
-    },
-    {} as Record<string, number>
+  const todayLabel = useMemo(
+    () =>
+      new Intl.DateTimeFormat('en-US', {
+        weekday: 'long',
+        month: 'short',
+        day: 'numeric',
+      }).format(new Date()),
+    []
   );
 
-  const favoriteCuisine = Object.entries(cuisineCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || '-';
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="h-60 rounded-[2rem] bg-stone-100 animate-pulse" />
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="h-72 rounded-3xl bg-stone-100 animate-pulse" />
+          <div className="h-72 rounded-3xl bg-stone-100 animate-pulse" />
+        </div>
+      </div>
+    );
+  }
 
-  // Calculate average cook time
-  const avgCookTime =
-    recipes.length > 0
-      ? Math.round(
-          recipes.reduce(
-            (sum, r) => sum + (r.prep_time_minutes || 0) + (r.cook_time_minutes || 0),
-            0
-          ) / recipes.length
-        )
-      : 0;
+  if (error || !summary) {
+    return (
+      <EmptyState
+        title="Dashboard unavailable"
+        description={error || 'Something went wrong while loading your dashboard.'}
+        action={
+          <Link className="btn-primary" to="/generate">
+            Generate a recipe
+          </Link>
+        }
+      />
+    );
+  }
+
+  const primaryAction = summary.today_brief.primary_action;
+  const secondaryActions = summary.action_queue.slice(1, 3);
 
   return (
-    <div className="space-y-10">
-      <SectionCard className="relative overflow-hidden" bare>
-        <div className="p-6 md:p-10">
-          <PageHeader
-            noMargin
-            title="Ready to make dinner a little more fun?"
-            subtitle="Match what you want, what you have, and how much energy you feel like spending."
-            actions={
-              <Link to="/generate" className="btn-primary">
-                Start with a recipe
-              </Link>
-            }
-          />
-        </div>
-        <div className="grid gap-10 lg:grid-cols-[1.2fr_0.8fr]">
-          <div className="space-y-5 px-6 pb-6 md:px-10 md:pb-10">
-            <div className="rounded-2xl border border-slate-200/70 bg-white/80 px-4 py-3 text-sm text-slate-600">
-              Pick a launchpad to get moving.
+    <div className="space-y-8">
+      <section className="relative overflow-hidden rounded-[2rem] border border-stone-200/70 bg-gradient-to-br from-orange-50 via-amber-50 to-emerald-50 p-6 shadow-[0_22px_80px_-52px_rgba(28,25,23,0.5)] sm:p-8 lg:p-10">
+        <div className="pointer-events-none absolute -top-16 right-8 h-40 w-40 rounded-full bg-orange-200/40 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-20 left-12 h-48 w-48 rounded-full bg-emerald-200/35 blur-3xl" />
+
+        <div className="relative grid gap-8 xl:grid-cols-[1.25fr_0.75fr]">
+          <div className="space-y-5">
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/80 bg-white/80 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-stone-700">
+              Daily decision cockpit
+            </span>
+
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-stone-600">{todayLabel}</p>
+              <h1 className="text-3xl font-bold leading-tight text-stone-900 sm:text-4xl">
+                {getGreeting()}. {summary.today_brief.headline}
+              </h1>
+              <p className="max-w-2xl text-sm text-stone-700 sm:text-base">
+                {summary.today_brief.subline}
+              </p>
             </div>
-            <div className="flex flex-wrap gap-3 text-xs">
-              <div className="chip">{totalRecipes} recipes in your vault</div>
-              <div className="chip">
-                Avg time: {avgCookTime > 0 ? `${avgCookTime} min` : 'still warming up'}
-              </div>
+
+            <div className="flex flex-wrap gap-3">
+              <Link to={primaryAction.href} className="btn-primary">
+                {primaryAction.label}
+              </Link>
+              {secondaryActions.map(action => (
+                <Link key={action.id} to={action.cta.href} className="btn-secondary">
+                  {action.cta.label}
+                </Link>
+              ))}
             </div>
           </div>
 
-          <div className="surface mx-6 mb-6 p-6 md:mx-10 md:mb-10">
+          <div className="rounded-3xl border border-stone-200/70 bg-white/90 p-5 backdrop-blur-sm">
             <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
-                Snapshot
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">
+                Right now
               </p>
-              <FireStatsIcon size={28} />
+              <FireStatsIcon size={26} />
             </div>
-            {loading ? (
-              <div className="flex items-center justify-center py-10">
-                <div
-                  className="h-8 w-8 animate-spin rounded-full border-b-2"
-                  style={{ borderBottomColor: 'var(--primary)' }}
-                ></div>
+
+            <div className="mt-4 space-y-3">
+              {summary.action_queue.map(action => {
+                const tone = actionTone(action.impact);
+                return (
+                  <div key={action.id} className="rounded-2xl border border-stone-200 bg-white p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-stone-900">{action.title}</p>
+                        <p className="mt-1 text-xs text-stone-600">{action.rationale}</p>
+                      </div>
+                      <span
+                        className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold ${tone.badge}`}
+                      >
+                        {tone.label}
+                      </span>
+                    </div>
+                    <Link
+                      to={action.cta.href}
+                      className="mt-3 inline-flex items-center text-sm font-semibold text-primary hover:text-primary-hover"
+                    >
+                      {action.cta.label}
+                      <ArrowRightIcon className="ml-1 h-4 w-4" />
+                    </Link>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+        <SectionCard
+          title="Plan continuity"
+          subtitle="Keep this week realistic and complete"
+          className="p-6"
+          action={
+            summary.plan_continuity.active_plan_id ? (
+              <Link
+                to={`/meal-plans/${summary.plan_continuity.active_plan_id}`}
+                className="btn-secondary text-sm"
+              >
+                Open plan
+              </Link>
+            ) : null
+          }
+        >
+          <div className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <StatPill
+                label="Completion"
+                value={`${summary.plan_continuity.completion_percent}%`}
+                tone="success"
+              />
+              <StatPill
+                label="Open slots"
+                value={summary.plan_continuity.open_slots}
+                tone={summary.plan_continuity.open_slots > 0 ? 'warm' : 'default'}
+              />
+            </div>
+
+            {summary.plan_continuity.next_slots.length > 0 ? (
+              <div className="space-y-2">
+                {summary.plan_continuity.next_slots.map(slot => (
+                  <Link
+                    key={`${slot.date}-${slot.meal_type}`}
+                    to={slot.href}
+                    className="group flex items-center justify-between rounded-2xl border border-stone-200/70 bg-white px-4 py-3 transition-all hover:-translate-y-0.5 hover:border-stone-300"
+                  >
+                    <div>
+                      <p className="text-sm font-semibold text-stone-900">
+                        {titleCaseMealType(slot.meal_type)} • {formatShortDate(slot.date)}
+                      </p>
+                      <p className="mt-1 text-xs text-stone-600">
+                        {slot.has_recipe
+                          ? 'Assigned recipe in this slot'
+                          : 'Open slot waiting for a recipe'}
+                      </p>
+                    </div>
+                    <ArrowRightIcon className="h-4 w-4 text-stone-400 transition-transform group-hover:translate-x-1" />
+                  </Link>
+                ))}
               </div>
             ) : (
-              <div className="mt-6 space-y-4">
-                <StatPill
-                  label="Total recipes"
-                  value={totalRecipes}
-                  tone="warm"
-                  className="opacity-0 animate-slide-in-up"
-                  style={{ animationDelay: '100ms', animationFillMode: 'forwards' }}
-                />
-                <StatPill
-                  label="Most cooked tag"
-                  value={<span className="capitalize">{favoriteCuisine}</span>}
-                  tone="success"
-                  className="opacity-0 animate-slide-in-up"
-                  style={{ animationDelay: '200ms', animationFillMode: 'forwards' }}
-                />
-                <StatPill
-                  label="Average cook time"
-                  value={avgCookTime > 0 ? `${avgCookTime} minutes` : 'No data yet'}
-                  className="opacity-0 animate-slide-in-up"
-                  style={{ animationDelay: '300ms', animationFillMode: 'forwards' }}
-                />
+              <div className="rounded-2xl border border-dashed border-stone-200 bg-stone-50 p-4 text-sm text-stone-600">
+                No active plan slots yet. Build a plan to unlock week-level guidance.
               </div>
             )}
           </div>
-        </div>
-      </SectionCard>
+        </SectionCard>
 
-      <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="section-title">Quick picks</h2>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Link
-              to="/generate"
-              className="group relative overflow-hidden rounded-3xl border border-stone-200/70 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-stone-300 opacity-0 animate-slide-in-up"
-              style={{ animationDelay: '100ms', animationFillMode: 'forwards' }}
-            >
-              <div className="relative space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="icon-container-premium icon-container-orange">
-                    <SparkleWandIcon size={26} />
-                  </div>
-                  <ArrowRightIcon className="h-5 w-5 text-stone-400 transition-all duration-300 group-hover:translate-x-1 group-hover:text-primary" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-stone-900">Whip up a recipe</h3>
-                  <p className="mt-2 text-sm text-stone-600">Get a fresh recipe in minutes.</p>
-                </div>
-              </div>
+        <SectionCard
+          title="Pantry risk"
+          subtitle="Use expiring ingredients before buying more"
+          className="p-6"
+          action={
+            <Link to={summary.pantry_risk.cta.href} className="btn-secondary text-sm">
+              {summary.pantry_risk.cta.label}
             </Link>
-
-            <Link
-              to="/recipes"
-              className="group relative overflow-hidden rounded-3xl border border-stone-200/70 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-stone-300 opacity-0 animate-slide-in-up"
-              style={{ animationDelay: '200ms', animationFillMode: 'forwards' }}
-            >
-              <div className="relative space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="icon-container-premium icon-container-amber">
-                    <RecipeBookIcon size={26} />
-                  </div>
-                  <ArrowRightIcon className="h-5 w-5 text-stone-400 transition-all duration-300 group-hover:translate-x-1 group-hover:text-amber-500" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-stone-900">Browse recipes</h3>
-                  <p className="mt-2 text-sm text-stone-600">
-                    Revisit the hits and rate your faves.
-                  </p>
-                </div>
-              </div>
-            </Link>
-
-            <Link
-              to="/grocery"
-              className="group relative overflow-hidden rounded-3xl border border-stone-200/70 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-stone-300 sm:col-span-2 opacity-0 animate-slide-in-up"
-              style={{ animationDelay: '300ms', animationFillMode: 'forwards' }}
-            >
-              <div className="relative space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="icon-container-premium icon-container-emerald">
-                    <ShoppingCartCheckIcon size={26} />
-                  </div>
-                  <ArrowRightIcon className="h-5 w-5 text-stone-400 transition-all duration-300 group-hover:translate-x-1 group-hover:text-emerald-500" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-stone-900">Build a grocery list</h3>
-                  <p className="mt-2 text-sm text-stone-600">
-                    Turn recipes into a tidy shopping plan.
-                  </p>
-                </div>
-              </div>
-            </Link>
-          </div>
-        </div>
-
-        <div className="surface p-6">
-          <div className="flex items-center justify-between">
-            <h2 className="section-title">Latest recipes</h2>
-            <Link to="/recipes" className="btn-secondary text-sm">
-              View all
-            </Link>
-          </div>
-
-          {loading ? (
-            <div className="flex items-center justify-center py-10">
-              <div
-                className="h-8 w-8 animate-spin rounded-full border-b-2"
-                style={{ borderBottomColor: 'var(--primary)' }}
-              ></div>
+          }
+        >
+          <div className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <StatPill
+                label="Expiring in 3 days"
+                value={summary.pantry_risk.expiring_3d_count}
+                tone={summary.pantry_risk.expiring_3d_count > 0 ? 'warm' : 'default'}
+              />
+              <StatPill label="Focus" value="Waste prevention" tone="success" />
             </div>
-          ) : recipes.length === 0 ? (
-            <div className="mt-6 rounded-2xl border border-dashed border-stone-200/70 bg-stone-50 p-6 text-center">
-              <p className="text-sm text-stone-600">
-                Your newest recipes will land here once you make a few.
-              </p>
+
+            {summary.pantry_risk.top_items.length > 0 ? (
+              <div className="space-y-2">
+                {summary.pantry_risk.top_items.map(item => (
+                  <div
+                    key={`${item.name}-${item.expires_at}`}
+                    className="flex items-center justify-between rounded-2xl border border-stone-200/70 bg-white px-4 py-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="icon-container-premium icon-container-emerald icon-container-sm">
+                        <PantryIcon size={16} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-stone-900">{item.name}</p>
+                        <p className="text-xs text-stone-600">
+                          Expires {formatShortDate(item.expires_at)}
+                        </p>
+                      </div>
+                    </div>
+                    <SparkleWandIcon className="h-4 w-4 text-emerald-600" />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-dashed border-stone-200 bg-stone-50 p-4 text-sm text-stone-600">
+                Nothing urgent in pantry right now.
+              </div>
+            )}
+          </div>
+        </SectionCard>
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
+        <SectionCard
+          title="Shopping continuity"
+          subtitle="Pick up where your latest list left off"
+          className="p-6"
+        >
+          {summary.recent_context.recent_grocery_list ? (
+            <Link
+              to={summary.recent_context.recent_grocery_list.href}
+              className="group flex items-center justify-between rounded-2xl border border-stone-200/70 bg-white px-4 py-3 transition-all hover:-translate-y-0.5 hover:border-stone-300"
+            >
+              <div className="flex items-center gap-3">
+                <div className="icon-container-premium icon-container-emerald">
+                  <ShoppingCartCheckIcon size={20} />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-stone-900">Latest grocery list</p>
+                  <p className="text-xs text-stone-600">
+                    {summary.recent_context.recent_grocery_list.unchecked_count} item(s) still
+                    unchecked
+                  </p>
+                </div>
+              </div>
+              <ArrowRightIcon className="h-4 w-4 text-stone-400 transition-transform group-hover:translate-x-1" />
+            </Link>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-stone-200 bg-stone-50 p-4 text-sm text-stone-600">
+              No active grocery list yet. Build one from recipes or a meal plan.
+            </div>
+          )}
+        </SectionCard>
+
+        <SectionCard
+          title="Recent context"
+          subtitle="Continue from your latest saved recipes"
+          className="p-6"
+        >
+          {summary.recent_context.recent_recipes.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-stone-200 bg-stone-50 p-6 text-center">
+              <p className="text-sm text-stone-600">No saved recipes yet.</p>
               <Link to="/generate" className="btn-primary mt-4 inline-flex">
-                Make your first recipe
+                Generate first recipe
               </Link>
             </div>
           ) : (
-            <div className="mt-6 space-y-3">
-              {recipes.slice(0, 3).map((recipe, index) => (
+            <div className="space-y-3">
+              {summary.recent_context.recent_recipes.map(recipe => (
                 <Link
                   key={recipe.id}
                   to={`/recipes/${recipe.id}`}
-                  className="group flex items-start justify-between rounded-2xl border border-stone-200/70 bg-white px-4 py-3 transition-all duration-300 hover:-translate-y-0.5 hover:border-stone-300 opacity-0 animate-slide-in-up"
-                  style={{ animationDelay: `${index * 100}ms`, animationFillMode: 'forwards' }}
+                  className="group flex items-start justify-between rounded-2xl border border-stone-200/70 bg-white px-4 py-3 transition-all hover:-translate-y-0.5 hover:border-stone-300"
                 >
-                  <div className="space-y-2">
+                  <div>
                     <p className="text-sm font-semibold text-stone-900">{recipe.name}</p>
-                    <div className="flex flex-wrap gap-2">
-                      {recipe.tags.slice(0, 3).map(tag => (
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-stone-100 px-2.5 py-1 text-[11px] font-semibold text-stone-600">
+                        <ClockIcon className="h-3.5 w-3.5" />
+                        {recipe.total_minutes > 0 ? `${recipe.total_minutes} min` : 'Time not set'}
+                      </span>
+                      {recipe.tags.slice(0, 2).map(tag => (
                         <span
                           key={tag}
-                          className="rounded-full px-2 py-1 text-[0.65rem] font-semibold"
-                          style={{
-                            backgroundColor: 'var(--primary-soft)',
-                            color: 'var(--primary-hover)',
-                          }}
+                          className="rounded-full bg-orange-50 px-2.5 py-1 text-[11px] font-semibold text-orange-700"
                         >
                           {tag}
                         </span>
                       ))}
                     </div>
                   </div>
-                  <ArrowRightIcon className="h-4 w-4 text-stone-400 transition-all duration-300 group-hover:translate-x-1" />
+                  <ArrowRightIcon className="mt-1 h-4 w-4 text-stone-400 transition-transform group-hover:translate-x-1" />
                 </Link>
               ))}
             </div>
           )}
-        </div>
+        </SectionCard>
       </section>
     </div>
   );

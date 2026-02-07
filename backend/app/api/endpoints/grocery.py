@@ -20,6 +20,12 @@ from app.schemas.grocery import (
     GroceryItemUpdate,
     PaginatedGroceryLists,
 )
+from app.services.ingredient_service import (
+    category_sort_key,
+    categorize_ingredient,
+    normalize_ingredient_name,
+    sorted_ingredient_entries,
+)
 
 router = APIRouter()
 
@@ -309,9 +315,12 @@ async def create_grocery_list_from_recipes(
 
     for recipe in recipes:
         for ingredient in recipe.ingredients:
-            name = ingredient["name"].lower()
+            raw_name = ingredient.get("name") or ""
+            name = normalize_ingredient_name(raw_name)
+            if not name:
+                continue
             quantity = ingredient.get("quantity", 0)
-            unit = ingredient.get("unit", "")
+            unit = (ingredient.get("unit") or "").strip().lower()
 
             if name in ingredient_dict:
                 if ingredient_dict[name]["unit"] == unit:
@@ -321,16 +330,16 @@ async def create_grocery_list_from_recipes(
                     ingredient_dict[name_with_unit] = {
                         "quantity": quantity,
                         "unit": unit,
-                        "category": _categorize_ingredient(name),
+                        "category": categorize_ingredient(name),
                     }
             else:
                 ingredient_dict[name] = {
                     "quantity": quantity,
                     "unit": unit,
-                    "category": _categorize_ingredient(name),
+                    "category": categorize_ingredient(name),
                 }
 
-    for name, details in ingredient_dict.items():
+    for name, details in sorted_ingredient_entries(ingredient_dict):
         db_item = GroceryItemModel(
             grocery_list_id=db_grocery_list.id,
             name=name,
@@ -346,86 +355,12 @@ async def create_grocery_list_from_recipes(
     return _format_grocery_list_response(db_grocery_list)
 
 
-def _categorize_ingredient(ingredient_name: str) -> str:
-    """Categorize ingredient by name"""
-    ingredient_name = ingredient_name.lower()
-
-    produce = [
-        "tomato",
-        "onion",
-        "garlic",
-        "potato",
-        "carrot",
-        "bell pepper",
-        "mushroom",
-        "spinach",
-        "lettuce",
-        "cucumber",
-        "avocado",
-        "lemon",
-        "lime",
-        "parsley",
-        "basil",
-        "cilantro",
-        "ginger",
-        "apple",
-        "banana",
-    ]
-    dairy = [
-        "milk",
-        "cheese",
-        "butter",
-        "cream",
-        "yogurt",
-        "egg",
-        "mozzarella",
-        "parmesan",
-    ]
-    meat = [
-        "chicken",
-        "beef",
-        "pork",
-        "fish",
-        "salmon",
-        "shrimp",
-        "turkey",
-        "bacon",
-        "sausage",
-    ]
-    pantry = [
-        "rice",
-        "pasta",
-        "flour",
-        "sugar",
-        "salt",
-        "pepper",
-        "oil",
-        "vinegar",
-        "soy sauce",
-        "olive oil",
-        "bread",
-        "beans",
-        "lentils",
-    ]
-
-    for item in produce:
-        if item in ingredient_name:
-            return "Produce"
-    for item in dairy:
-        if item in ingredient_name:
-            return "Dairy"
-    for item in meat:
-        if item in ingredient_name:
-            return "Meat & Seafood"
-    for item in pantry:
-        if item in ingredient_name:
-            return "Pantry"
-
-    return "Other"
-
-
 def _format_grocery_list_response(grocery_list: GroceryListModel) -> dict:
     """Format grocery list model to response schema"""
+    sorted_items = sorted(
+        grocery_list.items,
+        key=lambda item: category_sort_key(item.category, item.name),
+    )
     return {
         "id": grocery_list.id,
         "user_id": grocery_list.user_id,
@@ -433,7 +368,7 @@ def _format_grocery_list_response(grocery_list: GroceryListModel) -> dict:
         "name": grocery_list.name,
         "created_at": grocery_list.created_at,
         "updated_at": grocery_list.updated_at,
-        "items": [_format_grocery_item_response(item) for item in grocery_list.items],
+        "items": [_format_grocery_item_response(item) for item in sorted_items],
     }
 
 

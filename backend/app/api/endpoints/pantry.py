@@ -40,7 +40,13 @@ async def get_pantry_items(
         "expires_at": PantryItemModel.expires_at,
     }
     sort_column = sort_columns[sort]
-    query = query.order_by(desc(sort_column) if order == "desc" else asc(sort_column))
+    if sort == "expires_at":
+        sort_expr = desc(sort_column) if order == "desc" else asc(sort_column)
+        query = query.order_by(sort_expr.nulls_last(), desc(PantryItemModel.updated_at))
+    else:
+        query = query.order_by(
+            desc(sort_column) if order == "desc" else asc(sort_column)
+        )
 
     total = query.count()
     items = query.offset((page - 1) * page_size).limit(page_size).all()

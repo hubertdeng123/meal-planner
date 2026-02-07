@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import recipeService, { type StreamCallbacks } from '../services/recipe.service';
 import type { RecipeGenerationRequest } from '../types';
 import { RecipeForm } from '../components/recipe/RecipeForm';
@@ -85,6 +85,7 @@ function SuccessCelebration({
 
 export default function GenerateRecipePage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { addToast } = useToast();
   const activeRequest = useRef<AbortController | null>(null);
   const [loading, setLoading] = useState(false);
@@ -138,6 +139,22 @@ export default function GenerateRecipePage() {
       activeRequest.current?.abort();
     };
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const pantryPrefill = params
+      .getAll('use')
+      .flatMap(value => value.split(','))
+      .map(value => value.trim())
+      .filter(Boolean);
+
+    if (pantryPrefill.length === 0) return;
+
+    setFormData(prev => ({
+      ...prev,
+      ingredients_to_use: Array.from(new Set([...prev.ingredients_to_use, ...pantryPrefill])),
+    }));
+  }, [location.search]);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();

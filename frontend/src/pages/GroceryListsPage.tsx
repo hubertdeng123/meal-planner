@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { ShoppingCartIcon, PlusIcon, TrashIcon, CalendarIcon } from '../components/ui/AppIcons';
 import groceryService from '../services/grocery.service';
@@ -29,10 +29,6 @@ export default function GroceryListsPage() {
   const pageSize = 9;
 
   useEffect(() => {
-    loadData();
-  }, [page, searchQuery]);
-
-  useEffect(() => {
     const timer = setTimeout(() => {
       setPage(1);
       setSearchQuery(searchInput.trim());
@@ -40,7 +36,7 @@ export default function GroceryListsPage() {
     return () => clearTimeout(timer);
   }, [searchInput]);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const [groceryListsData, recipesData] = await Promise.all([
@@ -62,7 +58,11 @@ export default function GroceryListsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [addToast, page, pageSize, searchQuery]);
+
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
 
   const handleCreateFromRecipes = async () => {
     if (selectedRecipes.length === 0) return;

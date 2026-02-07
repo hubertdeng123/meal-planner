@@ -1,6 +1,7 @@
 from sqlalchemy import (
     Boolean,
     Column,
+    CheckConstraint,
     Integer,
     String,
     Date,
@@ -17,6 +18,12 @@ from app.db.database import Base
 
 class MealPlan(Base):
     __tablename__ = "meal_plans"
+    __table_args__ = (
+        CheckConstraint(
+            "start_date <= end_date",
+            name="ck_meal_plans_date_range",
+        ),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))

@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 from datetime import date, datetime
 from typing import Optional, List, Dict, Any
 
@@ -43,6 +43,12 @@ class MealPlanBase(BaseModel):
     special_notes: Optional[Dict[str, Any]] = None
     week_dietary_restrictions: Optional[List[str]] = None
     week_food_preferences: Optional[Dict[str, Any]] = None
+
+    @model_validator(mode="after")
+    def validate_date_range(self):
+        if self.start_date > self.end_date:
+            raise ValueError("start_date must be on or before end_date")
+        return self
 
 
 class MealPlanCreate(MealPlanBase):

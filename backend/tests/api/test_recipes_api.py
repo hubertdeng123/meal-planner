@@ -95,8 +95,47 @@ def test_paginated_recipe_list_endpoint(client, auth_headers, db, test_user):
     payload = response.json()
     assert payload["page"] == 1
     assert payload["page_size"] == 10
-    assert payload["total"] >= len(payload["items"])
+    assert payload["total"] == 8
+    assert len(payload["items"]) == 8
     assert isinstance(payload["items"], list)
+    assert all("quick" in recipe["tags"] for recipe in payload["items"])
+
+
+def test_paginated_recipe_list_filters_multiple_tags(
+    client, auth_headers, db, test_user
+):
+    recipes = [
+        ("Quick Vegan Bowl", ["quick", "vegan"]),
+        ("Quick Vegan Curry", ["quick", "vegan", "dinner"]),
+        ("Quick Pasta", ["quick", "dinner"]),
+        ("Vegan Soup", ["vegan", "lunch"]),
+    ]
+    for name, tags in recipes:
+        db.add(
+            Recipe(
+                user_id=test_user.id,
+                name=name,
+                instructions=["Step 1"],
+                ingredients=[{"name": "salt", "quantity": 1, "unit": "tsp"}],
+                servings=2,
+                tags=tags,
+                source="test",
+            )
+        )
+    db.commit()
+
+    response = client.get(
+        "/api/v1/recipes/list?page=1&page_size=10&tags=quick&tags=vegan",
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 2
+    assert len(payload["items"]) == 2
+    assert all(
+        "quick" in recipe["tags"] and "vegan" in recipe["tags"]
+        for recipe in payload["items"]
+    )
 
 
 def test_meal_plan_autofill_and_grocery_generation(

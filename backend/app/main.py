@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 from app.core.config import settings
 from app.api.endpoints import (
     auth,
+    dashboard,
     recipes,
     grocery,
     notifications,
@@ -71,6 +72,27 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+ALLOWED_ORIGINS = [
+    "http://localhost:3000",  # React dev server
+    "http://localhost:5173",  # Vite dev server
+    "http://localhost:5174",  # Vite alternative port
+    "http://127.0.0.1:3000",  # React dev server (loopback IP)
+    "http://127.0.0.1:5173",  # Vite dev server (loopback IP)
+    "http://127.0.0.1:5174",  # Vite alternative port (loopback IP)
+    settings.BASE_URL,  # Frontend URL from config
+]
+
+
+def rate_limit_exceeded_handler(request, exc):
+    """Attach CORS headers for rate-limit responses so browsers can read 429 details."""
+    response = _rate_limit_exceeded_handler(request, exc)
+    origin = request.headers.get("origin")
+    if origin and origin in ALLOWED_ORIGINS:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Vary"] = "Origin"
+    return response
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -96,17 +118,12 @@ app = FastAPI(
 
 # Rate limiting
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",  # React dev server
-        "http://localhost:5173",  # Vite dev server
-        "http://localhost:5174",  # Vite alternative port
-        settings.BASE_URL,  # Frontend URL from config
-    ],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=[
@@ -153,6 +170,12 @@ app.include_router(
     pantry.router,
     prefix=f"{settings.API_PREFIX}/pantry",
     tags=["pantry"],
+)
+
+app.include_router(
+    dashboard.router,
+    prefix=f"{settings.API_PREFIX}/dashboard",
+    tags=["dashboard"],
 )
 
 

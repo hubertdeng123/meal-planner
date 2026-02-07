@@ -31,15 +31,18 @@ const navigation = [
 interface LayoutProps {
   children: React.ReactNode;
   breadcrumbs?: React.ReactNode; // Optional breadcrumbs to render above content
+  mode?: 'full' | 'condensed' | 'focus';
 }
 
-export default function Layout({ children, breadcrumbs }: LayoutProps) {
+export default function Layout({ children, breadcrumbs, mode = 'full' }: LayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { logout } = useAuth();
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 });
+  const isFocusMode = mode === 'focus';
+  const isCondensedMode = mode === 'condensed';
 
   useEffect(() => {
     if (isProfileMenuOpen && buttonRef.current) {
@@ -62,8 +65,11 @@ export default function Layout({ children, breadcrumbs }: LayoutProps) {
 
   return (
     <div className="app-shell relative overflow-hidden">
-      <Disclosure as="nav" className="sticky top-4 z-40">
-        {({ open }) => (
+      <Disclosure
+        as="nav"
+        className={classNames('z-40', isFocusMode ? 'sticky top-2' : 'sticky top-4')}
+      >
+        {({ open, close }) => (
           <>
             <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
               <div className="relative overflow-hidden glass-panel">
@@ -74,7 +80,12 @@ export default function Layout({ children, breadcrumbs }: LayoutProps) {
                 />
                 <div className="absolute bottom-2 left-8 h-10 w-10 rounded-full bg-emerald-200/40 blur-xl pointer-events-none" />
 
-                <div className="relative flex h-16 justify-between px-4 sm:px-6">
+                <div
+                  className={classNames(
+                    'relative flex justify-between px-4 sm:px-6',
+                    isFocusMode ? 'h-12' : isCondensedMode ? 'h-14' : 'h-16'
+                  )}
+                >
                   <div className="flex">
                     <div className="flex flex-shrink-0 items-center">
                       <Link
@@ -84,40 +95,57 @@ export default function Layout({ children, breadcrumbs }: LayoutProps) {
                         <div className="h-8 w-8 rounded-xl gradient-primary flex items-center justify-center overflow-hidden">
                           <HungryHelperLogo size={28} />
                         </div>
-                        <h1 className="font-display text-lg font-semibold text-slate-900">
+                        <h1
+                          className={classNames(
+                            'font-display font-semibold text-slate-900',
+                            isFocusMode ? 'text-sm' : 'text-lg'
+                          )}
+                        >
                           Hungry Helper
                         </h1>
                       </Link>
                     </div>
-                    <div className="hidden md:ml-6 md:flex md:items-center md:space-x-2">
-                      {navigation.map(item => {
-                        const Icon = item.icon;
-                        const active = isActive(item.href);
-                        return (
-                          <Link
-                            key={item.href}
-                            to={item.href}
-                            className={classNames(
-                              'relative nav-pill transition-all duration-200',
-                              active ? 'nav-pill-active' : ''
-                            )}
-                            style={active ? { color: 'var(--primary-hover)' } : undefined}
-                          >
-                            <Icon
-                              className={classNames('mr-2 h-4 w-4', active ? '' : '')}
-                              style={active ? { color: 'var(--primary)' } : undefined}
-                            />
-                            {item.name}
-                            {active && (
-                              <span
-                                className="absolute -bottom-0.5 left-0 right-0 mx-auto w-3/5 h-0.5 rounded-full animate-scale-in origin-center"
-                                style={{ backgroundColor: 'var(--primary)' }}
+                    {isFocusMode ? (
+                      <div className="hidden md:ml-4 md:flex md:items-center">
+                        <Link to="/dashboard" className="btn-secondary !px-4 !py-2 text-xs">
+                          Back to dashboard
+                        </Link>
+                      </div>
+                    ) : (
+                      <div className="hidden md:ml-6 md:flex md:items-center md:space-x-2">
+                        {navigation.map(item => {
+                          const Icon = item.icon;
+                          const active = isActive(item.href);
+                          return (
+                            <Link
+                              key={item.href}
+                              to={item.href}
+                              className={classNames(
+                                'relative nav-pill transition-all duration-200',
+                                active ? 'nav-pill-active' : '',
+                                isCondensedMode ? 'px-3 py-1.5 text-xs' : ''
+                              )}
+                              style={active ? { color: 'var(--primary-hover)' } : undefined}
+                            >
+                              <Icon
+                                className={classNames(
+                                  'mr-2 h-4 w-4',
+                                  isCondensedMode ? 'mr-1.5 h-3.5 w-3.5' : ''
+                                )}
+                                style={active ? { color: 'var(--primary)' } : undefined}
                               />
-                            )}
-                          </Link>
-                        );
-                      })}
-                    </div>
+                              {item.name}
+                              {active && (
+                                <span
+                                  className="absolute -bottom-0.5 left-0 right-0 mx-auto w-3/5 h-0.5 rounded-full animate-scale-in origin-center"
+                                  style={{ backgroundColor: 'var(--primary)' }}
+                                />
+                              )}
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                   <div className="hidden sm:ml-6 sm:flex sm:items-center">
                     <div className="relative ml-3">
@@ -168,7 +196,12 @@ export default function Layout({ children, breadcrumbs }: LayoutProps) {
                         )}
                     </div>
                   </div>
-                  <div className="-mr-2 flex items-center sm:hidden">
+                  <div
+                    className={classNames(
+                      '-mr-2 flex items-center sm:hidden',
+                      isFocusMode ? 'hidden' : ''
+                    )}
+                  >
                     <Disclosure.Button
                       className="inline-flex items-center justify-center rounded-full border border-stone-200/70 bg-white/90 p-2 text-stone-700 shadow-sm transition-all duration-200 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-inset"
                       style={{ '--tw-ring-color': 'var(--primary-soft)' } as React.CSSProperties}
@@ -184,7 +217,7 @@ export default function Layout({ children, breadcrumbs }: LayoutProps) {
                 </div>
               </div>
 
-              <Disclosure.Panel className="md:hidden">
+              <Disclosure.Panel className={classNames('md:hidden', isFocusMode ? 'hidden' : '')}>
                 <div className="mt-3 rounded-3xl border border-stone-200/70 bg-white/95 p-3 shadow-sm animate-slide-in-up">
                   <div className="space-y-1">
                     {navigation.map((item, index) => {
@@ -194,6 +227,7 @@ export default function Layout({ children, breadcrumbs }: LayoutProps) {
                         <Link
                           key={item.href}
                           to={item.href}
+                          onClick={() => close()}
                           className={classNames(
                             'flex w-full items-center rounded-2xl px-4 py-3 text-left text-base font-medium transition-all duration-200 opacity-0 animate-slide-in-up',
                             active
@@ -223,13 +257,17 @@ export default function Layout({ children, breadcrumbs }: LayoutProps) {
                   <div className="mt-3 border-t-2 border-stone-200 pt-3">
                     <Link
                       to="/settings"
+                      onClick={() => close()}
                       className="flex w-full items-center rounded-2xl px-4 py-3 text-left text-base font-medium text-stone-600 hover:bg-stone-50 hover:text-stone-900 transition-all duration-200"
                     >
                       <Cog6ToothIcon className="mr-3 h-6 w-6 text-stone-400" />
                       Settings
                     </Link>
                     <button
-                      onClick={handleLogout}
+                      onClick={() => {
+                        close();
+                        handleLogout();
+                      }}
                       className="flex w-full items-center rounded-2xl px-4 py-3 text-left text-base font-medium text-stone-600 hover:bg-stone-50 hover:text-stone-900 transition-all duration-200"
                     >
                       Sign out
@@ -242,7 +280,12 @@ export default function Layout({ children, breadcrumbs }: LayoutProps) {
         )}
       </Disclosure>
 
-      <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 lg:py-10 animate-fade-in">
+      <main
+        className={classNames(
+          'mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 animate-fade-in',
+          isFocusMode ? 'py-6 lg:py-8' : 'py-8 lg:py-10'
+        )}
+      >
         {breadcrumbs}
         {children}
       </main>

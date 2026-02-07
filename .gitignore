@@ -177,6 +177,7 @@ log/
 *.tmp
 *.temp
 *~
+.playwright-mcp/
 
 # Backup files
 *.bak

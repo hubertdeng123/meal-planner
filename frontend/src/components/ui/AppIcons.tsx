@@ -5,7 +5,6 @@ import {
   Bars3Icon as Bars3HeroIcon,
   BellIcon as BellHeroIcon,
   BoltIcon as BoltHeroIcon,
-  CalendarIcon as CalendarHeroIcon,
   CheckCircleIcon as CheckCircleHeroIcon,
   CheckIcon as CheckHeroIcon,
   ChevronDownIcon as ChevronDownHeroIcon,
@@ -24,7 +23,6 @@ import {
   PlusCircleIcon as PlusCircleHeroIcon,
   PlusIcon as PlusHeroIcon,
   ScaleIcon as ScaleHeroIcon,
-  ShoppingCartIcon as ShoppingCartHeroIcon,
   StarIcon as StarHeroIcon,
   TrashIcon as TrashHeroIcon,
   UserCircleIcon as UserCircleHeroIcon,
@@ -172,7 +170,7 @@ export const ShoppingBagIcon = withBrandIcon(GroceryBagBrandIcon);
 export const PlusCircleIcon = withHeroIcon(PlusCircleHeroIcon);
 export const CalendarDaysIcon = withBrandIcon(CalendarMealBrandIcon);
 export const ArchiveBoxIcon = withBrandIcon(PantryJarIcon);
-export const ShoppingCartIcon = withHeroIcon(ShoppingCartHeroIcon);
+export const ShoppingCartIcon = withBrandIcon(ShoppingCartCheckBrandIcon);
 export const PlusIcon = withHeroIcon(PlusHeroIcon);
 export const TrashIcon = withHeroIcon(TrashHeroIcon);
 export const CheckIcon = withHeroIcon(CheckHeroIcon);
@@ -183,7 +181,7 @@ export const EnvelopeIcon = withHeroIcon(EnvelopeHeroIcon);
 export const ChevronDownIcon = withHeroIcon(ChevronDownHeroIcon);
 export const ChevronLeftIcon = withHeroIcon(ChevronLeftHeroIcon);
 export const ChevronRightIcon = withHeroIcon(ChevronRightHeroIcon);
-export const CalendarIcon = withHeroIcon(CalendarHeroIcon);
+export const CalendarIcon = withBrandIcon(CalendarMealBrandIcon);
 export const ClockIcon = withHeroIcon(ClockHeroIcon);
 export const UserGroupIcon = withHeroIcon(UserGroupHeroIcon);
 export const BoltIcon = withHeroIcon(BoltHeroIcon);

@@ -31,9 +31,7 @@ class SchedulerService:
             # Schedule weekly reminder checks
             self.scheduler.add_job(
                 func=self.check_weekly_reminders,
-                trigger=CronTrigger(
-                    hour=0, minute=0
-                ),  # Run every hour at the top of the hour
+                trigger=CronTrigger(minute=0),  # Run every hour at the top of the hour
                 id="weekly_reminder_check",
                 name="Check for weekly meal planning reminders",
                 replace_existing=True,

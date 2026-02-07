@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ShoppingCartIcon,
@@ -32,6 +32,17 @@ interface GroupedItems {
   [category: string]: GroceryItem[];
 }
 
+const CATEGORY_ORDER = ['Produce', 'Meat & Seafood', 'Dairy', 'Pantry', 'Other'] as const;
+
+function sortCategoryNames(a: string, b: string) {
+  const aIndex = CATEGORY_ORDER.indexOf(a as (typeof CATEGORY_ORDER)[number]);
+  const bIndex = CATEGORY_ORDER.indexOf(b as (typeof CATEGORY_ORDER)[number]);
+  const aRank = aIndex === -1 ? CATEGORY_ORDER.length : aIndex;
+  const bRank = bIndex === -1 ? CATEGORY_ORDER.length : bIndex;
+  if (aRank !== bRank) return aRank - bRank;
+  return a.localeCompare(b);
+}
+
 export default function GroceryListDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -60,6 +71,7 @@ export default function GroceryListDetailPage() {
   const [itemToDelete, setItemToDelete] = useState<GroceryItem | null>(null);
   const [showArchiveDialog, setShowArchiveDialog] = useState(false);
   const [archiving, setArchiving] = useState(false);
+  const [bulkUpdating, setBulkUpdating] = useState(false);
 
   const loadGroceryList = useCallback(async () => {
     if (!id) return;
@@ -298,6 +310,47 @@ export default function GroceryListDetailPage() {
     setEmailErrors([]);
   };
 
+  const applyBulkCheckState = async (
+    items: GroceryItem[],
+    checked: boolean,
+    successMessage: string
+  ) => {
+    if (!groceryList || items.length === 0) return;
+
+    setBulkUpdating(true);
+    try {
+      const updatedItems = await Promise.all(
+        items.map(item => groceryService.updateGroceryItem(groceryList.id, item.id, { checked }))
+      );
+
+      const updatedById = new Map(updatedItems.map(item => [item.id, item]));
+      setGroceryList({
+        ...groceryList,
+        items: groceryList.items.map(item => updatedById.get(item.id) || item),
+      });
+      addToast(successMessage, 'success');
+    } catch (error) {
+      console.error('Failed bulk grocery update:', error);
+      addToast('Could not update those items. Try again?', 'error');
+    } finally {
+      setBulkUpdating(false);
+    }
+  };
+
+  const handleUncheckAll = async () => {
+    if (!groceryList) return;
+    const checkedItems = groceryList.items.filter(item => item.checked);
+    if (checkedItems.length === 0) {
+      addToast('There are no checked items to reset.', 'info');
+      return;
+    }
+    await applyBulkCheckState(
+      checkedItems,
+      false,
+      `Unchecked ${checkedItems.length} item${checkedItems.length === 1 ? '' : 's'}.`
+    );
+  };
+
   const groupItemsByCategory = (items: GroceryItem[]): GroupedItems => {
     return items.reduce((groups, item) => {
       const category = item.category || 'Other';
@@ -315,6 +368,13 @@ export default function GroceryListDetailPage() {
       (groceryList.items.filter(item => item.checked).length / groceryList.items.length) * 100
     );
   };
+
+  const groupedItems = useMemo(
+    () => (groceryList ? groupItemsByCategory(groceryList.items) : {}),
+    [groceryList]
+  );
+  const checkedCount = groceryList ? groceryList.items.filter(item => item.checked).length : 0;
+  const completionPercentage = getCompletionPercentage();
 
   if (loading) {
     return (
@@ -335,7 +395,6 @@ export default function GroceryListDetailPage() {
     );
   }
 
-  const groupedItems = groupItemsByCategory(groceryList.items);
   const filteredGroupedItems = hideChecked
     ? Object.fromEntries(
         Object.entries(groupedItems).map(([category, items]) => [
@@ -346,7 +405,7 @@ export default function GroceryListDetailPage() {
     : groupedItems;
   const categories = Object.keys(filteredGroupedItems)
     .filter(category => filteredGroupedItems[category].length > 0)
-    .sort();
+    .sort(sortCategoryNames);
 
   return (
     <div>
@@ -454,49 +513,51 @@ export default function GroceryListDetailPage() {
         {/* Progress with celebration at 100% */}
         <div
           className={`surface progress-fun p-4 transition-all duration-500 sticky top-20 z-20 ${
-            getCompletionPercentage() === 100
-              ? 'animate-celebration-glow ring-2 ring-emerald-300'
-              : ''
+            completionPercentage === 100 ? 'animate-celebration-glow ring-2 ring-emerald-300' : ''
           }`}
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-stone-700">Progress</span>
             <span className="text-sm text-stone-500">
-              {groceryList.items.filter(item => item.checked).length} of {groceryList.items.length}{' '}
-              checked
+              {checkedCount} of {groceryList.items.length} checked
             </span>
           </div>
           <div className="relative w-full bg-stone-200 rounded-full h-2.5 overflow-hidden">
             <div
-              className={`h-full rounded-full transition-all duration-500 ease-out ${
-                getCompletionPercentage() === 100 ? 'bg-emerald-500' : 'bg-emerald-500'
-              }`}
-              style={{ width: `${getCompletionPercentage()}%` }}
+              className="h-full rounded-full transition-all duration-500 ease-out bg-emerald-500"
+              style={{ width: `${completionPercentage}%` }}
             />
-            {getCompletionPercentage() === 100 && (
+            {completionPercentage === 100 && (
               <div className="absolute inset-0 bg-emerald-400/30 animate-pulse rounded-full" />
             )}
           </div>
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs">
-            {getCompletionPercentage() === 100 ? (
+            {completionPercentage === 100 ? (
               <InlineStatus label="All done" tone="success" className="animate-bounce-in" />
             ) : (
-              <InlineStatus label={`${getCompletionPercentage()}% done`} tone="neutral" />
+              <InlineStatus label={`${completionPercentage}% done`} tone="neutral" />
             )}
-            <label className="inline-flex items-center space-x-2 text-stone-500">
-              <input
-                type="checkbox"
-                checked={hideChecked}
-                onChange={() => setHideChecked(!hideChecked)}
-                className="h-4 w-4 rounded border-stone-300 text-emerald-600 focus:ring-emerald-500"
-              />
-              <span>Hide checked items</span>
-            </label>
+            <span className="text-stone-500">Tap-friendly controls below speed up shopping.</span>
+          </div>
+          <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
+            <button
+              className="btn-secondary !px-4 !py-2.5 text-xs"
+              disabled={bulkUpdating || checkedCount === 0}
+              onClick={handleUncheckAll}
+            >
+              Uncheck all
+            </button>
+            <button
+              className="btn-secondary !px-4 !py-2.5 text-xs"
+              onClick={() => setHideChecked(prev => !prev)}
+            >
+              {hideChecked ? 'Show checked' : 'Collapse checked'}
+            </button>
           </div>
         </div>
 
         {/* Completion banner - shown when 100% done */}
-        {getCompletionPercentage() === 100 && groceryList.items.length > 0 && (
+        {completionPercentage === 100 && groceryList.items.length > 0 && (
           <div
             className="mt-4 p-5 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 animate-slide-in-up"
             style={{ animationFillMode: 'forwards' }}
@@ -565,12 +626,12 @@ export default function GroceryListDetailPage() {
                     recentlyChecked.has(item.id) ? 'bg-emerald-50' : ''
                   }`}
                 >
-                  <label className="flex items-center mr-3 relative">
+                  <label className="flex h-10 w-10 items-center justify-center mr-2 relative rounded-full hover:bg-stone-100">
                     <input
                       type="checkbox"
                       checked={item.checked}
                       onChange={() => handleToggleItem(item)}
-                      className={`h-5 w-5 rounded border-stone-300 text-emerald-600 focus:ring-emerald-500 transition-transform ${
+                      className={`h-6 w-6 rounded border-stone-300 text-emerald-600 focus:ring-emerald-500 transition-transform ${
                         recentlyChecked.has(item.id) ? 'animate-check-in' : ''
                       }`}
                       aria-label={`Mark ${item.name} as ${item.checked ? 'unchecked' : 'checked'}`}
@@ -615,12 +676,15 @@ export default function GroceryListDetailPage() {
                         )}
                       </div>
                       <div className="flex items-center space-x-2">
-                        <button onClick={() => setEditingItem(item)} className="icon-button-muted">
+                        <button
+                          onClick={() => setEditingItem(item)}
+                          className="icon-button-muted h-10 w-10"
+                        >
                           <PencilIcon className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => setItemToDelete(item)}
-                          className="icon-button-danger"
+                          className="icon-button-danger h-10 w-10"
                           title={`Delete ${item.name}`}
                         >
                           <TrashIcon className="h-4 w-4" />

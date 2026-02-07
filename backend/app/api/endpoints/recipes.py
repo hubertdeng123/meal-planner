@@ -3,7 +3,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
-from sqlalchemy import asc, desc
+from sqlalchemy import asc, bindparam, desc, text
 from sqlalchemy.orm import Session
 import json
 import logging
@@ -143,6 +143,25 @@ def _select_random_cuisine(request: RecipeGenerationRequest, user: User) -> str 
     preferences = user.food_preferences or {}
     cuisines = preferences.get("cuisines") or []
     return random.choice(cuisines) if cuisines else None
+
+
+def _apply_tag_filters(query, tags: list[str], db: Session):
+    if not tags:
+        return query
+
+    dialect_name = db.bind.dialect.name if db.bind else ""
+
+    if dialect_name == "postgresql":
+        return query.filter(RecipeModel.tags.contains(tags))
+
+    for index, tag in enumerate(tags):
+        param_name = f"tag_{index}"
+        query = query.filter(
+            text(
+                f"EXISTS (SELECT 1 FROM json_each(recipes.tags) WHERE json_each.value = :{param_name})"
+            ).bindparams(bindparam(param_name, tag))
+        )
+    return query
 
 
 @router.post("/generate/stream")
@@ -405,20 +424,11 @@ async def get_recipes_paginated(
     sort_direction = desc if order == "desc" else asc
     query = query.order_by(sort_direction(sort_column))
 
-    if tags:
-        recipes_all = query.all()
-        filtered = [
-            recipe
-            for recipe in recipes_all
-            if all(tag in (recipe.tags or []) for tag in tags)
-        ]
-        total = len(filtered)
-        offset = (page - 1) * page_size
-        recipes = filtered[offset : offset + page_size]
-    else:
-        total = query.count()
-        offset = (page - 1) * page_size
-        recipes = query.offset(offset).limit(page_size).all()
+    query = _apply_tag_filters(query, tags or [], db)
+
+    total = query.count()
+    offset = (page - 1) * page_size
+    recipes = query.offset(offset).limit(page_size).all()
 
     return {
         "items": [_format_recipe_response(recipe) for recipe in recipes],

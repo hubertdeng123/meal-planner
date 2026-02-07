@@ -1,3 +1,6 @@
+from datetime import datetime, timedelta, timezone
+
+
 def test_pantry_crud_flow(client, auth_headers):
     create = client.post(
         "/api/v1/pantry/items",
@@ -38,3 +41,47 @@ def test_pantry_crud_flow(client, auth_headers):
     )
     assert listing_after.status_code == 200
     assert not any(row["id"] == item_id for row in listing_after.json()["items"])
+
+
+def test_pantry_expiry_sort_places_nulls_last(client, auth_headers):
+    now = datetime.now(timezone.utc)
+    payloads = [
+        {
+            "name": "No Expiry Item",
+            "quantity": 1,
+            "unit": "pc",
+            "category": "Pantry",
+        },
+        {
+            "name": "Later Expiry",
+            "quantity": 1,
+            "unit": "pc",
+            "category": "Pantry",
+            "expires_at": (now + timedelta(days=5)).isoformat(),
+        },
+        {
+            "name": "Soon Expiry",
+            "quantity": 1,
+            "unit": "pc",
+            "category": "Pantry",
+            "expires_at": (now + timedelta(days=1)).isoformat(),
+        },
+    ]
+
+    for payload in payloads:
+        response = client.post(
+            "/api/v1/pantry/items", headers=auth_headers, json=payload
+        )
+        assert response.status_code == 201
+
+    listing = client.get(
+        "/api/v1/pantry/?page=1&page_size=20&sort=expires_at&order=asc",
+        headers=auth_headers,
+    )
+    assert listing.status_code == 200
+    names = [item["name"] for item in listing.json()["items"]]
+
+    soon_index = names.index("Soon Expiry")
+    later_index = names.index("Later Expiry")
+    no_expiry_index = names.index("No Expiry Item")
+    assert soon_index < later_index < no_expiry_index

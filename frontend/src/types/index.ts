@@ -339,6 +339,76 @@ export interface PantryItemUpdate {
   expires_at?: string;
 }
 
+export interface DashboardActionCTA {
+  label: string;
+  href: string;
+}
+
+export interface DashboardActionItem {
+  id: string;
+  title: string;
+  rationale: string;
+  impact: 'high' | 'medium' | 'low';
+  cta: DashboardActionCTA;
+}
+
+export interface DashboardTodayBrief {
+  headline: string;
+  subline: string;
+  primary_action: DashboardActionCTA;
+}
+
+export interface DashboardMealSlot {
+  date: string;
+  meal_type: string;
+  has_recipe: boolean;
+  href: string;
+}
+
+export interface DashboardPlanContinuity {
+  active_plan_id?: number | null;
+  completion_percent: number;
+  open_slots: number;
+  next_slots: DashboardMealSlot[];
+}
+
+export interface DashboardPantryRiskItem {
+  name: string;
+  expires_at: string;
+}
+
+export interface DashboardPantryRisk {
+  expiring_3d_count: number;
+  top_items: DashboardPantryRiskItem[];
+  cta: DashboardActionCTA;
+}
+
+export interface DashboardRecentRecipe {
+  id: number;
+  name: string;
+  total_minutes: number;
+  tags: string[];
+}
+
+export interface DashboardRecentGroceryList {
+  id: number;
+  unchecked_count: number;
+  href: string;
+}
+
+export interface DashboardRecentContext {
+  recent_recipes: DashboardRecentRecipe[];
+  recent_grocery_list?: DashboardRecentGroceryList | null;
+}
+
+export interface DashboardSummary {
+  today_brief: DashboardTodayBrief;
+  action_queue: DashboardActionItem[];
+  plan_continuity: DashboardPlanContinuity;
+  pantry_risk: DashboardPantryRisk;
+  recent_context: DashboardRecentContext;
+}
+
 export interface APIError {
   code?: string;
   response?: {

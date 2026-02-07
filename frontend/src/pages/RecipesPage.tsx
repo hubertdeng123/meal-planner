@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { ClockIcon, UserGroupIcon, TrashIcon, BoltIcon } from '../components/ui/AppIcons';
 import recipeService from '../services/recipe.service';
@@ -53,11 +53,7 @@ export default function RecipesPage() {
     return () => clearTimeout(timer);
   }, [searchInput]);
 
-  useEffect(() => {
-    loadRecipes();
-  }, [page, searchQuery, sort, order]);
-
-  const loadRecipes = async () => {
+  const loadRecipes = useCallback(async () => {
     setLoading(true);
     try {
       const data = await recipeService.getRecipesPaginated({
@@ -75,7 +71,11 @@ export default function RecipesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [addToast, order, page, pageSize, searchQuery, sort]);
+
+  useEffect(() => {
+    void loadRecipes();
+  }, [loadRecipes]);
 
   const handleDelete = async (recipeId: number, event: React.MouseEvent) => {
     // Prevent the link navigation

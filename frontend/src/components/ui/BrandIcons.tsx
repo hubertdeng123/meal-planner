@@ -13,7 +13,9 @@ export function HungryHelperLogo({ className = '', size = 32 }: IconProps) {
   const iconId = useId().replace(/:/g, '');
   const badgeGradId = `hh-badge-${iconId}`;
   const bowlGradId = `hh-bowl-${iconId}`;
+  const brothGradId = `hh-broth-${iconId}`;
   const steamGradId = `hh-steam-${iconId}`;
+  const leafGradId = `hh-leaf-${iconId}`;
 
   return (
     <svg
@@ -33,88 +35,113 @@ export function HungryHelperLogo({ className = '', size = 32 }: IconProps) {
           y2="28"
           gradientUnits="userSpaceOnUse"
         >
-          <stop offset="0%" stopColor="#fb923c" />
-          <stop offset="55%" stopColor="#f97316" />
+          <stop offset="0%" stopColor="#fdba74" />
+          <stop offset="52%" stopColor="#fb923c" />
           <stop offset="100%" stopColor="#ea580c" />
         </linearGradient>
         <linearGradient
           id={bowlGradId}
-          x1="9"
+          x1="8"
           y1="15"
-          x2="23"
-          y2="23"
+          x2="24"
+          y2="24"
           gradientUnits="userSpaceOnUse"
         >
-          <stop offset="0%" stopColor="#fff7ed" />
+          <stop offset="0%" stopColor="#fffaf0" />
           <stop offset="100%" stopColor="#fed7aa" />
+        </linearGradient>
+        <linearGradient
+          id={brothGradId}
+          x1="10"
+          y1="14"
+          x2="22"
+          y2="19"
+          gradientUnits="userSpaceOnUse"
+        >
+          <stop offset="0%" stopColor="#fed7aa" />
+          <stop offset="100%" stopColor="#fb923c" />
         </linearGradient>
         <linearGradient
           id={steamGradId}
           x1="12"
-          y1="7"
+          y1="6"
           x2="21"
           y2="13"
           gradientUnits="userSpaceOnUse"
         >
           <stop offset="0%" stopColor="#fef3c7" />
-          <stop offset="100%" stopColor="#fde68a" />
+          <stop offset="100%" stopColor="#f59e0b" />
+        </linearGradient>
+        <linearGradient
+          id={leafGradId}
+          x1="20"
+          y1="10"
+          x2="26"
+          y2="5"
+          gradientUnits="userSpaceOnUse"
+        >
+          <stop offset="0%" stopColor="#22c55e" />
+          <stop offset="100%" stopColor="#16a34a" />
         </linearGradient>
       </defs>
 
-      {/* Soft shadow */}
-      <ellipse cx="16" cy="27" rx="8" ry="2.2" fill="#cbd5e1" opacity="0.45" />
+      <ellipse cx="16" cy="26.9" rx="8.5" ry="2.3" fill="#cbd5e1" opacity="0.35" />
 
-      {/* Main badge */}
       <circle cx="16" cy="16" r="13" fill={`url(#${badgeGradId})`} />
-      <circle cx="16" cy="16" r="10.2" fill="#fffaf3" opacity="0.96" />
+      <circle cx="16" cy="16" r="10.5" fill="#fffaf4" opacity="0.96" />
 
-      {/* Bowl body */}
       <path
-        d="M9.5 16.2C9.5 14.85 10.6 13.75 11.95 13.75H20.05C21.4 13.75 22.5 14.85 22.5 16.2V19.3C22.5 21.95 20.35 24.1 17.7 24.1H14.3C11.65 24.1 9.5 21.95 9.5 19.3V16.2Z"
+        d="M8.8 16.15C8.8 14.85 9.85 13.8 11.15 13.8H20.85C22.15 13.8 23.2 14.85 23.2 16.15V19.45C23.2 22.15 21.01 24.35 18.3 24.35H13.7C10.99 24.35 8.8 22.15 8.8 19.45V16.15Z"
         fill={`url(#${bowlGradId})`}
         stroke="#ea580c"
         strokeWidth="1.1"
       />
-      <path d="M9 16.15H23" stroke="#fb923c" strokeWidth="1.2" strokeLinecap="round" />
-
-      {/* Friendly face */}
-      <circle cx="13.6" cy="18.1" r="0.72" fill="#9a3412" />
-      <circle cx="18.4" cy="18.1" r="0.72" fill="#9a3412" />
       <path
-        d="M13.4 20.25C14 20.95 14.85 21.3 16 21.3C17.15 21.3 18 20.95 18.6 20.25"
+        d="M9.4 16.1C11.15 15.35 12.45 15.05 13.95 15.05C15.45 15.05 16.55 15.3 18.15 16.05C19.05 16.45 19.88 16.58 20.6 16.58C21.45 16.58 22.1 16.38 22.6 16.1V18.6C22.6 21.02 20.65 22.98 18.23 22.98H13.77C11.35 22.98 9.4 21.02 9.4 18.6V16.1Z"
+        fill={`url(#${brothGradId})`}
+        opacity="0.95"
+      />
+      <path d="M8.7 16.2H23.3" stroke="#fb923c" strokeWidth="1.2" strokeLinecap="round" />
+
+      <circle cx="13.5" cy="18.2" r="0.72" fill="#9a3412" />
+      <circle cx="18.5" cy="18.2" r="0.72" fill="#9a3412" />
+      <path
+        d="M13.35 20.25C14.08 21.05 14.95 21.45 16 21.45C17.05 21.45 17.92 21.05 18.65 20.25"
         stroke="#9a3412"
-        strokeWidth="1"
+        strokeWidth="1.05"
         strokeLinecap="round"
       />
 
-      {/* Steam */}
       <path
-        d="M13 12.6C12.35 11.6 12.55 10.65 13.45 9.75C14.2 9 14.35 8.2 13.9 7.25"
+        d="M13.1 12.45C12.4 11.4 12.62 10.45 13.58 9.52C14.28 8.82 14.4 8.02 13.95 7.22"
         stroke={`url(#${steamGradId})`}
-        strokeWidth="1.2"
+        strokeWidth="1.18"
         strokeLinecap="round"
       />
       <path
-        d="M16.1 12.2C15.55 11.35 15.75 10.5 16.45 9.8C17.05 9.2 17.15 8.5 16.8 7.7"
+        d="M16.1 12.1C15.52 11.22 15.7 10.35 16.45 9.62C17.02 9.05 17.15 8.4 16.8 7.65"
         stroke={`url(#${steamGradId})`}
-        strokeWidth="1.2"
+        strokeWidth="1.18"
         strokeLinecap="round"
       />
       <path
-        d="M19.1 12.55C18.55 11.75 18.7 10.9 19.35 10.2C19.95 9.55 20.05 8.8 19.65 8"
+        d="M19.08 12.38C18.5 11.55 18.65 10.7 19.38 9.95C20 9.3 20.1 8.58 19.7 7.82"
         stroke={`url(#${steamGradId})`}
-        strokeWidth="1.2"
+        strokeWidth="1.18"
         strokeLinecap="round"
       />
 
-      {/* Sparkle */}
       <path
-        d="M24.7 6.2L25.6 4.4L26.5 6.2L28.3 7.1L26.5 8L25.6 9.8L24.7 8L22.9 7.1L24.7 6.2Z"
+        d="M24.3 4.95C25.35 5.58 26.15 4.78 25.52 3.75C26.55 4.38 27.35 3.58 26.72 2.55C27.35 3.58 28.15 4.38 29.18 3.75C28.55 4.78 29.35 5.58 30.38 4.95C29.35 5.58 28.55 6.38 29.18 7.4C28.15 6.78 27.35 7.58 27.98 8.6C27.35 7.58 26.55 6.78 25.52 7.4C26.15 6.38 25.35 5.58 24.3 4.95Z"
         fill="#fde68a"
+        opacity="0.9"
       />
 
-      {/* Highlight */}
-      <circle cx="11.3" cy="10.6" r="1.3" fill="white" opacity="0.45" />
+      <path
+        d="M20.5 10.1C21.38 8.55 22.7 8.15 23.9 8.95C24.98 9.68 25.02 10.98 24.15 11.72C23.45 12.32 22.48 12.35 21.78 11.82C21.08 12.35 20.1 12.32 19.4 11.72C18.53 10.98 18.58 9.68 19.65 8.95C20.01 8.72 20.4 8.68 20.78 8.8"
+        fill={`url(#${leafGradId})`}
+      />
+      <circle cx="11.2" cy="10.6" r="1.35" fill="white" opacity="0.42" />
     </svg>
   );
 }

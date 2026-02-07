@@ -25,6 +25,12 @@ from app.schemas.meal_plan import (
     MealPlanAutofillResponse,
 )
 from app.schemas.grocery import GroceryList as GroceryListSchema
+from app.services.ingredient_service import (
+    category_sort_key,
+    categorize_ingredient,
+    normalize_ingredient_name,
+    sorted_ingredient_entries,
+)
 
 router = APIRouter()
 
@@ -206,6 +212,14 @@ def update_meal_plan(
         )
 
     update_data = meal_plan_data.model_dump(exclude_unset=True)
+    proposed_start = update_data.get("start_date", meal_plan.start_date)
+    proposed_end = update_data.get("end_date", meal_plan.end_date)
+    if proposed_start > proposed_end:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="start_date must be on or before end_date",
+        )
+
     for field, value in update_data.items():
         setattr(meal_plan, field, value)
 
@@ -465,12 +479,13 @@ def create_grocery_list_from_meal_plan(
     ingredient_dict: dict[str, dict[str, str | float]] = {}
     for recipe in recipes:
         for ingredient in recipe.ingredients or []:
-            name = (ingredient.get("name") or "").strip().lower()
+            raw_name = ingredient.get("name") or ""
+            name = normalize_ingredient_name(raw_name)
             if not name:
                 continue
 
             quantity = ingredient.get("quantity") or 0
-            unit = ingredient.get("unit") or ""
+            unit = (ingredient.get("unit") or "").strip().lower()
             key = (
                 name
                 if name not in ingredient_dict
@@ -489,10 +504,10 @@ def create_grocery_list_from_meal_plan(
                 ingredient_dict[key] = {
                     "quantity": float(quantity),
                     "unit": unit,
-                    "category": _categorize_ingredient(name),
+                    "category": categorize_ingredient(name),
                 }
 
-    for name, details in ingredient_dict.items():
+    for name, details in sorted_ingredient_entries(ingredient_dict):
         db.add(
             GroceryItemModel(
                 grocery_list_id=grocery_list.id,
@@ -505,6 +520,10 @@ def create_grocery_list_from_meal_plan(
 
     db.commit()
     db.refresh(grocery_list)
+    sorted_items = sorted(
+        grocery_list.items,
+        key=lambda item: category_sort_key(item.category, item.name),
+    )
     return {
         "id": grocery_list.id,
         "user_id": grocery_list.user_id,
@@ -522,48 +541,6 @@ def create_grocery_list_from_meal_plan(
                 "category": item.category,
                 "checked": item.checked,
             }
-            for item in grocery_list.items
+            for item in sorted_items
         ],
     }
-
-
-def _categorize_ingredient(ingredient_name: str) -> str:
-    ingredient_name = ingredient_name.lower()
-    produce = [
-        "tomato",
-        "onion",
-        "garlic",
-        "potato",
-        "carrot",
-        "bell pepper",
-        "mushroom",
-        "spinach",
-        "lettuce",
-        "cucumber",
-        "avocado",
-        "lemon",
-        "lime",
-        "parsley",
-        "basil",
-        "cilantro",
-        "ginger",
-        "apple",
-        "banana",
-    ]
-    dairy = ["milk", "cheese", "butter", "cream", "yogurt", "egg"]
-    meat = ["chicken", "beef", "pork", "fish", "salmon", "shrimp", "turkey"]
-    pantry = ["rice", "pasta", "flour", "sugar", "salt", "pepper", "oil", "bread"]
-
-    for item in produce:
-        if item in ingredient_name:
-            return "Produce"
-    for item in dairy:
-        if item in ingredient_name:
-            return "Dairy"
-    for item in meat:
-        if item in ingredient_name:
-            return "Meat & Seafood"
-    for item in pantry:
-        if item in ingredient_name:
-            return "Pantry"
-    return "Other"

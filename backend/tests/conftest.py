@@ -53,6 +53,7 @@ def client(db):
     from app.core.config import settings
     from app.api.endpoints import (
         auth,
+        dashboard,
         recipes,
         grocery,
         notifications,
@@ -105,6 +106,11 @@ def client(db):
         pantry.router,
         prefix=f"{settings.API_PREFIX}/pantry",
         tags=["pantry"],
+    )
+    test_app.include_router(
+        dashboard.router,
+        prefix=f"{settings.API_PREFIX}/dashboard",
+        tags=["dashboard"],
     )
 
     test_app.dependency_overrides[get_db] = override_get_db

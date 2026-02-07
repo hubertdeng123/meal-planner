@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { CalendarDaysIcon, PlusIcon, TrashIcon } from '../components/ui/AppIcons';
 
@@ -11,6 +11,7 @@ import { ToolbarRow } from '../components/ui/ToolbarRow';
 import { useToast } from '../contexts/ToastContext';
 import mealPlanService from '../services/mealPlan.service';
 import type { MealPlanCreate, MealPlanList } from '../types';
+import { formatLocalDate, toLocalIsoDate } from '../utils/date';
 
 function getDefaultWeekRange() {
   const today = new Date();
@@ -22,8 +23,8 @@ function getDefaultWeekRange() {
   sunday.setDate(monday.getDate() + 6);
 
   return {
-    start_date: monday.toISOString().slice(0, 10),
-    end_date: sunday.toISOString().slice(0, 10),
+    start_date: toLocalIsoDate(monday),
+    end_date: toLocalIsoDate(sunday),
   };
 }
 
@@ -56,11 +57,7 @@ export default function MealPlansPage() {
     return () => clearTimeout(timer);
   }, [searchInput]);
 
-  useEffect(() => {
-    void loadPlans();
-  }, [page, searchQuery]);
-
-  const loadPlans = async () => {
+  const loadPlans = useCallback(async () => {
     setLoading(true);
     try {
       const result = await mealPlanService.getMealPlansPaginated({
@@ -78,7 +75,11 @@ export default function MealPlansPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [addToast, page, pageSize, searchQuery]);
+
+  useEffect(() => {
+    void loadPlans();
+  }, [loadPlans]);
 
   const handleCreatePlan = async () => {
     if (!newPlan.start_date || !newPlan.end_date) return;
@@ -184,8 +185,7 @@ export default function MealPlansPage() {
                     {plan.name || 'Week Plan'}
                   </h3>
                   <p className="mt-1 text-sm text-stone-600">
-                    {new Date(plan.start_date).toLocaleDateString()} -{' '}
-                    {new Date(plan.end_date).toLocaleDateString()}
+                    {formatLocalDate(plan.start_date)} - {formatLocalDate(plan.end_date)}
                   </p>
                   <div className="mt-3">
                     <StatPill
