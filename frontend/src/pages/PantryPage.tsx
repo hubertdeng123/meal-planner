@@ -95,10 +95,11 @@ export default function PantryPage() {
       console.error('Failed to load pantry items:', error);
       addToast('Could not load pantry items.', 'error');
     } finally {
-      if (requestId !== latestRequestIdRef.current) return;
-      hasLoadedOnceRef.current = true;
-      setLoading(false);
-      setIsRefreshing(false);
+      if (requestId === latestRequestIdRef.current) {
+        hasLoadedOnceRef.current = true;
+        setLoading(false);
+        setIsRefreshing(false);
+      }
     }
   }, [addToast, order, page, searchQuery, sort]);
 
