@@ -27,14 +27,14 @@ class RegisterRequest(BaseModel):
 @router.post("/register", response_model=UserSchema)
 @limiter.limit("3/minute")
 def register(
-    http_request: Request, request: RegisterRequest, db: Session = Depends(get_db)
+    request: Request, register_request: RegisterRequest, db: Session = Depends(get_db)
 ):
     # Check if user exists (combined check to prevent user enumeration)
     existing_user = (
         db.query(User)
         .filter(
-            (User.email == request.user_data.email)
-            | (User.username == request.user_data.username)
+            (User.email == register_request.user_data.email)
+            | (User.username == register_request.user_data.username)
         )
         .first()
     )
@@ -47,16 +47,16 @@ def register(
 
     # Create new user with enhanced preferences
     db_user = User(
-        email=request.user_data.email,
-        username=request.user_data.username,
-        hashed_password=get_password_hash(request.user_data.password),
-        food_preferences=request.preferences.food_preferences.model_dump(),
-        dietary_restrictions=request.preferences.dietary_restrictions,
-        ingredient_rules=request.preferences.ingredient_rules.model_dump(),
-        food_type_rules=request.preferences.food_type_rules.model_dump(),
-        nutritional_rules=request.preferences.nutritional_rules.model_dump(),
-        scheduling_rules=request.preferences.scheduling_rules.model_dump(),
-        dietary_rules=request.preferences.dietary_rules.model_dump(),
+        email=register_request.user_data.email,
+        username=register_request.user_data.username,
+        hashed_password=get_password_hash(register_request.user_data.password),
+        food_preferences=register_request.preferences.food_preferences.model_dump(),
+        dietary_restrictions=register_request.preferences.dietary_restrictions,
+        ingredient_rules=register_request.preferences.ingredient_rules.model_dump(),
+        food_type_rules=register_request.preferences.food_type_rules.model_dump(),
+        nutritional_rules=register_request.preferences.nutritional_rules.model_dump(),
+        scheduling_rules=register_request.preferences.scheduling_rules.model_dump(),
+        dietary_rules=register_request.preferences.dietary_rules.model_dump(),
     )
 
     db.add(db_user)
