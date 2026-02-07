@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Your Grocery List is Ready!</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #1f2937;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+        }
+        .container {
+            max-width: 650px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08), 0 1px 8px rgba(0,0,0,0.05);
+        }
+        .header {
+            background: linear-gradient(135deg, #059669, #10b981, #34d399);
+            text-align: center;
+            padding: 40px 20px;
+            color: white;
+        }
+        .header-icon { font-size: 48px; margin-bottom: 16px; display: block; }
+        .header-title { font-size: 32px; font-weight: 700; margin: 0 0 8px 0; }
+        .header-subtitle { font-size: 16px; opacity: 0.9; margin: 0; }
+        .content { padding: 40px 30px; }
+        .greeting { font-size: 24px; font-weight: 600; color: #111827; margin: 0 0 16px 0; }
+        .intro-text { font-size: 16px; color: #6b7280; margin: 0 0 32px 0; }
+        .list-stats {
+            background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+            border: 1px solid #bbf7d0;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 32px 0;
+            text-align: center;
+        }
+        .stats-number { font-size: 36px; font-weight: 700; color: #059669; display: block; margin-bottom: 4px; }
+        .stats-label { font-size: 14px; color: #6b7280; font-weight: 500; text-transform: uppercase; }
+        .grocery-section {
+            background-color: #fafafa;
+            border-radius: 12px;
+            padding: 24px;
+            margin: 24px 0;
+            border: 1px solid #f3f4f6;
+        }
+        .section-title { font-size: 20px; font-weight: 600; color: #111827; margin: 0 0 20px 0; }
+        .category-header {
+            font-size: 16px;
+            font-weight: 600;
+            color: #059669;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #d1fae5;
+        }
+        .items-grid { display: grid; gap: 8px; }
+        .grocery-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+        }
+        .item-name { font-weight: 500; color: #111827; font-size: 15px; flex: 1; }
+        .item-quantity {
+            background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+            color: #0369a1;
+            font-size: 13px;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 20px;
+            border: 1px solid #bae6fd;
+            margin-left: 12px;
+        }
+        .cta-section {
+            text-align: center;
+            margin: 40px 0;
+            padding: 32px 0;
+            background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+            border-radius: 12px;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #059669, #10b981);
+            color: white;
+            text-decoration: none;
+            padding: 16px 32px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 16px;
+        }
+        .footer-note {
+            background: #f9fafb;
+            border-radius: 8px;
+            padding: 16px 20px;
+            margin: 24px 0;
+            text-align: center;
+            border-left: 4px solid #10b981;
+        }
+        .footer-note-text { color: #6b7280; font-style: italic; font-size: 14px; margin: 0; }
+        .footer {
+            background: #f9fafb;
+            text-align: center;
+            color: #6b7280;
+            font-size: 14px;
+            padding: 32px 30px;
+            border-top: 1px solid #e5e7eb;
+        }
+        .footer-brand { font-weight: 600; color: #111827; }
+        .shared-note {
+            background: #fef3c7;
+            border: 1px solid #fcd34d;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-top: 20px;
+            text-align: center;
+        }
+        .shared-note-text { font-size: 13px; color: #92400e; margin: 0; }
+        @media only screen and (max-width: 600px) {
+            .container { margin: 0; border-radius: 0; }
+            .content { padding: 30px 20px; }
+            .header { padding: 30px 20px; }
+            .header-title { font-size: 28px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <span class="header-icon">*</span>
+            <div class="header-title">Grocery List Ready!</div>
+            <div class="header-subtitle">Everything you need for amazing meals</div>
+        </div>
+
+        <div class="content">
+            <div class="greeting">Hi {{ user.username }}!</div>
+            <p class="intro-text">
+                Your grocery list {% if grocery_list %}for {{ grocery_list.created_at.strftime('%B %d, %Y') }} {% endif %}is ready!
+                We've organized everything you need for your planned meals into easy-to-shop categories.
+            </p>
+
+            <div class="list-stats">
+                <span class="stats-number">{{ item_count }}</span>
+                <span class="stats-label">Items to Shop</span>
+            </div>
+
+            {% if grocery_items %}
+            <div class="grocery-section">
+                <div class="section-title">Your Shopping List</div>
+
+                {% for category, items in grocery_items.items() %}
+                <div style="margin-bottom: 24px;">
+                    <div class="category-header">{{ category }}</div>
+                    <div class="items-grid">
+                        {% for item in items %}
+                        <div class="grocery-item">
+                            <span class="item-name">{{ item.name|title }}</span>
+                            {% if item.quantity and item.unit %}
+                            {% set clean_quantity = item.quantity|int if item.quantity == item.quantity|int else item.quantity %}
+                            <span class="item-quantity">{{ clean_quantity }} {{ item.unit }}</span>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="footer-note">
+                <p class="footer-note-text">
+                    Only showing unchecked items - Organized by store section for efficient shopping
+                </p>
+            </div>
+            {% else %}
+            <div class="grocery-section">
+                <div class="section-title">Your Shopping List</div>
+                <p style="color: #6b7280; text-align: center; margin: 20px 0; font-style: italic;">
+                    {{ item_count }} items organized by category for easy shopping
+                </p>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="cta-section">
+            <a href="{{ base_url }}/grocery{% if grocery_list %}/{{ grocery_list.id }}{% endif %}" class="cta-button">
+                View Full List & Start Shopping
+            </a>
+        </div>
+
+        <div class="footer">
+            <p class="footer-brand">The Hungry Helper Team</p>
+            <p>Happy shopping!</p>
+            {% if additional_recipient %}
+            <div class="shared-note">
+                <p class="shared-note-text">
+                    This grocery list was shared with you by {{ user.username }}
+                </p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

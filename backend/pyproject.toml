@@ -29,6 +29,7 @@ dependencies = [
     "together>=2.0.0a11",
     "braintrust>=0.5.0",
     "opentelemetry-sdk>=1.39.1",
+    "slowapi>=0.1.9",
 ]
 
 [tool.uv]

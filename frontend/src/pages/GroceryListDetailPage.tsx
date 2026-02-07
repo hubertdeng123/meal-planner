@@ -10,6 +10,8 @@ import {
   ArrowLeftIcon,
   EnvelopeIcon,
   ChevronDownIcon,
+  BookOpenIcon,
+  ArchiveBoxIcon,
 } from '@heroicons/react/24/outline';
 import groceryService from '../services/grocery.service';
 import notificationService from '../services/notification.service';
@@ -471,6 +473,54 @@ export default function GroceryListDetailPage() {
             </label>
           </div>
         </div>
+
+        {/* Completion banner - shown when 100% done */}
+        {getCompletionPercentage() === 100 && groceryList.items.length > 0 && (
+          <div
+            className="mt-4 p-5 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 animate-slide-in-up"
+            style={{ animationFillMode: 'forwards' }}
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-emerald-800 flex items-center gap-2">
+                  <span className="text-2xl">🛒</span>
+                  Shopping complete!
+                </h3>
+                <p className="text-emerald-700 text-sm mt-1">Ready to start cooking?</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => navigate('/recipes')}
+                  className="flex items-center px-4 py-2 rounded-full bg-white border border-emerald-300 text-emerald-700 text-sm font-medium hover:bg-emerald-50 transition-colors"
+                >
+                  <BookOpenIcon className="h-4 w-4 mr-2" />
+                  View recipes
+                </button>
+                <button
+                  onClick={async () => {
+                    if (
+                      window.confirm(
+                        'Archive this list? It will be removed from your grocery lists.'
+                      )
+                    ) {
+                      try {
+                        await groceryService.deleteGroceryList(groceryList.id);
+                        navigate('/grocery');
+                      } catch (error) {
+                        console.error('Failed to archive list:', error);
+                        alert('Could not archive that list. Try again?');
+                      }
+                    }
+                  }}
+                  className="flex items-center px-4 py-2 rounded-full bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors"
+                >
+                  <ArchiveBoxIcon className="h-4 w-4 mr-2" />
+                  Archive list
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Items by Category */}

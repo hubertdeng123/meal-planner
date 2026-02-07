@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.core.security import verify_password, get_password_hash, create_access_token
+from app.core.rate_limit import limiter
 from app.models import User
 from app.schemas.user import (
     UserCreate,
@@ -24,16 +25,24 @@ class RegisterRequest(BaseModel):
 
 
 @router.post("/register", response_model=UserSchema)
-def register(request: RegisterRequest, db: Session = Depends(get_db)):
-    # Check if user exists
-    if db.query(User).filter(User.email == request.user_data.email).first():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered"
+@limiter.limit("3/minute")
+def register(
+    http_request: Request, request: RegisterRequest, db: Session = Depends(get_db)
+):
+    # Check if user exists (combined check to prevent user enumeration)
+    existing_user = (
+        db.query(User)
+        .filter(
+            (User.email == request.user_data.email)
+            | (User.username == request.user_data.username)
         )
+        .first()
+    )
 
-    if db.query(User).filter(User.username == request.user_data.username).first():
+    if existing_user:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Username already taken"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="An account with this email or username already exists",
         )
 
     # Create new user with enhanced preferences
@@ -58,8 +67,11 @@ def register(request: RegisterRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=Token)
+@limiter.limit("5/minute")
 def login(
-    db: Session = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends()
+    request: Request,
+    db: Session = Depends(get_db),
+    form_data: OAuth2PasswordRequestForm = Depends(),
 ):
     # OAuth2PasswordRequestForm uses username field, but we'll accept email
     user = (

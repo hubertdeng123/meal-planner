@@ -8,8 +8,10 @@ import GenerateRecipePage from './pages/GenerateRecipePage';
 import GroceryListsPage from './pages/GroceryListsPage';
 import GroceryListDetailPage from './pages/GroceryListDetailPage';
 import SettingsPage from './pages/SettingsPage';
-import Layout from './components/Layout';
+import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './contexts/AuthContextProvider';
+import { ToastProvider } from './contexts/ToastContext';
+import ToastContainer from './components/ui/ToastContainer';
 import { useAuth } from './hooks/useAuth';
 
 function AppRoutes() {
@@ -36,98 +38,62 @@ function AppRoutes() {
         />
         <Route
           path="/"
-          element={
-            isAuthenticated ? (
-              <Layout>
-                <Navigate to="/dashboard" />
-              </Layout>
-            ) : (
-              <Navigate to="/login" />
-            )
-          }
+          element={<Navigate to={isAuthenticated ? '/dashboard' : '/login'} replace />}
         />
         <Route
           path="/dashboard"
           element={
-            isAuthenticated ? (
-              <Layout>
-                <DashboardPage />
-              </Layout>
-            ) : (
-              <Navigate to="/login" />
-            )
+            <ProtectedRoute>
+              <DashboardPage />
+            </ProtectedRoute>
           }
         />
         <Route
           path="/recipes"
           element={
-            isAuthenticated ? (
-              <Layout>
-                <RecipesPage />
-              </Layout>
-            ) : (
-              <Navigate to="/login" />
-            )
+            <ProtectedRoute>
+              <RecipesPage />
+            </ProtectedRoute>
           }
         />
         <Route
           path="/recipes/:id"
           element={
-            isAuthenticated ? (
-              <Layout>
-                <RecipeDetailPage />
-              </Layout>
-            ) : (
-              <Navigate to="/login" />
-            )
+            <ProtectedRoute>
+              <RecipeDetailPage />
+            </ProtectedRoute>
           }
         />
         <Route
           path="/generate"
           element={
-            isAuthenticated ? (
-              <Layout>
-                <GenerateRecipePage />
-              </Layout>
-            ) : (
-              <Navigate to="/login" />
-            )
+            <ProtectedRoute>
+              <GenerateRecipePage />
+            </ProtectedRoute>
           }
         />
         <Route
           path="/grocery"
           element={
-            isAuthenticated ? (
-              <Layout>
-                <GroceryListsPage />
-              </Layout>
-            ) : (
-              <Navigate to="/login" />
-            )
+            <ProtectedRoute>
+              <GroceryListsPage />
+            </ProtectedRoute>
           }
         />
         <Route
           path="/grocery/:id"
           element={
-            isAuthenticated ? (
-              <Layout>
-                <GroceryListDetailPage />
-              </Layout>
-            ) : (
-              <Navigate to="/login" />
-            )
+            <ProtectedRoute>
+              <GroceryListDetailPage />
+            </ProtectedRoute>
           }
         />
         <Route
           path="/settings"
           element={
-            isAuthenticated ? (
-              <Layout>
-                <SettingsPage />
-              </Layout>
-            ) : (
-              <Navigate to="/login" />
-            )
+            <ProtectedRoute>
+              <SettingsPage />
+            </ProtectedRoute>
           }
         />
       </Routes>
@@ -138,7 +104,10 @@ function AppRoutes() {
 function App() {
   return (
     <AuthProvider>
-      <AppRoutes />
+      <ToastProvider>
+        <AppRoutes />
+        <ToastContainer />
+      </ToastProvider>
     </AuthProvider>
   );
 }

@@ -6,6 +6,7 @@ interface PageHeaderProps {
   badge?: ReactNode;
   center?: boolean;
   className?: string;
+  noMargin?: boolean;
 }
 
 export function PageHeader({
@@ -14,11 +15,13 @@ export function PageHeader({
   badge,
   center = false,
   className = '',
+  noMargin = false,
 }: PageHeaderProps) {
   const alignment = center ? 'text-center' : '';
+  const margin = noMargin ? '' : 'mb-8';
 
   return (
-    <div className={`${alignment} ${className}`}>
+    <div className={`${alignment} ${margin} ${className}`}>
       {badge && <div className={center ? 'flex justify-center' : ''}>{badge}</div>}
       <h1 className="page-title">{title}</h1>
       {subtitle && <p className="page-subtitle">{subtitle}</p>}

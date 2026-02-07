@@ -12,11 +12,13 @@ import { StarIcon as StarSolidIcon, HeartIcon as HeartSolidIcon } from '@heroico
 import recipeService from '../services/recipe.service';
 import groceryService from '../services/grocery.service';
 import Breadcrumbs from '../components/Breadcrumbs';
+import { useToast } from '../contexts/ToastContext';
 import type { Recipe, RecipeFeedback } from '../types';
 
 export default function RecipeDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { addToast } = useToast();
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
@@ -61,7 +63,7 @@ export default function RecipeDetailPage() {
       navigate('/recipes');
     } catch (error) {
       console.error('Failed to delete recipe:', error);
-      alert('Could not delete that recipe. Try again?');
+      addToast('Could not delete that recipe. Try again?', 'error');
     } finally {
       setDeleting(false);
     }
@@ -76,7 +78,7 @@ export default function RecipeDetailPage() {
       navigate(`/grocery/${list.id}`);
     } catch (error) {
       console.error('Failed to create grocery list:', error);
-      alert('Could not create a grocery list. Try again?');
+      addToast('Could not create a grocery list. Try again?', 'error');
     } finally {
       setCreatingList(false);
     }
@@ -94,20 +96,10 @@ export default function RecipeDetailPage() {
       };
 
       await recipeService.addFeedback(recipe.id, feedback);
-
-      // Show success message
-      const successDiv = document.createElement('div');
-      successDiv.className =
-        'fixed bottom-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg';
-      successDiv.textContent = 'Saved! Thanks for the notes.';
-      document.body.appendChild(successDiv);
-
-      setTimeout(() => {
-        successDiv.remove();
-      }, 3000);
+      addToast('Saved! Thanks for the notes.', 'success');
     } catch (error) {
       console.error('Failed to save feedback:', error);
-      alert('Could not save your notes. Try again?');
+      addToast('Could not save your notes. Try again?', 'error');
     } finally {
       setSavingFeedback(false);
     }
@@ -133,107 +125,114 @@ export default function RecipeDetailPage() {
       {/* Breadcrumbs */}
       <Breadcrumbs items={[{ label: 'Recipe Vault', href: '/recipes' }, { label: recipe.name }]} />
 
-      <div className="surface p-6">
-        <div className="flex justify-between items-start mb-4">
-          <div className="flex-1">
-            <h1 className="font-display text-3xl font-semibold text-stone-900">{recipe.name}</h1>
-            {recipe.description && <p className="mt-2 text-stone-600">{recipe.description}</p>}
-            {recipe.source_urls && recipe.source_urls.length > 0 && (
-              <div className="mt-4 p-4 rounded-2xl surface-warm">
-                <div className="flex items-center space-x-2 mb-2">
-                  <svg
-                    className="h-4 w-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    style={{ color: 'var(--primary)' }}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
-                    />
-                  </svg>
-                  <span className="text-sm font-medium" style={{ color: 'var(--primary-hover)' }}>
-                    {recipe.source_urls.length === 1
-                      ? 'Inspired by:'
-                      : `Inspired by ${recipe.source_urls.length} sources:`}
-                  </span>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {recipe.source_urls.map((url, index) => {
-                    // Extract domain name from URL
-                    const getDomainName = (url: string) => {
-                      try {
-                        const domain = new URL(url).hostname.replace('www.', '');
-                        // Make it more readable
-                        const domainMap: Record<string, string> = {
-                          'allrecipes.com': 'AllRecipes',
-                          'foodnetwork.com': 'Food Network',
-                          'seriouseats.com': 'Serious Eats',
-                          'simplyrecipes.com': 'Simply Recipes',
-                          'food.com': 'Food.com',
-                          'tasteofhome.com': 'Taste of Home',
-                          'delish.com': 'Delish',
-                          'cookinglight.com': 'Cooking Light',
-                          'epicurious.com': 'Epicurious',
-                          'bonappetit.com': 'Bon Appétit',
-                        };
-                        return domainMap[domain] || domain;
-                      } catch {
-                        return `Source ${index + 1}`;
-                      }
-                    };
+      <div className="surface p-6 lg:p-8">
+        {/* Header section - responsive layout */}
+        <div className="mb-4">
+          <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4">
+            <div className="flex-1">
+              <h1 className="font-display text-3xl font-semibold text-stone-900">{recipe.name}</h1>
+              {recipe.description && <p className="mt-2 text-stone-600">{recipe.description}</p>}
+            </div>
 
-                    return (
-                      <a
-                        key={index}
-                        href={url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-white border transition-colors duration-200 hover:bg-primary-soft"
-                        style={{ color: 'var(--primary)', borderColor: 'var(--primary-soft)' }}
-                      >
-                        {getDomainName(url)}
-                        <svg
-                          className="ml-1 h-3 w-3"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                          />
-                        </svg>
-                      </a>
-                    );
-                  })}
-                </div>
+            {/* Action buttons - stack on mobile, inline on desktop */}
+            <div className="flex items-center gap-3 lg:ml-4">
+              <button
+                onClick={handleCreateList}
+                disabled={creatingList}
+                className="btn-primary flex items-center disabled:opacity-50 flex-1 lg:flex-none justify-center"
+              >
+                <ShoppingBagIcon className="h-4 w-4 mr-2" />
+                {creatingList ? 'Building list...' : 'Add to grocery list'}
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="p-2 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors disabled:opacity-50"
+                title="Delete recipe"
+              >
+                <TrashIcon className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Source URLs */}
+          {recipe.source_urls && recipe.source_urls.length > 0 && (
+            <div className="mt-4 p-4 rounded-2xl surface-warm">
+              <div className="flex items-center space-x-2 mb-2">
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  style={{ color: 'var(--primary)' }}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+                  />
+                </svg>
+                <span className="text-sm font-medium" style={{ color: 'var(--primary-hover)' }}>
+                  {recipe.source_urls.length === 1
+                    ? 'Inspired by:'
+                    : `Inspired by ${recipe.source_urls.length} sources:`}
+                </span>
               </div>
-            )}
-          </div>
-          <div className="flex items-center space-x-3 ml-4">
-            <button
-              onClick={handleCreateList}
-              disabled={creatingList}
-              className="btn-secondary flex items-center disabled:opacity-50"
-            >
-              <ShoppingBagIcon className="h-4 w-4 mr-2" />
-              {creatingList ? 'Building list...' : 'Add to grocery list'}
-            </button>
-            <button
-              onClick={handleDelete}
-              disabled={deleting}
-              className="icon-button-danger disabled:opacity-50"
-              title="Delete recipe"
-            >
-              <TrashIcon className="h-5 w-5" />
-            </button>
-          </div>
+              <div className="flex flex-wrap gap-2">
+                {recipe.source_urls.map((url, index) => {
+                  // Extract domain name from URL
+                  const getDomainName = (urlStr: string) => {
+                    try {
+                      const domain = new URL(urlStr).hostname.replace('www.', '');
+                      // Make it more readable
+                      const domainMap: Record<string, string> = {
+                        'allrecipes.com': 'AllRecipes',
+                        'foodnetwork.com': 'Food Network',
+                        'seriouseats.com': 'Serious Eats',
+                        'simplyrecipes.com': 'Simply Recipes',
+                        'food.com': 'Food.com',
+                        'tasteofhome.com': 'Taste of Home',
+                        'delish.com': 'Delish',
+                        'cookinglight.com': 'Cooking Light',
+                        'epicurious.com': 'Epicurious',
+                        'bonappetit.com': 'Bon Appétit',
+                      };
+                      return domainMap[domain] || domain;
+                    } catch {
+                      return `Source ${index + 1}`;
+                    }
+                  };
+
+                  return (
+                    <a
+                      key={index}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-white border transition-colors duration-200 hover:bg-primary-soft"
+                      style={{ color: 'var(--primary)', borderColor: 'var(--primary-soft)' }}
+                    >
+                      {getDomainName(url)}
+                      <svg
+                        className="ml-1 h-3 w-3"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                        />
+                      </svg>
+                    </a>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="mt-4 flex items-center text-sm text-stone-500 space-x-4">
@@ -247,14 +246,77 @@ export default function RecipeDetailPage() {
           </div>
         </div>
 
-        {/* Rating and Feedback Section */}
+        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div>
+            <h2 className="text-xl font-semibold mb-4">Ingredients</h2>
+            <ul className="space-y-2">
+              {recipe.ingredients.map((ingredient, index) => (
+                <li key={index} className="flex items-start">
+                  <span className="text-stone-700">
+                    {ingredient.quantity} {ingredient.unit} {ingredient.name}
+                    {ingredient.notes && (
+                      <span className="text-stone-500"> ({ingredient.notes})</span>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <h2 className="text-xl font-semibold mb-4">Nutrition snapshot</h2>
+            <div className="surface-muted p-4">
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                {recipe.nutrition.calories && (
+                  <div>
+                    <span className="font-medium">Calories:</span> {recipe.nutrition.calories}
+                  </div>
+                )}
+                {recipe.nutrition.protein_g && (
+                  <div>
+                    <span className="font-medium">Protein:</span> {recipe.nutrition.protein_g}g
+                  </div>
+                )}
+                {recipe.nutrition.carbs_g && (
+                  <div>
+                    <span className="font-medium">Carbs:</span> {recipe.nutrition.carbs_g}g
+                  </div>
+                )}
+                {recipe.nutrition.fat_g && (
+                  <div>
+                    <span className="font-medium">Fat:</span> {recipe.nutrition.fat_g}g
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-8">
+          <h2 className="text-xl font-semibold mb-4">Steps</h2>
+          <ol className="space-y-3">
+            {recipe.instructions.map((instruction, index) => (
+              <li key={index} className="flex">
+                <span className="font-semibold mr-3" style={{ color: 'var(--primary)' }}>
+                  {index + 1}.
+                </span>
+                <span className="text-stone-700">{instruction}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+
+        {/* Rating and Feedback Section - After cooking */}
         <div
-          className="mt-6 p-6 rounded-2xl border"
+          className="mt-8 p-6 rounded-2xl border"
           style={{ backgroundColor: 'var(--surface-muted)', borderColor: 'rgba(28, 25, 23, 0.06)' }}
         >
-          <h3 className="text-lg font-semibold text-stone-900 mb-4">How did it go?</h3>
+          <h3 className="text-lg font-semibold text-stone-900 mb-2">How did it go?</h3>
+          <p className="text-sm text-stone-500 mb-4">
+            Made this recipe? Let us know what you thought.
+          </p>
 
-          <div className="flex items-center space-x-6 mb-4">
+          <div className="flex flex-wrap items-center gap-6 mb-4">
             {/* Like button with heartbeat */}
             <button
               onClick={() => {
@@ -332,66 +394,6 @@ export default function RecipeDetailPage() {
           <button onClick={handleSaveFeedback} disabled={savingFeedback} className="btn-primary">
             {savingFeedback ? 'Saving...' : 'Save notes'}
           </button>
-        </div>
-
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div>
-            <h2 className="text-xl font-semibold mb-4">Ingredients</h2>
-            <ul className="space-y-2">
-              {recipe.ingredients.map((ingredient, index) => (
-                <li key={index} className="flex items-start">
-                  <span className="text-stone-700">
-                    {ingredient.quantity} {ingredient.unit} {ingredient.name}
-                    {ingredient.notes && (
-                      <span className="text-stone-500"> ({ingredient.notes})</span>
-                    )}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <h2 className="text-xl font-semibold mb-4">Nutrition snapshot</h2>
-            <div className="surface-muted p-4">
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                {recipe.nutrition.calories && (
-                  <div>
-                    <span className="font-medium">Calories:</span> {recipe.nutrition.calories}
-                  </div>
-                )}
-                {recipe.nutrition.protein_g && (
-                  <div>
-                    <span className="font-medium">Protein:</span> {recipe.nutrition.protein_g}g
-                  </div>
-                )}
-                {recipe.nutrition.carbs_g && (
-                  <div>
-                    <span className="font-medium">Carbs:</span> {recipe.nutrition.carbs_g}g
-                  </div>
-                )}
-                {recipe.nutrition.fat_g && (
-                  <div>
-                    <span className="font-medium">Fat:</span> {recipe.nutrition.fat_g}g
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-8">
-          <h2 className="text-xl font-semibold mb-4">Steps</h2>
-          <ol className="space-y-3">
-            {recipe.instructions.map((instruction, index) => (
-              <li key={index} className="flex">
-                <span className="font-semibold mr-3" style={{ color: 'var(--primary)' }}>
-                  {index + 1}.
-                </span>
-                <span className="text-stone-700">{instruction}</span>
-              </li>
-            ))}
-          </ol>
         </div>
       </div>
     </div>

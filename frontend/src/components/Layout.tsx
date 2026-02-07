@@ -191,7 +191,7 @@ export default function Layout({ children, breadcrumbs }: LayoutProps) {
                           key={item.href}
                           to={item.href}
                           className={classNames(
-                            'flex w-full items-center rounded-2xl px-3 py-2 text-left text-base font-medium transition-all duration-200 opacity-0 animate-slide-in-up',
+                            'flex w-full items-center rounded-2xl px-4 py-3 text-left text-base font-medium transition-all duration-200 opacity-0 animate-slide-in-up',
                             active
                               ? 'text-stone-600 hover:bg-stone-50 hover:text-stone-900'
                               : 'text-stone-600 hover:bg-stone-50 hover:text-stone-900'
@@ -208,7 +208,7 @@ export default function Layout({ children, breadcrumbs }: LayoutProps) {
                           }}
                         >
                           <Icon
-                            className="mr-3 h-5 w-5"
+                            className="mr-3 h-6 w-6"
                             style={active ? { color: 'var(--primary)' } : undefined}
                           />
                           {item.name}
@@ -216,17 +216,17 @@ export default function Layout({ children, breadcrumbs }: LayoutProps) {
                       );
                     })}
                   </div>
-                  <div className="mt-3 border-t border-stone-100 pt-3">
+                  <div className="mt-3 border-t-2 border-stone-200 pt-3">
                     <Link
                       to="/settings"
-                      className="flex w-full items-center rounded-2xl px-3 py-2 text-left text-base font-medium text-stone-600 hover:bg-stone-50 hover:text-stone-900 transition-all duration-200"
+                      className="flex w-full items-center rounded-2xl px-4 py-3 text-left text-base font-medium text-stone-600 hover:bg-stone-50 hover:text-stone-900 transition-all duration-200"
                     >
-                      <Cog6ToothIcon className="mr-3 h-5 w-5 text-stone-400" />
+                      <Cog6ToothIcon className="mr-3 h-6 w-6 text-stone-400" />
                       Settings
                     </Link>
                     <button
                       onClick={handleLogout}
-                      className="flex w-full items-center rounded-2xl px-3 py-2 text-left text-base font-medium text-stone-600 hover:bg-stone-50 hover:text-stone-900 transition-all duration-200"
+                      className="flex w-full items-center rounded-2xl px-4 py-3 text-left text-base font-medium text-stone-600 hover:bg-stone-50 hover:text-stone-900 transition-all duration-200"
                     >
                       Sign out
                     </button>
@@ -238,7 +238,7 @@ export default function Layout({ children, breadcrumbs }: LayoutProps) {
         )}
       </Disclosure>
 
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 animate-fade-in">
+      <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 lg:py-10 animate-fade-in">
         {breadcrumbs}
         {children}
       </main>

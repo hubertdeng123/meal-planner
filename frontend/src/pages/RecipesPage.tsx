@@ -1,10 +1,34 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ClockIcon, UserGroupIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { ClockIcon, UserGroupIcon, TrashIcon, BoltIcon } from '@heroicons/react/24/outline';
 import recipeService from '../services/recipe.service';
 import type { Recipe } from '../types';
 import { PageHeader } from '../components/ui/PageHeader';
 import { EmptyState } from '../components/ui/EmptyState';
+
+// Dietary tags that should show as badges
+const DIETARY_BADGES: Record<string, { label: string; className: string }> = {
+  vegetarian: { label: 'Vegetarian', className: 'bg-green-100 text-green-700' },
+  vegan: { label: 'Vegan', className: 'bg-green-100 text-green-700' },
+  'gluten-free': { label: 'GF', className: 'bg-amber-100 text-amber-700' },
+  'dairy-free': { label: 'DF', className: 'bg-blue-100 text-blue-700' },
+  keto: { label: 'Keto', className: 'bg-purple-100 text-purple-700' },
+  paleo: { label: 'Paleo', className: 'bg-orange-100 text-orange-700' },
+};
+
+function getDietaryBadges(tags: string[]): Array<{ label: string; className: string }> {
+  const normalizedTags = tags.map(t => t.toLowerCase());
+  const badges: Array<{ label: string; className: string }> = [];
+
+  for (const [key, badge] of Object.entries(DIETARY_BADGES)) {
+    if (normalizedTags.some(tag => tag.includes(key))) {
+      badges.push(badge);
+      if (badges.length >= 2) break; // Max 2 dietary badges
+    }
+  }
+
+  return badges;
+}
 
 export default function RecipesPage() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
@@ -110,6 +134,35 @@ export default function RecipesPage() {
 
             {/* Clickable Content */}
             <Link to={`/recipes/${recipe.id}`} className="group block p-6 pr-12">
+              {/* Quick badges row */}
+              {(() => {
+                const totalTime = (recipe.prep_time_minutes || 0) + (recipe.cook_time_minutes || 0);
+                const isQuick = totalTime > 0 && totalTime <= 30;
+                const dietaryBadges = getDietaryBadges(recipe.tags);
+
+                if (isQuick || dietaryBadges.length > 0) {
+                  return (
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {isQuick && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
+                          <BoltIcon className="h-3 w-3 mr-0.5" />
+                          Quick
+                        </span>
+                      )}
+                      {dietaryBadges.map(badge => (
+                        <span
+                          key={badge.label}
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${badge.className}`}
+                        >
+                          {badge.label}
+                        </span>
+                      ))}
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+
               <h3
                 className="text-lg font-semibold text-stone-900 transition-colors"
                 style={{ '--hover-color': 'var(--primary)' } as React.CSSProperties}

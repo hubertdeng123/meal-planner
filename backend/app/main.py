@@ -2,6 +2,9 @@ import logging
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from app.core.rate_limit import limiter
 from contextlib import asynccontextmanager
 from app.core.config import settings
 from app.api.endpoints import (
@@ -10,6 +13,7 @@ from app.api.endpoints import (
     grocery,
     notifications,
     users,
+    meal_plans,
 )
 from app.services.scheduler_service import scheduler_service
 from braintrust import init_logger
@@ -89,6 +93,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Rate limiting
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
@@ -99,8 +107,14 @@ app.add_middleware(
         settings.BASE_URL,  # Frontend URL from config
     ],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=[
+        "Authorization",
+        "Content-Type",
+        "Accept",
+        "Origin",
+        "X-Requested-With",
+    ],
 )
 
 # Include routers
@@ -126,6 +140,12 @@ app.include_router(
     users.router,
     prefix=f"{settings.API_PREFIX}/users",
     tags=["users"],
+)
+
+app.include_router(
+    meal_plans.router,
+    prefix=f"{settings.API_PREFIX}/meal-plans",
+    tags=["meal-plans"],
 )
 
 

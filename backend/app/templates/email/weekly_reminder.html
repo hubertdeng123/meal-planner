@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Weekly Meal Planning Reminder</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            border-bottom: 3px solid #f97316;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .logo { font-size: 28px; font-weight: bold; color: #f97316; margin-bottom: 10px; }
+        .subtitle { color: #666; font-size: 16px; }
+        .content { margin-bottom: 30px; }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #f97316, #fb923c);
+            color: white;
+            text-decoration: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-weight: bold;
+            margin: 10px 5px;
+        }
+        .benefits {
+            background-color: #fef3c7;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .benefit-item { margin: 10px 0; display: flex; align-items: center; }
+        .benefit-icon { color: #f59e0b; margin-right: 10px; font-weight: bold; }
+        .footer {
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+            border-top: 1px solid #eee;
+            padding-top: 20px;
+        }
+        .unsubscribe { color: #999; font-size: 12px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">Hungry Helper</div>
+            <div class="subtitle">Your weekly meal planning reminder</div>
+        </div>
+
+        <div class="content">
+            <h2>Hi {{ user.username }}!</h2>
+            <p>Hope you're having a great {{ day_name }}! It's time to plan your meals for the upcoming week.</p>
+
+            <div class="benefits">
+                <h3>Why plan your week?</h3>
+                <div class="benefit-item">
+                    <span class="benefit-icon">*</span>
+                    <span>Save time during busy weekdays</span>
+                </div>
+                <div class="benefit-item">
+                    <span class="benefit-icon">*</span>
+                    <span>Reduce food waste and grocery costs</span>
+                </div>
+                <div class="benefit-item">
+                    <span class="benefit-icon">*</span>
+                    <span>Stick to your dietary goals</span>
+                </div>
+                <div class="benefit-item">
+                    <span class="benefit-icon">*</span>
+                    <span>Less stress about "what's for dinner?"</span>
+                </div>
+            </div>
+
+            <p>Ready to plan your week? Here's what you can do:</p>
+        </div>
+
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="{{ base_url }}/meal-planning" class="cta-button">
+                Plan This Week's Meals
+            </a>
+            <a href="{{ base_url }}/generate" class="cta-button">
+                Generate New Recipe
+            </a>
+        </div>
+
+        {% if recent_recipes %}
+        <div style="background-color: #f0f9ff; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="color: #1e40af; margin-top: 0;">Your Recent Favorites</h3>
+            {% for recipe in recent_recipes %}
+            <div style="margin: 10px 0; padding: 10px; background: white; border-radius: 5px;">
+                <strong>{{ recipe.name }}</strong>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="footer">
+            <p>Happy cooking!</p>
+            <p>The Hungry Helper Team</p>
+            <div class="unsubscribe">
+                <a href="{{ base_url }}/settings" style="color: #999;">Update notification preferences</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

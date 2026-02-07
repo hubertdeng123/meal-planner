@@ -441,7 +441,7 @@ export default function SettingsPage() {
   return (
     <div className="max-w-6xl mx-auto">
       {/* Header */}
-      <PageHeader className="mb-8" title="Settings" subtitle="Make Hungry Helper feel like yours" />
+      <PageHeader title="Settings" subtitle="Make Hungry Helper feel like yours" />
 
       {/* Status Message */}
       {message && (

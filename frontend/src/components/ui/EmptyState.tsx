@@ -4,11 +4,19 @@ interface EmptyStateProps {
   icon?: ReactNode;
   title: string;
   description?: string;
+  valueProp?: string;
   action?: ReactNode;
   className?: string;
 }
 
-export function EmptyState({ icon, title, description, action, className = '' }: EmptyStateProps) {
+export function EmptyState({
+  icon,
+  title,
+  description,
+  valueProp,
+  action,
+  className = '',
+}: EmptyStateProps) {
   return (
     <div className={`surface p-10 text-center ${className}`}>
       {icon && (
@@ -28,6 +36,14 @@ export function EmptyState({ icon, title, description, action, className = '' }:
           style={{ animationDelay: '100ms', animationFillMode: 'forwards' }}
         >
           {description}
+        </p>
+      )}
+      {valueProp && (
+        <p
+          className="mt-2 text-sm text-stone-500 animate-slide-in-up opacity-0"
+          style={{ animationDelay: '150ms', animationFillMode: 'forwards' }}
+        >
+          {valueProp}
         </p>
       )}
       {action && (

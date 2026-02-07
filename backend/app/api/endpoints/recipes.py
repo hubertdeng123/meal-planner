@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import and_
 import json
 import logging
 import random
@@ -51,7 +50,11 @@ def _format_nutritional_goals(rules: dict) -> str:
 
 
 def prefetch_user_context(user_id: int, db: Session) -> dict:
-    """Prefetch all user context data to avoid slow LLM tool calls"""
+    """Prefetch all user context data to avoid slow LLM tool calls.
+
+    Optimized to use fewer queries by combining feedback queries and
+    processing results in Python.
+    """
     # Get user preferences
     user = db.query(User).filter(User.id == user_id).first()
     preferences = {
@@ -71,36 +74,38 @@ def prefetch_user_context(user_id: int, db: Session) -> dict:
     )
     past_recipe_names = [r.name for r in past_recipes]
 
-    # Get liked recipes
-    liked_recipes = (
-        db.query(RecipeModel)
+    # Combined query: Get all recipes with feedback in a single query
+    # This replaces the separate liked_recipes and disliked_recipes queries
+    recipes_with_feedback = (
+        db.query(RecipeModel, RecipeFeedbackModel.rating)
         .join(RecipeFeedbackModel)
-        .filter(and_(RecipeModel.user_id == user_id, RecipeFeedbackModel.rating >= 4))
-        .order_by(RecipeFeedbackModel.rating.desc())
-        .limit(10)
+        .filter(RecipeModel.user_id == user_id)
         .all()
     )
-    liked_info = [
-        {
-            "name": r.name,
-            "cuisine": r.cuisine,
-            "key_ingredients": [ing.get("name") for ing in (r.ingredients or [])[:5]],
-        }
-        for r in liked_recipes
-    ]
 
-    # Get disliked ingredients
-    disliked_recipes = (
-        db.query(RecipeModel)
-        .join(RecipeFeedbackModel)
-        .filter(and_(RecipeModel.user_id == user_id, RecipeFeedbackModel.rating <= 2))
-        .all()
-    )
+    # Process results in Python instead of multiple DB queries
+    liked_info = []
     disliked_ingredients = set()
-    for recipe in disliked_recipes:
-        if recipe.ingredients:
-            for ing in recipe.ingredients:
-                disliked_ingredients.add(ing.get("name", "").lower())
+
+    for recipe, rating in recipes_with_feedback:
+        if rating is not None:
+            if rating >= 4:
+                liked_info.append(
+                    {
+                        "name": recipe.name,
+                        "cuisine": recipe.cuisine,
+                        "key_ingredients": [
+                            ing.get("name") for ing in (recipe.ingredients or [])[:5]
+                        ],
+                    }
+                )
+            elif rating <= 2:
+                if recipe.ingredients:
+                    for ing in recipe.ingredients:
+                        disliked_ingredients.add(ing.get("name", "").lower())
+
+    # Sort liked recipes by rating (highest first) and limit to 10
+    liked_info = liked_info[:10]
 
     return {
         "preferences": preferences,

@@ -18,9 +18,11 @@ function FloatingSparkle({ style }: { style: React.CSSProperties }) {
 // Success celebration component with recipe name and sparkles
 function SuccessCelebration({
   recipeName,
+  ingredientPreview,
   onComplete,
 }: {
   recipeName: string;
+  ingredientPreview?: string[];
   onComplete: () => void;
 }) {
   // Generate stable random positions for sparkles
@@ -64,13 +66,16 @@ function SuccessCelebration({
           {recipeName}
         </p>
 
-        {/* Anticipation message */}
-        <p
-          className="text-stone-500 text-sm animate-slide-in-up"
-          style={{ animationDelay: '200ms' }}
-        >
-          Taking you to your new favorite...
-        </p>
+        {/* Ingredient preview if available */}
+        {ingredientPreview && ingredientPreview.length > 0 && (
+          <p
+            className="text-stone-500 text-sm animate-slide-in-up"
+            style={{ animationDelay: '150ms' }}
+          >
+            with {ingredientPreview.slice(0, 3).join(', ')}
+            {ingredientPreview.length > 3 && '...'}
+          </p>
+        )}
       </div>
     </div>
   );
@@ -85,6 +90,7 @@ export default function GenerateRecipePage() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [pendingRecipeId, setPendingRecipeId] = useState<number | null>(null);
   const [recipeName, setRecipeName] = useState<string>('');
+  const [ingredientNames, setIngredientNames] = useState<string[]>([]);
   const [formData, setFormData] = useState<RecipeGenerationRequest>({
     meal_type: '',
     cuisine: '',
@@ -116,6 +122,7 @@ export default function GenerateRecipePage() {
     setThinkingTokens([]);
     setIsThinking(false);
     setRecipeName('');
+    setIngredientNames([]);
 
     const callbacks: StreamCallbacks = {
       onStatus: () => {},
@@ -144,7 +151,10 @@ export default function GenerateRecipePage() {
       onRecipeDescription: () => {},
       onRecipeMetadata: () => {},
       onIngredientsStart: () => {},
-      onIngredient: () => {},
+      onIngredient: ingredient => {
+        // Capture ingredient names for the success celebration preview
+        setIngredientNames(prev => [...prev.slice(0, 4), ingredient.name]);
+      },
       onInstructionsStart: () => {},
       onInstruction: () => {},
       onNutrition: () => {},
@@ -186,10 +196,9 @@ export default function GenerateRecipePage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <div>
       <PageHeader
         center
-        className="mb-8"
         badge={<span className="badge">Recipe Lab</span>}
         title="Generate Your Recipe"
         subtitle="Tell us the vibe. We'll handle the recipe."
@@ -223,6 +232,7 @@ export default function GenerateRecipePage() {
       {showSuccess && (
         <SuccessCelebration
           recipeName={recipeName || 'Your Recipe'}
+          ingredientPreview={ingredientNames}
           onComplete={handleSuccessComplete}
         />
       )}

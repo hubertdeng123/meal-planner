@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Your Weekly Meal Plan is Ready!</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #1f2937;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #fef3c7 0%, #fef3c7 100%);
+        }
+        .container {
+            max-width: 650px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+        }
+        .header {
+            background: linear-gradient(135deg, #f97316, #fb923c, #fdba74);
+            text-align: center;
+            padding: 40px 20px;
+            color: white;
+        }
+        .header-icon { font-size: 48px; margin-bottom: 16px; display: block; }
+        .header-title { font-size: 32px; font-weight: 700; margin: 0 0 8px 0; }
+        .header-subtitle { font-size: 16px; opacity: 0.9; margin: 0; }
+        .content { padding: 40px 30px; }
+        .greeting { font-size: 24px; font-weight: 600; color: #111827; margin: 0 0 16px 0; }
+        .intro-text { font-size: 16px; color: #6b7280; margin: 0 0 32px 0; }
+        .meal-plan-section {
+            background-color: #fefbf2;
+            border-radius: 12px;
+            padding: 24px;
+            margin: 24px 0;
+            border: 1px solid #fed7aa;
+        }
+        .section-title { font-size: 20px; font-weight: 600; color: #111827; margin: 0 0 20px 0; }
+        .day-header {
+            font-size: 16px;
+            font-weight: 600;
+            color: #f97316;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #fed7aa;
+        }
+        .recipe-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            background: white;
+            border-radius: 6px;
+            margin-bottom: 6px;
+            border: 1px solid #fed7aa;
+        }
+        .meal-type {
+            background: linear-gradient(135deg, #fef3c7, #fde68a);
+            color: #92400e;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 12px;
+            margin-right: 12px;
+            min-width: 60px;
+            text-align: center;
+            text-transform: uppercase;
+        }
+        .recipe-name { font-weight: 500; color: #111827; font-size: 14px; }
+        .grocery-section {
+            background-color: #f0fdf4;
+            border-radius: 12px;
+            padding: 24px;
+            margin: 24px 0;
+            border: 1px solid #bbf7d0;
+        }
+        .category-header {
+            font-size: 14px;
+            font-weight: 600;
+            color: #059669;
+            margin-bottom: 10px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #d1fae5;
+        }
+        .grocery-items {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 6px;
+        }
+        .grocery-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 10px;
+            background: white;
+            border-radius: 6px;
+            border: 1px solid #d1fae5;
+            font-size: 13px;
+        }
+        .item-name { font-weight: 500; color: #111827; flex: 1; }
+        .item-quantity {
+            background: linear-gradient(135deg, #eff6ff, #dbeafe);
+            color: #1e40af;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 6px;
+            border-radius: 10px;
+            margin-left: 8px;
+        }
+        .cta-section {
+            text-align: center;
+            margin: 30px 0;
+            padding: 24px 0;
+            background: linear-gradient(135deg, #fef9f3, #fef3c7);
+            border-radius: 12px;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #f97316, #fb923c);
+            color: white;
+            text-decoration: none;
+            padding: 14px 28px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 15px;
+            margin: 0 8px;
+        }
+        .footer {
+            background: #fafafa;
+            text-align: center;
+            color: #6b7280;
+            font-size: 14px;
+            padding: 24px 30px;
+            border-top: 1px solid #e5e7eb;
+        }
+        .footer-brand { font-weight: 600; color: #111827; }
+        @media only screen and (max-width: 600px) {
+            .container { margin: 0; border-radius: 0; }
+            .content { padding: 24px 20px; }
+            .header { padding: 30px 20px; }
+            .header-title { font-size: 28px; }
+            .grocery-items { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <span class="header-icon">*</span>
+            <div class="header-title">Weekly Meal Plan Ready!</div>
+            <div class="header-subtitle">Your recipes and shopping list for the week</div>
+        </div>
+
+        <div class="content">
+            <div class="greeting">Hi {{ user.username }}!</div>
+            <p class="intro-text">
+                Your weekly meal plan {% if meal_plan %}for {{ meal_plan.name }} {% endif %}is ready!
+                Here's your recipe lineup and grocery list to make this week delicious and stress-free.
+            </p>
+
+            {% if weekly_recipes %}
+            <div class="meal-plan-section">
+                <div class="section-title">This Week's Recipe Menu</div>
+
+                {% for day_name, day_recipes in weekly_recipes.items() %}
+                <div style="margin-bottom: 20px;">
+                    <div class="day-header">{{ day_name|title }}</div>
+                    {% for recipe in day_recipes %}
+                    <div class="recipe-item">
+                        <span class="meal-type">{{ recipe.meal_type }}</span>
+                        <span class="recipe-name">{{ recipe.name }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {% if grocery_items %}
+            <div class="grocery-section">
+                <div class="section-title">Your Shopping List ({{ item_count }} items)</div>
+
+                {% for category, items in grocery_items.items() %}
+                <div style="margin-bottom: 20px;">
+                    <div class="category-header">{{ category }}</div>
+                    <div class="grocery-items">
+                        {% for item in items %}
+                        <div class="grocery-item">
+                            <span class="item-name">{{ item.name|title }}</span>
+                            {% if item.quantity and item.unit %}
+                            {% set clean_quantity = item.quantity|int if item.quantity == item.quantity|int else item.quantity %}
+                            <span class="item-quantity">{{ clean_quantity }} {{ item.unit }}</span>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="cta-section">
+            <a href="{{ base_url }}/meal-planning" class="cta-button">
+                View Full Plan
+            </a>
+            {% if grocery_list %}
+            <a href="{{ base_url }}/meal-planning" class="cta-button">
+                Start Shopping
+            </a>
+            {% endif %}
+        </div>
+
+        <div class="footer">
+            <p class="footer-brand">The Hungry Helper Team</p>
+            <p>Happy cooking and shopping!</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -100,12 +100,13 @@ export default function GroceryListsPage() {
       {groceryLists.length === 0 ? (
         <EmptyState
           icon={<ShoppingCartIcon className="h-12 w-12" />}
-          title="No lists yet"
-          description="Pick a few recipes and we'll do the list."
+          title="Your shopping trip, sorted"
+          description="Pick a few recipes and we'll build your list in seconds."
+          valueProp="We combine ingredients and organize by aisle so you spend less time searching."
           action={
             <button onClick={() => setShowCreateModal(true)} className="btn-primary">
               <PlusIcon className="h-4 w-4 mr-2" />
-              Create a list
+              Build my first list
             </button>
           }
         />
