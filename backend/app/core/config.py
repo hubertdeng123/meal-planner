@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import field_validator
 
@@ -34,9 +36,20 @@ class Settings(BaseSettings):
             )
         return v
 
-    # Together AI (Llama 4 Maverick)
+    # Together AI LLM configuration
+    LLM_PROVIDER: Literal["auto", "grok", "together"] = "auto"
     TOGETHER_API_KEY: str = ""
-    TOGETHER_MODEL: str = "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8"
+    TOGETHER_MODEL: str = "moonshotai/Kimi-K2.5"
+    TOGETHER_BASE_URL: str = "https://api.together.xyz/v1"
+
+    # xAI Grok LLM configuration (preferred when GROK_API_KEY is set)
+    GROK_API_KEY: str = ""
+    GROK_MODEL: str = "grok-4-1-fast-reasoning"
+    GROK_BASE_URL: str = "https://api.x.ai/v1"
+
+    RECIPE_MAX_TOKENS: int = 8192
+    RECIPE_TEMPERATURE: float = 0.2
+    RECIPE_STREAM_MAX_ATTEMPTS: int = 1
 
     # Email settings
     SMTP_HOST: str = "smtp.gmail.com"

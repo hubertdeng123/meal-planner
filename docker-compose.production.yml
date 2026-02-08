@@ -22,8 +22,14 @@ services:
     command: ["uv", "run", "--no-dev", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-meal_planner}
+      LLM_PROVIDER: ${LLM_PROVIDER:-auto}
+      GROK_API_KEY: ${GROK_API_KEY}
+      GROK_MODEL: ${GROK_MODEL:-grok-4-1-fast-reasoning}
+      GROK_BASE_URL: ${GROK_BASE_URL:-https://api.x.ai/v1}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       TOGETHER_API_KEY: ${TOGETHER_API_KEY}
+      TOGETHER_MODEL: ${TOGETHER_MODEL:-moonshotai/Kimi-K2.5}
+      TOGETHER_BASE_URL: ${TOGETHER_BASE_URL:-https://api.together.xyz/v1}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       BRAINTRUST_API_KEY: ${BRAINTRUST_API_KEY}
       SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}

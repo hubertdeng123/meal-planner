@@ -18,6 +18,7 @@ from app.api.endpoints import (
     pantry,
 )
 from app.services.scheduler_service import scheduler_service
+from app.agents.pydantic_recipe_agent import provider_name, model_name
 from braintrust import init_logger
 from braintrust.otel import BraintrustSpanProcessor
 from opentelemetry import trace
@@ -186,4 +187,8 @@ def root():
 
 @app.get("/health")
 def health_check():
-    return {"status": "healthy"}
+    return {
+        "status": "healthy",
+        "llm_provider": provider_name,
+        "llm_model": model_name,
+    }
