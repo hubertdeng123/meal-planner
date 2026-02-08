@@ -85,7 +85,7 @@ Generate a recipe with AI streaming.
   | Type | Payload | Description |
   |------|---------|-------------|
   | `status` | `{message}` | Progress updates |
-  | `thinking_start` | — | DeepSeek R1 reasoning begins |
+  | `thinking_start` | — | LLM reasoning begins |
   | `thinking` | `{content}` | Reasoning token chunk |
   | `thinking_end` | — | Reasoning complete |
   | `recipe_start` | — | Recipe output begins |

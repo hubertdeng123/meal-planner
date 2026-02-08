@@ -11,8 +11,8 @@
                                   │ HTTP / SSE
                                   ▼
                         ┌─────────────────────┐         ┌──────────────┐
-                        │   FastAPI Backend    │────────▶│  Together AI │
-                        │   localhost:8000     │  REST   │ (DeepSeek R1)│
+                        │   FastAPI Backend    │────────▶│ Grok / Together│
+                        │   localhost:8000     │  REST   │  (auto-detect) │
                         │                     │         └──────────────┘
                         │  ┌───────────────┐  │
                         │  │  APScheduler  │  │─────────▶  SMTP Server
@@ -171,9 +171,11 @@ Recipe generation uses raw `fetch()` (not axios) for Server-Sent Events:
 
 ### Agent Configuration
 
-- **Model**: DeepSeek R1-0528 via Together AI (`deepseek-ai/DeepSeek-R1-0528`)
-- **Framework**: PydanticAI with `NativeOutput(RecipeLLM)` for JSON schema `response_format`
+- **Providers**: Multi-provider with auto-detection. Prefers Grok (xAI) when `GROK_API_KEY` is set, falls back to Together AI. Controlled by `LLM_PROVIDER` setting (`auto`, `grok`, `together`).
+- **Default models**: Grok `grok-4-1-fast-reasoning`, Together `moonshotai/Kimi-K2.5`
+- **Framework**: PydanticAI with `ToolOutput(RecipeLLM, name="final_recipe", strict=True)`
 - **Dependencies**: `RecipeAgentDeps(db: Session, user_id: int)`
+- **Config**: `retries=2`, `output_retries=4`, `max_tokens` from settings
 - **Tools**: Disabled. User context is prefetched and included in the prompt.
 
 ### Structured Output Schema
@@ -195,7 +197,7 @@ class RecipeLLM(BaseModel):
 
 ### Streaming Protocol
 
-1. DeepSeek R1 emits `<think>...</think>` reasoning tokens before structured output
+1. The LLM may emit `<think>...</think>` reasoning tokens before structured output
 2. Backend parses `<think>` tags and yields SSE events: `thinking_start`, `thinking`, `thinking_end`
 3. After thinking completes, `result.get_output()` returns structured `RecipeLLM`
 4. Backend yields recipe fields as individual SSE events for progressive UI rendering
