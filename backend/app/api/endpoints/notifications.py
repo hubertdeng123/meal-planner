@@ -213,7 +213,7 @@ async def send_grocery_list_notification(
             db.query(GroceryItem)
             .filter(
                 GroceryItem.grocery_list_id == request.grocery_list_id,
-                GroceryItem.checked == 0,  # Unchecked items
+                GroceryItem.checked.is_(False),  # Unchecked items
             )
             .all()
         )
@@ -380,7 +380,7 @@ async def send_weekly_meal_plan_notification(
                 db.query(GroceryItem)
                 .filter(
                     GroceryItem.grocery_list_id == grocery_list.id,
-                    GroceryItem.checked == 0,  # Unchecked items
+                    GroceryItem.checked.is_(False),  # Unchecked items
                 )
                 .all()
             )
