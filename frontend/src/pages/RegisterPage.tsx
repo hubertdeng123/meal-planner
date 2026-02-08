@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   ExclamationCircleIcon,
   SparklesIcon,
+  HungryHelperLogo,
   ChevronLeftIcon,
   ChevronRightIcon,
   CheckCircleIcon,
@@ -492,7 +493,7 @@ export default function RegisterPage() {
         <div className="text-center mb-8">
           <Link to="/login" className="inline-flex items-center space-x-3 mb-6">
             <div className="h-12 w-12 rounded-lg gradient-primary sticker flex items-center justify-center">
-              <SparklesIcon className="h-6 w-6 text-white" />
+              <HungryHelperLogo size={30} />
             </div>
             <h1 className="font-display text-3xl font-semibold text-gray-900">Hungry Helper</h1>
           </Link>
