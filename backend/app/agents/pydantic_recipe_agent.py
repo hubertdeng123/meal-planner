@@ -1,4 +1,6 @@
 import logging
+from functools import lru_cache
+from typing import Literal, TypedDict
 
 from pydantic_ai import Agent, ToolOutput
 from pydantic_ai.models.openai import OpenAIChatModel
@@ -34,86 +36,139 @@ OUTPUT FORMAT (CRITICAL):
 """
 
 
-def _resolve_model_config() -> tuple[str, str, str, str]:
+class RecipeAgentConfig(TypedDict):
+    provider: Literal["grok", "together"]
+    model: str
+    base_url: str
+    api_key: str
+
+
+class RecipeAgentStatus(TypedDict):
+    configured: bool
+    provider: str
+    model: str
+    reason: str | None
+
+
+def _resolve_model_config() -> tuple[RecipeAgentConfig | None, str | None]:
     provider = settings.LLM_PROVIDER
     has_grok = bool(settings.GROK_API_KEY and settings.GROK_API_KEY.strip())
     has_together = bool(settings.TOGETHER_API_KEY and settings.TOGETHER_API_KEY.strip())
 
     if provider == "grok":
         if not has_grok:
-            raise RuntimeError(
-                "LLM_PROVIDER is set to 'grok' but GROK_API_KEY is missing."
+            return (
+                None,
+                "LLM_PROVIDER is set to 'grok' but GROK_API_KEY is missing.",
             )
         return (
-            "grok",
-            settings.GROK_MODEL,
-            settings.GROK_BASE_URL,
-            settings.GROK_API_KEY,
+            {
+                "provider": "grok",
+                "model": settings.GROK_MODEL,
+                "base_url": settings.GROK_BASE_URL,
+                "api_key": settings.GROK_API_KEY,
+            },
+            None,
         )
 
     if provider == "together":
         if not has_together:
-            raise RuntimeError(
-                "LLM_PROVIDER is set to 'together' but TOGETHER_API_KEY is missing."
+            return (
+                None,
+                "LLM_PROVIDER is set to 'together' but TOGETHER_API_KEY is missing.",
             )
         return (
-            "together",
-            settings.TOGETHER_MODEL,
-            settings.TOGETHER_BASE_URL,
-            settings.TOGETHER_API_KEY,
+            {
+                "provider": "together",
+                "model": settings.TOGETHER_MODEL,
+                "base_url": settings.TOGETHER_BASE_URL,
+                "api_key": settings.TOGETHER_API_KEY,
+            },
+            None,
         )
 
     # auto: prefer Grok if configured, else Together.
     if has_grok:
         return (
-            "grok",
-            settings.GROK_MODEL,
-            settings.GROK_BASE_URL,
-            settings.GROK_API_KEY,
+            {
+                "provider": "grok",
+                "model": settings.GROK_MODEL,
+                "base_url": settings.GROK_BASE_URL,
+                "api_key": settings.GROK_API_KEY,
+            },
+            None,
         )
     if has_together:
-        logger.warning(
-            "GROK_API_KEY not set; falling back to Together (model=%s).",
-            settings.TOGETHER_MODEL,
-        )
         return (
-            "together",
-            settings.TOGETHER_MODEL,
-            settings.TOGETHER_BASE_URL,
-            settings.TOGETHER_API_KEY,
+            {
+                "provider": "together",
+                "model": settings.TOGETHER_MODEL,
+                "base_url": settings.TOGETHER_BASE_URL,
+                "api_key": settings.TOGETHER_API_KEY,
+            },
+            None,
         )
-    raise RuntimeError(
-        "No LLM API key configured. Set GROK_API_KEY or TOGETHER_API_KEY."
+
+    return (
+        None,
+        "No LLM API key configured. Set GROK_API_KEY or TOGETHER_API_KEY.",
     )
 
 
-provider_name, model_name, base_url, api_key = _resolve_model_config()
-logger.info(
-    "Recipe agent provider=%s model=%s base_url=%s", provider_name, model_name, base_url
-)
+def get_recipe_agent_status() -> RecipeAgentStatus:
+    config, reason = _resolve_model_config()
+    if config is None:
+        return {
+            "configured": False,
+            "provider": "unconfigured",
+            "model": "unconfigured",
+            "reason": reason,
+        }
+    return {
+        "configured": True,
+        "provider": config["provider"],
+        "model": config["model"],
+        "reason": None,
+    }
 
-model = OpenAIChatModel(
-    model_name,
-    provider=OpenAIProvider(
-        base_url=base_url,
-        api_key=api_key,
-    ),
-)
 
-# Create agent with type-safe dependencies
-recipe_agent = Agent(
-    model=model,
-    deps_type=RecipeAgentDeps,
-    model_settings={"max_tokens": settings.RECIPE_MAX_TOKENS},
-    retries=2,
-    output_retries=4,
-    output_type=ToolOutput(
-        RecipeLLM,
-        name="final_recipe",
-        strict=True,
-    ),
-    system_prompt=SYSTEM_PROMPT,
-)
+def _build_recipe_agent(config: RecipeAgentConfig) -> Agent:
+    model = OpenAIChatModel(
+        config["model"],
+        provider=OpenAIProvider(
+            base_url=config["base_url"],
+            api_key=config["api_key"],
+        ),
+    )
+    return Agent(
+        model=model,
+        deps_type=RecipeAgentDeps,
+        model_settings={"max_tokens": settings.RECIPE_MAX_TOKENS},
+        retries=2,
+        output_retries=4,
+        output_type=ToolOutput(
+            RecipeLLM,
+            name="final_recipe",
+            strict=True,
+        ),
+        system_prompt=SYSTEM_PROMPT,
+    )
+
+
+@lru_cache(maxsize=1)
+def get_recipe_agent() -> Agent:
+    config, reason = _resolve_model_config()
+    if config is None:
+        raise RuntimeError(reason or "Recipe generation is not configured.")
+
+    logger.info(
+        "Recipe agent provider=%s model=%s base_url=%s",
+        config["provider"],
+        config["model"],
+        config["base_url"],
+    )
+    return _build_recipe_agent(config)
+
 
 # Note: Tools are disabled - user context is prefetched and included in the prompt
 # This avoids LLM tool-calling latency and duplicate calls

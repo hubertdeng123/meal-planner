@@ -23,7 +23,7 @@ from app.schemas.recipe import (
     RecipeFeedback,
     PaginatedRecipes,
 )
-from app.agents.pydantic_recipe_agent import recipe_agent
+from app.agents.pydantic_recipe_agent import get_recipe_agent
 from app.agents.recipe_deps import RecipeAgentDeps
 
 router = APIRouter()
@@ -170,6 +170,15 @@ async def generate_recipe_stream(
     current_user: User = Depends(get_current_active_user),
 ):
     """Generate recipe with streaming using PydanticAI + tools"""
+    try:
+        recipe_agent = get_recipe_agent()
+    except RuntimeError as exc:
+        logger.warning("Recipe generation requested but LLM is unavailable: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        )
+
     # Capture user_id before entering generator (current_user may not be available later)
     user_id = current_user.id
     # Select cuisine before entering generator (needs current_user which won't be available inside)
