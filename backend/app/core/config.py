@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     # JWT
     JWT_SECRET_KEY: str
     JWT_ALGORITHM: str = "HS256"
-    JWT_EXPIRATION_HOURS: int = 24
+    JWT_EXPIRATION_HOURS: int = 720  # 30 days
 
     @field_validator("DATABASE_URL", "JWT_SECRET_KEY")
     @classmethod

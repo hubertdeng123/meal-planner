@@ -47,7 +47,7 @@ export default function GroceryListsPage() {
           sort: 'created_at',
           order: 'desc',
         }),
-        recipeService.getRecipes(),
+        recipeService.getRecipes(0, 500),
       ]);
       setGroceryLists(groceryListsData.items);
       setTotalPages(groceryListsData.total_pages);
