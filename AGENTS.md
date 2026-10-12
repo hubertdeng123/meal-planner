@@ -108,6 +108,16 @@ See [docs/architecture.md](./docs/architecture.md) for the full file map. Key en
 4. Thinking tokens stream as SSE events → frontend shows progress; structured output parsed into recipe fields
 5. Recipe saved to DB → `complete` event → user redirected to detail page
 
+## Cursor Cloud specific instructions
+
+- PostgreSQL 16 runs on the host. Docker is not part of this environment, so `make db-up` will not start the database. The dev database is `meal_planner` with user `postgres` and password `password`: `postgresql://postgres:password@localhost:5432/meal_planner`.
+- `scripts/cloud-agent-start.sh` starts Postgres (`pg_ctlcluster` when systemd is unavailable), creates that database, writes a root `.env` with a random `JWT_SECRET_KEY` when one is missing, runs `uv run alembic upgrade head`, and launches the API and Vite servers in tmux sessions named `backend` and `frontend`.
+- API: http://127.0.0.1:8000 (`cd backend && uv run uvicorn app.main:app --host 0.0.0.0 --port 8000`). UI: http://127.0.0.1:5173 (`cd frontend && pnpm exec vite --host 0.0.0.0 --port 5173`). Vite does not use the README's port 3000.
+- `BraintrustSpanProcessor()` in `backend/app/main.py` raises on import unless `BRAINTRUST_API_KEY` is set. The start script exports `BRAINTRUST_API_KEY=local-dev-unset` when no real key is present so the API can boot. Tracing export needs a real key.
+- Recipe generation needs `GROK_API_KEY` or `TOGETHER_API_KEY`. Registration, pantry, meal plans, and grocery lists work without them. `GET /health` reports `llm_configured: false` until one of those keys is set.
+- Frontend API base URL comes from `frontend/.env` (`VITE_API_URL=http://localhost:8000`), created by the start script when missing.
+- Checks: `cd backend && uv run pytest` and `uv run ruff check .`; `cd frontend && pnpm run typecheck && pnpm run lint && pnpm run test`.
+
 ## Cross-References
 
 - [CLAUDE.md](./CLAUDE.md) - Dev commands, code standards, testing
