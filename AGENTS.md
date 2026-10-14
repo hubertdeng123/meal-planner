@@ -21,17 +21,18 @@ Frontend Page → service.ts → axios → FastAPI endpoint → SQLAlchemy → P
 ### Flow 2: Streaming AI Recipe Generation
 
 ```
-GenerateRecipePage → fetch() SSE → POST /recipes/generate/stream
+GenerateRecipePage → useRecipeStream() → streamRecipe() fetch() SSE → POST /recipes/generate/stream
                                         ↓
-                               prefetch_user_context()  ← DB queries (preferences, history, pantry)
+                               prefetch_user_context()  ← DB queries (preferences, history, pantry)   [stage: context]
                                         ↓
-                               recipe_agent.run_stream()  → Grok / Together AI (auto-detected)
+                               generate_recipe_events() → agent.iter() → Grok / Together AI / demo
                                         ↓
-                               <think>...</think> tokens  → SSE thinking events
+                               native ThinkingPart deltas  → `thinking {delta}` events           [stage: thinking]
                                         ↓
-                               RecipeLLM structured output → SSE recipe field events
+                               partial output-tool args → `draft {recipe}` events (≤10/s)       [stage: drafting]
                                         ↓
-                               Save to DB → SSE complete event
+                               save_generated_recipe() → `complete {recipe}` event              [stage: saving]
+                               (`error {message, retryable}` on failure, `ping` keepalives throughout)
 ```
 
 ### Flow 3: Grocery List from Meal Plan
@@ -61,9 +62,12 @@ See [docs/architecture.md](./docs/architecture.md) for the full file map. Key en
 | Area | Key File | Notes |
 |------|----------|-------|
 | AI agent | `backend/app/agents/pydantic_recipe_agent.py` | Multi-provider (Grok/Together), ToolOutput(RecipeLLM) |
-| Streaming endpoint | `backend/app/api/endpoints/recipes.py` | SSE generation + user context prefetch |
+| Streaming endpoint | `backend/app/api/endpoints/recipes.py` | Thin SSE route; delegates to the stream service |
+| Stream service | `backend/app/services/recipe_stream.py` | Named SSE events, draft throttling, keepalive, timeouts |
+| Generation helpers | `backend/app/services/recipe_generation.py` | User context prefetch, prompt building, saving |
 | Ingredient logic | `backend/app/services/ingredient_service.py` | Shared normalization/categorization — don't duplicate |
-| SSE client | `frontend/src/services/recipe.service.ts` | StreamCallbacks pattern with AbortSignal |
+| SSE client | `frontend/src/services/recipe.service.ts` | `streamRecipe()` over the parser in `services/sse.ts` |
+| Stream hook | `frontend/src/hooks/useRecipeStream.ts` | Stage/thinking/draft state, cancel, timeout — use this from UI |
 | Date utils | `frontend/src/utils/date.ts` | Always use for YYYY-MM-DD parsing |
 
 ## Key Patterns to Follow
@@ -77,7 +81,7 @@ See [docs/architecture.md](./docs/architecture.md) for the full file map. Key en
 
 ### Frontend Patterns
 
-1. **SSE streaming**: Recipe generation uses `fetch()` with `ReadableStream`, not axios. Always pass an `AbortSignal`.
+1. **SSE streaming**: Recipe generation uses `fetch()` with `ReadableStream`, not axios. UI code goes through the `useRecipeStream()` hook rather than calling the service directly.
 2. **Date utilities**: Use `utils/date.ts` for parsing `YYYY-MM-DD` strings. Never use `new Date('YYYY-MM-DD')` directly (timezone shift bug).
 3. **Toast notifications**: Use `useToast()` hook from `ToastContext`.
 4. **Service layer**: Singleton class instances wrapping axios. SSE streaming uses raw `fetch()`.
@@ -86,7 +90,7 @@ See [docs/architecture.md](./docs/architecture.md) for the full file map. Key en
 
 1. **Date timezone**: `new Date('2026-01-15')` parses as UTC midnight → renders as Jan 14 in US timezones. Use `parseLocalDate()` from `utils/date.ts`.
 2. **Tag filtering**: PostgreSQL uses `ARRAY.contains()`, SQLite (tests) uses `json_each()`. Check dialect.
-3. **Streaming cancellation**: Wire `AbortController.abort()` to cancel button + unmount cleanup. Check `error.name === 'AbortError'`.
+3. **Streaming cancellation**: `useRecipeStream().cancel()` aborts the fetch and also runs on unmount; the backend cancels the agent run on disconnect. Don't hand-roll a second `AbortController`.
 4. **Ingredient categorization**: Lives in `ingredient_service.py`. Both `grocery.py` and `meal_plans.py` import from there.
 5. **Meal plan date validation**: Enforced at schema level (Pydantic) and DB level (`ck_meal_plans_date_range`).
 
@@ -95,6 +99,7 @@ See [docs/architecture.md](./docs/architecture.md) for the full file map. Key en
 | Decision | Rationale |
 |----------|-----------|
 | **Grok/Together AI multi-provider** (not Claude API) | Auto-detects provider (prefers Grok when GROK_API_KEY set, falls back to Together). ToolOutput for structured JSON, reasoning tokens for UX |
+| **Offline `demo` provider** | `LLM_PROVIDER=demo` (or `auto` with no keys when `ENVIRONMENT` is not production) streams a canned recipe through a PydanticAI `FunctionModel`, so the full UX works without API keys. `DEMO_LLM_DELAY_SCALE=0` makes it instant |
 | **Prefetch user context** (not LLM tools) | Eliminates tool-calling round-trips. All context gathered in ~3 SQL queries before LLM call |
 | **APScheduler** (not Celery) | Lightweight for single-server deployment. Hourly cron is sufficient for weekly email reminders |
 | **localStorage for JWT** (not httpOnly cookies) | Simpler SSE auth (Bearer token in fetch headers). Acceptable for this app's threat model |
@@ -104,8 +109,8 @@ See [docs/architecture.md](./docs/architecture.md) for the full file map. Key en
 
 1. User submits form → SSE connection to `POST /recipes/generate/stream`
 2. Backend prefetches user context (~3 queries), builds prompt with preferences + history
-3. `recipe_agent.run_stream()` calls configured LLM provider (Grok or Together AI)
-4. Thinking tokens stream as SSE events → frontend shows progress; structured output parsed into recipe fields
+3. `generate_recipe_events()` iterates the agent graph against the configured provider (Grok, Together AI, or demo)
+4. Native thinking parts stream as `thinking` events; partial output-tool JSON is validated into `RecipeDraft` and streamed as `draft` events so the recipe fills in live
 5. Recipe saved to DB → `complete` event → user redirected to detail page
 
 ## Cross-References
