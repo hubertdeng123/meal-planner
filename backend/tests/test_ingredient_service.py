@@ -12,6 +12,39 @@ def test_categorize_ingredient_maps_common_keywords():
     assert categorize_ingredient("Olive oil") == "Pantry"
 
 
+def test_categorize_ingredient_matches_whole_words_only():
+    assert categorize_ingredient("Eggplant") == "Produce"
+    assert categorize_ingredient("Large eggs") == "Dairy"
+    assert categorize_ingredient("Peanuts") == "Pantry"
+    assert categorize_ingredient("Frozen peas") == "Produce"
+    assert categorize_ingredient("Cornstarch") == "Other"
+
+
+def test_categorize_ingredient_handles_plurals():
+    assert categorize_ingredient("Cherry tomatoes") == "Produce"
+    assert categorize_ingredient("Blueberries") == "Produce"
+    assert categorize_ingredient("Anchovies") == "Meat & Seafood"
+
+
+def test_categorize_ingredient_covers_legumes_pasta_and_spices():
+    assert categorize_ingredient("Canned chickpeas") == "Pantry"
+    assert categorize_ingredient("Black beans") == "Pantry"
+    assert categorize_ingredient("Rigatoni") == "Pantry"
+    assert categorize_ingredient("Ground cumin") == "Pantry"
+    assert categorize_ingredient("Smoked paprika") == "Pantry"
+
+
+def test_categorize_ingredient_prefers_shelf_stable_forms():
+    assert categorize_ingredient("Chicken broth") == "Pantry"
+    assert categorize_ingredient("Tomato paste") == "Pantry"
+    assert categorize_ingredient("Coconut milk") == "Pantry"
+    assert categorize_ingredient("Garlic powder") == "Pantry"
+    assert categorize_ingredient("Egg noodles") == "Pantry"
+    assert categorize_ingredient("Green beans") == "Produce"
+    assert categorize_ingredient("Black pepper") == "Pantry"
+    assert categorize_ingredient("Red bell pepper") == "Produce"
+
+
 def test_categorize_ingredient_falls_back_to_other():
     assert categorize_ingredient("mystery seasoning blend") == "Other"
 
