@@ -6,7 +6,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 import pytest_asyncio
 
-from app.db.database import Base, get_db
+from app.db.database import Base, get_db, get_session_factory
 from app.core.security import create_access_token
 from app.models.user import User
 from app.models.recipe import Recipe
@@ -114,6 +114,7 @@ def client(db):
     )
 
     test_app.dependency_overrides[get_db] = override_get_db
+    test_app.dependency_overrides[get_session_factory] = lambda: TestingSessionLocal
 
     with TestClient(test_app) as c:
         yield c

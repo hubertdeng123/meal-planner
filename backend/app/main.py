@@ -31,13 +31,24 @@ from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 
 
-init_logger(project="Hungry Helper")
+# Configure logging before anything logs, so the root logger isn't implicitly set to WARNING.
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler(), logging.FileHandler("app.log")],
+)
 
 # Set up tracing for the agent to automatically log to Braintrust
 provider = TracerProvider()
 trace.set_tracer_provider(provider)
 
-provider.add_span_processor(BraintrustSpanProcessor())
+# The dev environment start script passes this placeholder when no key is configured.
+BRAINTRUST_API_KEY = os.getenv("BRAINTRUST_API_KEY", "").strip()
+if BRAINTRUST_API_KEY and BRAINTRUST_API_KEY != "local-dev-unset":
+    init_logger(project="Hungry Helper")
+    provider.add_span_processor(BraintrustSpanProcessor())
+else:
+    logging.info("BRAINTRUST_API_KEY not set, agent traces are not exported")
 
 Agent.instrument_all()
 
@@ -58,18 +69,11 @@ if SENTRY_DSN:
         # of sampled transactions.
         # We recommend adjusting this value in production.
         profiles_sample_rate=0.1,
-        environment=os.getenv("ENVIRONMENT", "development"),
+        environment=settings.ENVIRONMENT,
     )
     logging.info("Sentry initialized successfully")
 else:
     logging.warning("Sentry DSN not provided, error tracking disabled")
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler(), logging.FileHandler("app.log")],
-)
 
 logger = logging.getLogger(__name__)
 
