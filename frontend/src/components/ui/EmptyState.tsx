@@ -22,45 +22,31 @@ export function EmptyState({
   const isCompact = variant === 'compact';
 
   return (
-    <div className={`surface text-center ${isCompact ? 'p-6' : 'p-10'} ${className}`}>
+    <div
+      className={`relative overflow-hidden rounded-2xl border border-dashed border-stone-300 bg-white/60 text-center animate-slide-in-up ${
+        isCompact ? 'px-6 py-10' : 'px-6 py-16 sm:py-20'
+      } ${className}`}
+    >
       {icon && (
-        <div
-          className={`flex justify-center text-stone-300 ${isCompact ? 'mb-4' : 'mb-6'} animate-float`}
-        >
-          <div
-            className={`${isCompact ? 'w-12 h-12' : 'w-16 h-16'} flex items-center justify-center`}
-          >
+        <div className="mb-5 flex justify-center">
+          <div className={`icon-tile ${isCompact ? '' : 'icon-tile-lg'} [&>svg]:h-6 [&>svg]:w-6`}>
             {icon}
           </div>
         </div>
       )}
       <h2
-        className={`${isCompact ? 'text-xl' : 'text-2xl'} font-semibold text-stone-900 animate-slide-in-up opacity-0`}
-        style={{ animationFillMode: 'forwards' }}
+        className={`font-display font-semibold text-stone-900 ${isCompact ? 'text-lg' : 'text-2xl'}`}
       >
         {title}
       </h2>
       {description && (
-        <p
-          className={`${isCompact ? 'mt-2 text-sm' : 'mt-3'} text-stone-600 animate-slide-in-up opacity-0`}
-          style={{ animationDelay: '100ms', animationFillMode: 'forwards' }}
-        >
+        <p className={`mx-auto mt-2 max-w-md text-stone-600 ${isCompact ? 'text-sm' : ''}`}>
           {description}
         </p>
       )}
-      {valueProp && (
-        <p
-          className="mt-2 text-sm text-stone-500 animate-slide-in-up opacity-0"
-          style={{ animationDelay: '150ms', animationFillMode: 'forwards' }}
-        >
-          {valueProp}
-        </p>
-      )}
+      {valueProp && <p className="mx-auto mt-2 max-w-md text-sm text-stone-500">{valueProp}</p>}
       {action && (
-        <div
-          className={`${isCompact ? 'mt-5' : 'mt-8'} flex justify-center animate-slide-in-up opacity-0`}
-          style={{ animationDelay: '200ms', animationFillMode: 'forwards' }}
-        >
+        <div className={`${isCompact ? 'mt-5' : 'mt-7'} flex flex-wrap justify-center gap-3`}>
           {action}
         </div>
       )}

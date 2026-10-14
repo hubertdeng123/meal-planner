@@ -1,12 +1,13 @@
 import { useEffect, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { XMarkIcon } from './AppIcons';
 
 type ModalSize = 'sm' | 'md' | 'lg';
 
 const sizeMap: Record<ModalSize, string> = {
-  sm: 'max-w-md',
-  md: 'max-w-lg',
-  lg: 'max-w-2xl',
+  sm: 'sm:max-w-md',
+  md: 'sm:max-w-lg',
+  lg: 'sm:max-w-2xl',
 };
 
 interface ModalShellProps {
@@ -47,48 +48,60 @@ export function ModalShell({
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [onClose]);
 
+  useEffect(() => {
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, []);
+
   const handleBackdropClick = () => {
     if (closeOnBackdrop) {
       onClose?.();
     }
   };
 
-  return (
+  return createPortal(
     <div
-      className="modal-overlay overflow-y-auto h-full w-full animate-fade-in"
+      className="modal-overlay flex items-end justify-center overflow-y-auto animate-fade-in sm:items-center sm:p-6"
       onClick={handleBackdropClick}
       role="presentation"
     >
-      <div className={`modal-container top-20 ${sizeMap[size]}`}>
-        <div
-          className={`modal-panel animate-scale-in animate-slide-in-up ${className}`}
-          style={{ animationDuration: '0.25s' }}
-          onClick={event => event.stopPropagation()}
-          role="dialog"
-          aria-modal="true"
-        >
-          {(title || description || (!hideCloseButton && onClose)) && (
-            <div className="mb-4 flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                {title && <h3 className="text-lg font-semibold text-stone-900">{title}</h3>}
-                {description && <p className="mt-1 text-sm text-stone-600">{description}</p>}
-              </div>
-              {!hideCloseButton && onClose && (
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="icon-button-muted shrink-0"
-                  aria-label="Close dialog"
-                >
-                  <XMarkIcon className="h-5 w-5" />
-                </button>
-              )}
+      <div
+        className={`relative flex max-h-[92vh] w-full flex-col rounded-t-2xl border border-stone-900/[0.06] bg-white shadow-xl animate-slide-in-up sm:rounded-2xl ${sizeMap[size]} ${className}`}
+        onClick={event => event.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+      >
+        {(title || description || (!hideCloseButton && onClose)) && (
+          <div className="flex items-start justify-between gap-4 px-6 pb-2 pt-5">
+            <div className="min-w-0">
+              {title && <h3 className="text-lg font-semibold text-stone-900">{title}</h3>}
+              {description && <p className="mt-1 text-sm text-stone-600">{description}</p>}
             </div>
-          )}
-          {children ? <div className={bodyClassName}>{children}</div> : null}
-          {footer && <div className="mt-6 flex justify-end gap-3">{footer}</div>}
-        </div>
+            {!hideCloseButton && onClose && (
+              <button
+                type="button"
+                onClick={onClose}
+                className="icon-button-muted -mr-2 -mt-1 shrink-0"
+                aria-label="Close dialog"
+              >
+                <XMarkIcon className="h-5 w-5" />
+              </button>
+            )}
+          </div>
+        )}
+        {children ? (
+          <div className={`overflow-y-auto px-6 py-3 ${bodyClassName}`}>{children}</div>
+        ) : null}
+        {footer && (
+          <div className="mt-2 flex flex-col-reverse gap-2 border-t border-stone-100 bg-stone-50/60 px-6 py-4 sm:flex-row sm:justify-end sm:rounded-b-2xl">
+            {footer}
+          </div>
+        )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

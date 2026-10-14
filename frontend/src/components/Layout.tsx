@@ -1,36 +1,140 @@
-import { useState, useRef, useEffect } from 'react';
-import { createPortal } from 'react-dom';
-import { Disclosure } from '@headlessui/react';
+import { useEffect, useState, type ComponentType } from 'react';
+import { Menu, MenuButton, MenuItem, MenuItems } from '@headlessui/react';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   Bars3Icon,
-  XMarkIcon,
-  UserCircleIcon,
-  Cog6ToothIcon,
-  PlusCircleIcon,
-  PantryIcon,
-  GroceryBagIcon,
   CalendarMealIcon,
+  ChevronDownIcon,
+  Cog6ToothIcon,
+  DashboardIcon,
+  GroceryBagIcon,
+  HungryHelperLogo,
+  LogoutIcon,
+  PantryIcon,
   RecipeBookIcon,
+  SparklesIcon,
+  XMarkIcon,
+  type AppIconProps,
 } from './ui/AppIcons';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { HungryHelperLogo } from './ui/AppIcons';
+import authService from '../services/auth.service';
+import type { User } from '../types';
 
-function classNames(...classes: string[]) {
+function classNames(...classes: Array<string | false | undefined>) {
   return classes.filter(Boolean).join(' ');
 }
 
-const navigation = [
-  { name: 'Recipe Vault', href: '/recipes', icon: RecipeBookIcon },
-  { name: 'Meal Plans', href: '/meal-plans', icon: CalendarMealIcon },
-  { name: 'Grocery Lists', href: '/grocery', icon: GroceryBagIcon },
-  { name: 'Pantry', href: '/pantry', icon: PantryIcon },
-  { name: 'Make a Recipe', href: '/generate', icon: PlusCircleIcon },
+interface NavEntry {
+  name: string;
+  href: string;
+  icon: ComponentType<AppIconProps>;
+}
+
+const navigationGroups: Array<{ label: string; items: NavEntry[] }> = [
+  {
+    label: 'Kitchen',
+    items: [
+      { name: 'Dashboard', href: '/dashboard', icon: DashboardIcon },
+      { name: 'Recipe Vault', href: '/recipes', icon: RecipeBookIcon },
+      { name: 'Make a Recipe', href: '/generate', icon: SparklesIcon },
+    ],
+  },
+  {
+    label: 'Planning',
+    items: [
+      { name: 'Meal Plans', href: '/meal-plans', icon: CalendarMealIcon },
+      { name: 'Grocery Lists', href: '/grocery', icon: GroceryBagIcon },
+      { name: 'Pantry', href: '/pantry', icon: PantryIcon },
+    ],
+  },
 ];
+
+let cachedUser: User | null = null;
+
+function useCurrentUser() {
+  const [user, setUser] = useState<User | null>(cachedUser);
+
+  useEffect(() => {
+    if (cachedUser) return;
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const data = await authService.getCurrentUser();
+        cachedUser = data;
+        if (!cancelled) setUser(data);
+      } catch {
+        // The shell still renders without profile details.
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return user;
+}
+
+function initialsFor(user: User | null) {
+  const source = user?.username || user?.email || '';
+  return source.slice(0, 2).toUpperCase() || 'HH';
+}
+
+function Brand({ compact = false }: { compact?: boolean }) {
+  return (
+    <Link
+      to="/dashboard"
+      className="group flex items-center gap-2.5 rounded-lg px-1 py-1 focus:outline-none focus-visible:ring-4 focus-visible:ring-primary-soft"
+    >
+      <HungryHelperLogo size={compact ? 30 : 34} className="transition-transform duration-200 group-hover:-rotate-6" />
+      <span className="font-display text-[1.15rem] font-semibold text-stone-900">Hungry Helper</span>
+    </Link>
+  );
+}
+
+function NavList({ onNavigate }: { onNavigate?: () => void }) {
+  return (
+    <div className="space-y-6">
+      {navigationGroups.map(group => (
+        <div key={group.label}>
+          <p className="eyebrow mb-2 px-3">{group.label}</p>
+          <ul className="space-y-0.5">
+            {group.items.map(item => {
+              const Icon = item.icon;
+              return (
+                <li key={item.href}>
+                  <NavLink
+                    to={item.href}
+                    onClick={onNavigate}
+                    className={({ isActive }) =>
+                      classNames('nav-item', isActive && 'nav-item-active')
+                    }
+                  >
+                    {({ isActive }) => (
+                      <>
+                        <Icon
+                          className={classNames(
+                            'h-[18px] w-[18px]',
+                            isActive ? 'text-primary' : 'text-stone-400'
+                          )}
+                        />
+                        {item.name}
+                      </>
+                    )}
+                  </NavLink>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 interface LayoutProps {
   children: React.ReactNode;
-  breadcrumbs?: React.ReactNode; // Optional breadcrumbs to render above content
+  breadcrumbs?: React.ReactNode;
   mode?: 'full' | 'condensed' | 'focus';
 }
 
@@ -38,257 +142,165 @@ export default function Layout({ children, breadcrumbs, mode = 'full' }: LayoutP
   const navigate = useNavigate();
   const location = useLocation();
   const { logout } = useAuth();
-  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 });
-  const isFocusMode = mode === 'focus';
-  const isCondensedMode = mode === 'condensed';
+  const user = useCurrentUser();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
-    if (isProfileMenuOpen && buttonRef.current) {
-      const rect = buttonRef.current.getBoundingClientRect();
-      setMenuPosition({
-        top: rect.bottom + 8,
-        right: window.innerWidth - rect.right,
-      });
-    }
-  }, [isProfileMenuOpen]);
+    setMobileOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMobileOpen(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [mobileOpen]);
 
   const handleLogout = () => {
+    cachedUser = null;
     logout();
     navigate('/login');
   };
 
-  const isActive = (href: string) => {
-    return location.pathname === href || location.pathname.startsWith(href + '/');
-  };
+  const isFocusMode = mode === 'focus';
 
   return (
-    <div className="app-shell relative overflow-hidden">
-      <Disclosure
-        as="nav"
-        className={classNames('z-40', isFocusMode ? 'sticky top-2' : 'sticky top-4')}
-      >
-        {({ open, close }) => (
-          <>
-            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-              <div className="relative overflow-hidden glass-panel">
-                <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_top,_rgba(255,223,210,0.45),_rgba(255,255,255,0.9))]" />
-                <div
-                  className="absolute right-10 top-4 h-12 w-12 rounded-full blur-xl pointer-events-none"
-                  style={{ backgroundColor: 'var(--primary-soft)' }}
-                />
-                <div className="absolute bottom-2 left-8 h-10 w-10 rounded-full bg-emerald-200/40 blur-xl pointer-events-none" />
+    <div className="app-shell">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[var(--sidebar-width)] flex-col border-r border-stone-900/[0.06] bg-[#efede6] lg:flex">
+        <div className="px-4 pb-4 pt-5">
+          <Brand />
+        </div>
 
-                <div
-                  className={classNames(
-                    'relative flex justify-between px-4 sm:px-6',
-                    isFocusMode ? 'h-12' : isCondensedMode ? 'h-14' : 'h-16'
-                  )}
+        <div className="px-4">
+          <Link to="/generate" className="btn-primary w-full">
+            <SparklesIcon className="h-4 w-4" />
+            New recipe
+          </Link>
+        </div>
+
+        <nav aria-label="Main" className="mt-6 flex-1 overflow-y-auto px-2">
+          <NavList />
+        </nav>
+
+        <div className="border-t border-stone-900/[0.06] p-3">
+          <Menu>
+            <MenuButton
+              aria-label="Open user menu"
+              className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors hover:bg-stone-900/5 focus:outline-none focus-visible:ring-4 focus-visible:ring-primary-soft data-[open]:bg-stone-900/5"
+            >
+              <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-white">
+                {initialsFor(user)}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-semibold text-stone-900">
+                  {user?.username || 'Your kitchen'}
+                </span>
+                <span className="block truncate text-xs text-stone-500">
+                  {user?.email || 'Account & settings'}
+                </span>
+              </span>
+              <ChevronDownIcon className="h-4 w-4 text-stone-400" />
+            </MenuButton>
+            <MenuItems
+              anchor={{ to: 'top start', gap: 8 }}
+              className="z-50 w-[calc(var(--sidebar-width)-1.5rem)] rounded-xl border border-stone-200 bg-white p-1.5 shadow-lg focus:outline-none"
+            >
+              <MenuItem>
+                <Link
+                  to="/settings"
+                  className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-stone-700 data-[focus]:bg-stone-100"
                 >
-                  <div className="flex">
-                    <div className="flex flex-shrink-0 items-center">
-                      <Link
-                        to="/dashboard"
-                        className="flex items-center space-x-3 rounded-full border border-slate-200/70 bg-white/90 px-3 py-1.5 shadow-sm transition-all duration-200 hover:-translate-y-0.5"
-                      >
-                        <div className="h-8 w-8 rounded-xl gradient-primary flex items-center justify-center overflow-hidden">
-                          <HungryHelperLogo size={28} />
-                        </div>
-                        <h1
-                          className={classNames(
-                            'font-display font-semibold text-slate-900',
-                            isFocusMode ? 'text-sm' : 'text-lg'
-                          )}
-                        >
-                          Hungry Helper
-                        </h1>
-                      </Link>
-                    </div>
-                    {isFocusMode ? (
-                      <div className="hidden md:ml-4 md:flex md:items-center">
-                        <Link to="/dashboard" className="btn-secondary !px-4 !py-2 text-xs">
-                          Back to dashboard
-                        </Link>
-                      </div>
-                    ) : (
-                      <div className="hidden md:ml-6 md:flex md:items-center md:space-x-2">
-                        {navigation.map(item => {
-                          const Icon = item.icon;
-                          const active = isActive(item.href);
-                          return (
-                            <Link
-                              key={item.href}
-                              to={item.href}
-                              className={classNames(
-                                'relative nav-pill transition-all duration-200',
-                                active ? 'nav-pill-active' : '',
-                                isCondensedMode ? 'px-3 py-1.5 text-xs' : ''
-                              )}
-                              style={active ? { color: 'var(--primary-hover)' } : undefined}
-                            >
-                              <Icon
-                                className={classNames(
-                                  'mr-2 h-4 w-4',
-                                  isCondensedMode ? 'mr-1.5 h-3.5 w-3.5' : ''
-                                )}
-                                style={active ? { color: 'var(--primary)' } : undefined}
-                              />
-                              {item.name}
-                              {active && (
-                                <span
-                                  className="absolute -bottom-0.5 left-0 right-0 mx-auto w-3/5 h-0.5 rounded-full animate-scale-in origin-center"
-                                  style={{ backgroundColor: 'var(--primary)' }}
-                                />
-                              )}
-                            </Link>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                  <div className="hidden sm:ml-6 sm:flex sm:items-center">
-                    <div className="relative ml-3">
-                      <button
-                        ref={buttonRef}
-                        onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-                        className="flex rounded-full bg-white/90 p-2 text-sm shadow-sm ring-1 ring-stone-200 transition-all duration-200 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-offset-2"
-                        style={{ '--tw-ring-color': 'var(--primary-soft)' } as React.CSSProperties}
-                      >
-                        <span className="sr-only">Open user menu</span>
-                        <UserCircleIcon className="h-5 w-5" style={{ color: 'var(--primary)' }} />
-                      </button>
+                  <Cog6ToothIcon className="h-4 w-4 text-stone-400" />
+                  Settings
+                </Link>
+              </MenuItem>
+              <MenuItem>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-stone-700 data-[focus]:bg-stone-100"
+                >
+                  <LogoutIcon className="h-4 w-4 text-stone-400" />
+                  Sign out
+                </button>
+              </MenuItem>
+            </MenuItems>
+          </Menu>
+        </div>
+      </aside>
 
-                      {isProfileMenuOpen &&
-                        createPortal(
-                          <>
-                            <div
-                              className="fixed inset-0 z-40"
-                              onClick={() => setIsProfileMenuOpen(false)}
-                            />
-                            <div
-                              className="fixed z-50 w-48 rounded-2xl bg-white py-2 shadow-xl ring-1 ring-slate-200"
-                              style={{
-                                top: `${menuPosition.top}px`,
-                                right: `${menuPosition.right}px`,
-                              }}
-                            >
-                              <Link
-                                to="/settings"
-                                onClick={() => setIsProfileMenuOpen(false)}
-                                className="flex items-center px-4 py-2 text-sm text-slate-700 transition-colors duration-200 hover:bg-slate-50"
-                              >
-                                <Cog6ToothIcon className="mr-3 h-4 w-4 text-slate-400" />
-                                Settings
-                              </Link>
-                              <button
-                                onClick={() => {
-                                  setIsProfileMenuOpen(false);
-                                  handleLogout();
-                                }}
-                                className="block w-full px-4 py-2 text-left text-sm text-slate-700 transition-colors duration-200 hover:bg-slate-50"
-                              >
-                                Sign out
-                              </button>
-                            </div>
-                          </>,
-                          document.body
-                        )}
-                    </div>
-                  </div>
-                  <div
-                    className={classNames(
-                      '-mr-2 flex items-center sm:hidden',
-                      isFocusMode ? 'hidden' : ''
-                    )}
-                  >
-                    <Disclosure.Button
-                      className="inline-flex items-center justify-center rounded-full border border-stone-200/70 bg-white/90 p-2 text-stone-700 shadow-sm transition-all duration-200 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-inset"
-                      style={{ '--tw-ring-color': 'var(--primary-soft)' } as React.CSSProperties}
-                    >
-                      <span className="sr-only">Open main menu</span>
-                      {open ? (
-                        <XMarkIcon className="block h-6 w-6" aria-hidden="true" />
-                      ) : (
-                        <Bars3Icon className="block h-6 w-6" aria-hidden="true" />
-                      )}
-                    </Disclosure.Button>
-                  </div>
-                </div>
-              </div>
+      <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-stone-900/[0.06] bg-[#f6f5f1]/85 px-4 backdrop-blur-md lg:hidden">
+        <Brand compact />
+        <div className="flex items-center gap-1">
+          <Link to="/generate" className="icon-button-muted" aria-label="Make a recipe">
+            <SparklesIcon className="h-5 w-5" />
+          </Link>
+          <button
+            type="button"
+            className="icon-button-muted"
+            onClick={() => setMobileOpen(true)}
+            aria-expanded={mobileOpen}
+          >
+            <span className="sr-only">Open main menu</span>
+            <Bars3Icon className="h-6 w-6" />
+          </button>
+        </div>
+      </header>
 
-              <Disclosure.Panel className={classNames('md:hidden', isFocusMode ? 'hidden' : '')}>
-                <div className="mt-3 rounded-3xl border border-stone-200/70 bg-white/95 p-3 shadow-sm animate-slide-in-up">
-                  <div className="space-y-1">
-                    {navigation.map((item, index) => {
-                      const Icon = item.icon;
-                      const active = isActive(item.href);
-                      return (
-                        <Link
-                          key={item.href}
-                          to={item.href}
-                          onClick={() => close()}
-                          className={classNames(
-                            'flex w-full items-center rounded-2xl px-4 py-3 text-left text-base font-medium transition-all duration-200 opacity-0 animate-slide-in-up',
-                            active
-                              ? 'text-stone-600 hover:bg-stone-50 hover:text-stone-900'
-                              : 'text-stone-600 hover:bg-stone-50 hover:text-stone-900'
-                          )}
-                          style={{
-                            animationDelay: `${index * 50}ms`,
-                            animationFillMode: 'forwards',
-                            ...(active
-                              ? {
-                                  backgroundColor: 'var(--primary-soft)',
-                                  color: 'var(--primary-hover)',
-                                }
-                              : {}),
-                          }}
-                        >
-                          <Icon
-                            className="mr-3 h-6 w-6"
-                            style={active ? { color: 'var(--primary)' } : undefined}
-                          />
-                          {item.name}
-                        </Link>
-                      );
-                    })}
-                  </div>
-                  <div className="mt-3 border-t-2 border-stone-200 pt-3">
-                    <Link
-                      to="/settings"
-                      onClick={() => close()}
-                      className="flex w-full items-center rounded-2xl px-4 py-3 text-left text-base font-medium text-stone-600 hover:bg-stone-50 hover:text-stone-900 transition-all duration-200"
-                    >
-                      <Cog6ToothIcon className="mr-3 h-6 w-6 text-stone-400" />
-                      Settings
-                    </Link>
-                    <button
-                      onClick={() => {
-                        close();
-                        handleLogout();
-                      }}
-                      className="flex w-full items-center rounded-2xl px-4 py-3 text-left text-base font-medium text-stone-600 hover:bg-stone-50 hover:text-stone-900 transition-all duration-200"
-                    >
-                      Sign out
-                    </button>
-                  </div>
-                </div>
-              </Disclosure.Panel>
+      {mobileOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true">
+          <div
+            className="absolute inset-0 bg-stone-950/40 animate-fade-in"
+            onClick={() => setMobileOpen(false)}
+          />
+          <div className="absolute inset-y-0 left-0 flex w-[min(20rem,85vw)] flex-col bg-[#f3f2ec] shadow-xl animate-slide-in-left">
+            <div className="flex items-center justify-between px-4 pb-3 pt-4">
+              <Brand compact />
+              <button
+                type="button"
+                className="icon-button-muted"
+                onClick={() => setMobileOpen(false)}
+                aria-label="Close menu"
+              >
+                <XMarkIcon className="h-5 w-5" />
+              </button>
             </div>
-          </>
-        )}
-      </Disclosure>
+            <div className="px-4">
+              <Link to="/generate" className="btn-primary w-full">
+                <SparklesIcon className="h-4 w-4" />
+                New recipe
+              </Link>
+            </div>
+            <div className="mt-6 flex-1 overflow-y-auto px-2">
+              <NavList onNavigate={() => setMobileOpen(false)} />
+            </div>
+            <div className="space-y-0.5 border-t border-stone-900/[0.06] p-2">
+              <Link to="/settings" className="nav-item">
+                <Cog6ToothIcon className="h-[18px] w-[18px] text-stone-400" />
+                Settings
+              </Link>
+              <button type="button" onClick={handleLogout} className="nav-item w-full">
+                <LogoutIcon className="h-[18px] w-[18px] text-stone-400" />
+                Sign out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
-      <main
-        className={classNames(
-          'mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 animate-fade-in',
-          isFocusMode ? 'py-6 lg:py-8' : 'py-8 lg:py-10'
-        )}
-      >
-        {breadcrumbs}
-        {children}
-      </main>
+      <div className="lg:pl-[var(--sidebar-width)]">
+        <main
+          className={classNames(
+            'mx-auto w-full px-4 py-6 animate-fade-in sm:px-6 lg:px-10 lg:py-10',
+            isFocusMode ? 'max-w-5xl' : 'max-w-6xl'
+          )}
+        >
+          {breadcrumbs}
+          {children}
+        </main>
+      </div>
     </div>
   );
 }

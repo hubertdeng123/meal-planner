@@ -5,17 +5,18 @@ interface InlineStatusProps {
 }
 
 const toneMap = {
-  neutral: 'bg-stone-100 text-stone-700 border-stone-200',
-  success: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-  warning: 'bg-amber-100 text-amber-700 border-amber-200',
-  error: 'bg-red-100 text-red-700 border-red-200',
+  neutral: { pill: 'bg-stone-100 text-stone-700', dot: 'bg-stone-400' },
+  success: { pill: 'bg-emerald-50 text-emerald-800', dot: 'bg-emerald-500' },
+  warning: { pill: 'bg-amber-50 text-amber-800', dot: 'bg-amber-500' },
+  error: { pill: 'bg-red-50 text-red-700', dot: 'bg-red-500' },
 };
 
 export function InlineStatus({ label, tone = 'neutral', className = '' }: InlineStatusProps) {
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${toneMap[tone]} ${className}`}
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${toneMap[tone].pill} ${className}`}
     >
+      <span className={`h-1.5 w-1.5 rounded-full ${toneMap[tone].dot}`} />
       {label}
     </span>
   );

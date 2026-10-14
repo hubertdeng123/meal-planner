@@ -13,15 +13,12 @@ export function ToolbarRow({
   className = '',
   controlsClassName = '',
 }: ToolbarRowProps) {
-  const resolvedControlsClassName =
-    controlsClassName || (helper ? 'md:grid-cols-[1fr_auto]' : 'md:grid-cols-1');
-
   return (
-    <div className={`mt-6 surface-muted p-4 sm:p-5 ${className}`}>
-      <div className={`grid gap-3 md:items-center ${resolvedControlsClassName}`}>
+    <div className={`mb-6 ${className}`}>
+      <div className={`flex flex-col gap-3 md:flex-row md:items-center ${controlsClassName}`}>
         {children}
-        {helper ? <div className="text-xs text-stone-500 md:text-right">{helper}</div> : null}
       </div>
+      {helper ? <p className="mt-2 text-xs text-stone-500">{helper}</p> : null}
     </div>
   );
 }
