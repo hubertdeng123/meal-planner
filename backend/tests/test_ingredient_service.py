@@ -43,6 +43,8 @@ def test_categorize_ingredient_prefers_shelf_stable_forms():
     assert categorize_ingredient("Green beans") == "Produce"
     assert categorize_ingredient("Black pepper") == "Pantry"
     assert categorize_ingredient("Red bell pepper") == "Produce"
+    assert categorize_ingredient("chili flake") == "Pantry"
+    assert categorize_ingredient("pumpkin seed") == "Pantry"
 
 
 def test_categorize_ingredient_falls_back_to_other():
