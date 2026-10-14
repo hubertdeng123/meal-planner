@@ -1,81 +1,162 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
+  ArrowLeftIcon,
+  CalendarDaysIcon,
+  CheckCircleSolidIcon,
   ClockIcon,
-  UserGroupIcon,
-  TrashIcon,
-  StarIcon,
+  GlobeAltIcon,
   HeartIcon,
-  ShoppingBagIcon,
-  StarSolidIcon,
   HeartSolidIcon,
+  PlayIcon,
+  ShoppingBagIcon,
+  StarIcon,
+  StarSolidIcon,
+  TrashIcon,
 } from '../components/ui/AppIcons';
 import recipeService from '../services/recipe.service';
 import groceryService from '../services/grocery.service';
-import Breadcrumbs from '../components/Breadcrumbs';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
-import { SectionCard } from '../components/ui/SectionCard';
+import { ErrorState } from '../components/ui/ErrorState';
+import { EmptyState } from '../components/ui/EmptyState';
+import { OverflowMenu } from '../components/ui/OverflowMenu';
+import { RecipeCover } from '../components/ui/RecipeCover';
+import { Stepper } from '../components/ui/Stepper';
+import { CookMode } from '../components/recipe/CookMode';
+import { IngredientChecklist } from '../components/recipe/IngredientChecklist';
+import { NutritionTiles } from '../components/recipe/NutritionTiles';
+import { AddToPlanDialog } from '../components/mealplan/AddToPlanDialog';
 import { useToast } from '../contexts/ToastContext';
-import type { Recipe, RecipeFeedback } from '../types';
+import type { Recipe, RecipeFeedbackResponse } from '../types';
+import { capitalize, formatMinutes, hasNutrition, totalMinutes } from '../utils/recipe';
+
+type LoadState = 'loading' | 'ready' | 'not-found' | 'error';
+
+function sourceLabel(url: string, index: number): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return `Source ${index + 1}`;
+  }
+}
+
+function isNotFound(error: unknown): boolean {
+  const status = (error as { response?: { status?: number } })?.response?.status;
+  return status === 404;
+}
 
 export default function RecipeDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const recipeId = Number(id);
   const navigate = useNavigate();
   const { addToast } = useToast();
+
   const [recipe, setRecipe] = useState<Recipe | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loadState, setLoadState] = useState<LoadState>('loading');
+  const [servings, setServings] = useState(1);
+  const [checked, setChecked] = useState<Set<number>>(() => new Set());
+  const [cookStep, setCookStep] = useState<number | null>(null);
+  const [showPlanDialog, setShowPlanDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [creatingList, setCreatingList] = useState(false);
+
+  const [savedFeedback, setSavedFeedback] = useState<RecipeFeedbackResponse | null>(null);
+  const [liked, setLiked] = useState(false);
   const [rating, setRating] = useState(0);
   const [hoveredRating, setHoveredRating] = useState(0);
-  const [liked, setLiked] = useState(false);
-  const [justLiked, setJustLiked] = useState(false);
-  const [justRated, setJustRated] = useState(false);
   const [notes, setNotes] = useState('');
   const [savingFeedback, setSavingFeedback] = useState(false);
-  const [creatingList, setCreatingList] = useState(false);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
-  const loadRecipe = useCallback(
-    async (recipeId: number) => {
-      try {
-        const data = await recipeService.getRecipe(recipeId);
-        setRecipe(data);
-      } catch (error) {
-        console.error('Failed to load recipe:', error);
-        navigate('/recipes');
-      } finally {
-        setLoading(false);
-      }
-    },
-    [navigate]
-  );
-
-  useEffect(() => {
-    if (id) {
-      loadRecipe(parseInt(id));
-    }
-  }, [id, loadRecipe]);
-
-  const handleDelete = async () => {
-    if (!recipe) {
-      return;
-    }
-
-    setDeleting(true);
-    try {
-      await recipeService.deleteRecipe(recipe.id);
-      navigate('/recipes');
-    } catch (error) {
-      console.error('Failed to delete recipe:', error);
-      addToast('Could not delete that recipe. Try again?', 'error');
-    } finally {
-      setDeleting(false);
-    }
+  const applyFeedback = (feedback: RecipeFeedbackResponse | null) => {
+    setSavedFeedback(feedback);
+    setLiked(feedback?.liked ?? false);
+    setRating(feedback?.rating ?? 0);
+    setNotes(feedback?.notes ?? '');
   };
 
-  const handleCreateList = async () => {
-    if (!recipe) return;
+  const load = useCallback(async () => {
+    if (!Number.isFinite(recipeId)) {
+      setLoadState('not-found');
+      return;
+    }
+    setLoadState('loading');
+    try {
+      const data = await recipeService.getRecipe(recipeId);
+      setRecipe(data);
+      setServings(Math.max(1, data.servings || 1));
+      setChecked(new Set());
+      let feedback = data.feedback ?? null;
+      if (data.feedback === undefined) {
+        try {
+          feedback = await recipeService.getFeedback(recipeId);
+        } catch {
+          feedback = null;
+        }
+      }
+      applyFeedback(feedback);
+      setLoadState('ready');
+    } catch (error) {
+      console.error('Failed to load recipe:', error);
+      setLoadState(isNotFound(error) ? 'not-found' : 'error');
+    }
+  }, [recipeId]);
 
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const toggleIngredient = useCallback((index: number) => {
+    setChecked(current => {
+      const next = new Set(current);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
+  }, []);
+
+  const closeCookMode = useCallback(() => setCookStep(null), []);
+
+  if (loadState === 'loading') {
+    return <RecipeDetailSkeleton />;
+  }
+
+  if (loadState === 'not-found') {
+    return (
+      <EmptyState
+        title="We couldn't find that recipe"
+        description="It may have been deleted, or the link is out of date."
+        action={
+          <Link to="/recipes" className="btn-primary">
+            Back to recipes
+          </Link>
+        }
+      />
+    );
+  }
+
+  if (loadState === 'error' || !recipe) {
+    return (
+      <ErrorState
+        title="Couldn't load this recipe"
+        description="Check your connection and try again."
+        onRetry={() => void load()}
+      />
+    );
+  }
+
+  const baseServings = Math.max(1, recipe.servings || 1);
+  const scale = servings / baseServings;
+  const minutes = recipe.total_minutes ?? totalMinutes(recipe);
+  const eyebrow = [recipe.cuisine, recipe.difficulty].filter(Boolean).map(v => capitalize(v!));
+  const canCook = recipe.instructions.length > 0;
+  const displayRating = hoveredRating || rating;
+  const feedbackDirty =
+    liked !== (savedFeedback?.liked ?? false) ||
+    rating !== (savedFeedback?.rating ?? 0) ||
+    notes.trim() !== (savedFeedback?.notes ?? '').trim();
+
+  const handleCreateList = async () => {
     setCreatingList(true);
     try {
       const list = await groceryService.createGroceryListFromRecipes([recipe.id]);
@@ -83,24 +164,33 @@ export default function RecipeDetailPage() {
     } catch (error) {
       console.error('Failed to create grocery list:', error);
       addToast('Could not create a grocery list. Try again?', 'error');
-    } finally {
       setCreatingList(false);
     }
   };
 
-  const handleSaveFeedback = async () => {
-    if (!recipe) return;
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      await recipeService.deleteRecipe(recipe.id);
+      addToast(`Deleted ${recipe.name}`, 'success');
+      navigate('/recipes');
+    } catch (error) {
+      console.error('Failed to delete recipe:', error);
+      addToast('Could not delete that recipe. Try again?', 'error');
+      setDeleting(false);
+    }
+  };
 
+  const handleSaveFeedback = async () => {
     setSavingFeedback(true);
     try {
-      const feedback: RecipeFeedback = {
+      const saved = await recipeService.addFeedback(recipe.id, {
         liked,
         rating: rating > 0 ? rating : undefined,
         notes: notes.trim() || undefined,
-      };
-
-      await recipeService.addFeedback(recipe.id, feedback);
-      addToast('Saved! Thanks for the notes.', 'success');
+      });
+      applyFeedback(saved);
+      addToast('Saved. Future suggestions will take this into account.', 'success');
     } catch (error) {
       console.error('Failed to save feedback:', error);
       addToast('Could not save your notes. Try again?', 'error');
@@ -109,313 +199,391 @@ export default function RecipeDetailPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div
-          className="animate-spin rounded-full h-12 w-12 border-b-2"
-          style={{ borderBottomColor: 'var(--primary)' }}
-        ></div>
-      </div>
-    );
-  }
+  const handleFinishCooking = () => {
+    setCookStep(null);
+    document.getElementById('feedback')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    addToast('Nice work. How did it turn out?', 'success');
+  };
 
-  if (!recipe) {
-    return null;
-  }
+  const stats = [
+    minutes > 0 && { label: 'Total', value: formatMinutes(minutes) },
+    recipe.prep_time_minutes && { label: 'Prep', value: formatMinutes(recipe.prep_time_minutes) },
+    recipe.cook_time_minutes && { label: 'Cook', value: formatMinutes(recipe.cook_time_minutes) },
+    { label: 'Serves', value: String(baseServings) },
+    recipe.ingredients.length > 0 && {
+      label: 'Ingredients',
+      value: String(recipe.ingredients.length),
+    },
+  ].filter(Boolean) as Array<{ label: string; value: string }>;
 
   return (
-    <div className="max-w-4xl mx-auto">
-      {/* Breadcrumbs */}
-      <Breadcrumbs items={[{ label: 'Recipe Vault', href: '/recipes' }, { label: recipe.name }]} />
+    <div className="mx-auto max-w-5xl animate-fade-in">
+      <Link
+        to="/recipes"
+        className="mb-4 inline-flex items-center gap-1.5 rounded-lg text-sm font-medium text-stone-500 transition hover:text-stone-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-primary-soft"
+      >
+        <ArrowLeftIcon className="h-4 w-4" />
+        Recipes
+      </Link>
 
-      <div className="surface p-6 lg:p-8">
-        {/* Header section - responsive layout */}
-        <div className="mb-4">
-          <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4">
-            <div className="flex-1">
-              <h1 className="font-display text-3xl font-semibold text-stone-900">{recipe.name}</h1>
-              {recipe.description && <p className="mt-2 text-stone-600">{recipe.description}</p>}
+      <header className="surface overflow-hidden">
+        <div className="grid md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+          <RecipeCover
+            name={recipe.name}
+            imageUrl={recipe.image_url}
+            size="lg"
+            className="h-44 md:h-full md:min-h-[18rem]"
+          />
+          <div className="flex flex-col p-5 sm:p-7">
+            {eyebrow.length > 0 && <p className="eyebrow">{eyebrow.join(' · ')}</p>}
+            <div className="mt-1 flex items-start gap-3">
+              <h1 className="page-title flex-1">{recipe.name}</h1>
+              {savedFeedback?.liked && (
+                <span className="mt-1 text-red-500" title="You loved this">
+                  <HeartSolidIcon className="h-6 w-6" aria-hidden="true" />
+                  <span className="sr-only">You loved this</span>
+                </span>
+              )}
             </div>
+            {recipe.description && (
+              <p className="mt-2 text-[15px] leading-relaxed text-stone-600">
+                {recipe.description}
+              </p>
+            )}
 
-            {/* Action buttons - stack on mobile, inline on desktop */}
-            <div className="flex items-center gap-3 lg:ml-4">
+            <dl className="mt-5 flex flex-wrap gap-x-6 gap-y-3">
+              {stats.map(stat => (
+                <div key={stat.label}>
+                  <dt className="text-xs font-medium uppercase tracking-wide text-stone-400">
+                    {stat.label}
+                  </dt>
+                  <dd className="mt-0.5 text-base font-semibold text-stone-900">{stat.value}</dd>
+                </div>
+              ))}
+            </dl>
+
+            {recipe.tags.length > 0 && (
+              <ul className="mt-4 flex flex-wrap gap-1.5" aria-label="Tags">
+                {recipe.tags.map(tag => (
+                  <li key={tag} className="tag">
+                    {tag}
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <div className="mt-6 flex flex-wrap items-center gap-2 md:mt-auto md:pt-6">
+              {canCook && (
+                <button
+                  type="button"
+                  onClick={() => setCookStep(0)}
+                  className="btn-primary flex-1 sm:flex-none"
+                >
+                  <PlayIcon className="h-4 w-4" />
+                  Start cooking
+                </button>
+              )}
               <button
+                type="button"
+                onClick={() => setShowPlanDialog(true)}
+                className="btn-secondary flex-1 sm:flex-none"
+              >
+                <CalendarDaysIcon className="h-4 w-4" />
+                Add to plan
+              </button>
+              <button
+                type="button"
                 onClick={handleCreateList}
                 disabled={creatingList}
-                className="btn-primary flex items-center disabled:opacity-50 flex-1 lg:flex-none justify-center"
+                className="btn-secondary flex-1 sm:flex-none"
               >
-                <ShoppingBagIcon className="h-4 w-4 mr-2" />
-                {creatingList ? 'Building list...' : 'Add to grocery list'}
+                <ShoppingBagIcon className="h-4 w-4" />
+                {creatingList ? 'Building list…' : 'Grocery list'}
               </button>
-              <button
-                onClick={() => setShowDeleteDialog(true)}
-                disabled={deleting}
-                className="icon-button-danger disabled:opacity-50"
-                title="Delete recipe"
-              >
-                <TrashIcon className="h-5 w-5" />
-              </button>
+              <OverflowMenu
+                label="More recipe actions"
+                items={[
+                  {
+                    label: 'Delete recipe',
+                    icon: TrashIcon,
+                    tone: 'danger',
+                    onSelect: () => setShowDeleteDialog(true),
+                  },
+                ]}
+              />
             </div>
           </div>
-
-          {/* Source URLs */}
-          {recipe.source_urls && recipe.source_urls.length > 0 && (
-            <div className="mt-4 p-4 rounded-2xl surface-warm">
-              <div className="flex items-center space-x-2 mb-2">
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  style={{ color: 'var(--primary)' }}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
-                  />
-                </svg>
-                <span className="text-sm font-medium" style={{ color: 'var(--primary-hover)' }}>
-                  {recipe.source_urls.length === 1
-                    ? 'Inspired by:'
-                    : `Inspired by ${recipe.source_urls.length} sources:`}
-                </span>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {recipe.source_urls.map((url, index) => {
-                  // Extract domain name from URL
-                  const getDomainName = (urlStr: string) => {
-                    try {
-                      const domain = new URL(urlStr).hostname.replace('www.', '');
-                      // Make it more readable
-                      const domainMap: Record<string, string> = {
-                        'allrecipes.com': 'AllRecipes',
-                        'foodnetwork.com': 'Food Network',
-                        'seriouseats.com': 'Serious Eats',
-                        'simplyrecipes.com': 'Simply Recipes',
-                        'food.com': 'Food.com',
-                        'tasteofhome.com': 'Taste of Home',
-                        'delish.com': 'Delish',
-                        'cookinglight.com': 'Cooking Light',
-                        'epicurious.com': 'Epicurious',
-                        'bonappetit.com': 'Bon Appétit',
-                      };
-                      return domainMap[domain] || domain;
-                    } catch {
-                      return `Source ${index + 1}`;
-                    }
-                  };
-
-                  return (
-                    <a
-                      key={index}
-                      href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-white border transition-colors duration-200 hover:bg-primary-soft"
-                      style={{ color: 'var(--primary)', borderColor: 'var(--primary-soft)' }}
-                    >
-                      {getDomainName(url)}
-                      <svg
-                        className="ml-1 h-3 w-3"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                        />
-                      </svg>
-                    </a>
-                  );
-                })}
-              </div>
-            </div>
-          )}
         </div>
+      </header>
 
-        <div className="mt-4 flex items-center text-sm text-stone-500 space-x-4">
-          <div className="flex items-center">
-            <ClockIcon className="h-5 w-5 mr-1" />
-            {(recipe.prep_time_minutes || 0) + (recipe.cook_time_minutes || 0)} minutes
-          </div>
-          <div className="flex items-center">
-            <UserGroupIcon className="h-5 w-5 mr-1" />
-            {recipe.servings} servings
-          </div>
-        </div>
-
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-          <SectionCard title="Ingredients">
-            <ul className="space-y-2">
-              {recipe.ingredients.map((ingredient, index) => (
-                <li key={index} className="flex items-start">
-                  <span className="text-stone-700">
-                    {ingredient.quantity} {ingredient.unit} {ingredient.name}
-                    {ingredient.notes && (
-                      <span className="text-stone-500"> ({ingredient.notes})</span>
-                    )}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </SectionCard>
-
-          <SectionCard title="Nutrition snapshot">
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              {recipe.nutrition.calories && (
-                <div>
-                  <span className="font-medium">Calories:</span> {recipe.nutrition.calories}
-                </div>
-              )}
-              {recipe.nutrition.protein_g && (
-                <div>
-                  <span className="font-medium">Protein:</span> {recipe.nutrition.protein_g}g
-                </div>
-              )}
-              {recipe.nutrition.carbs_g && (
-                <div>
-                  <span className="font-medium">Carbs:</span> {recipe.nutrition.carbs_g}g
-                </div>
-              )}
-              {recipe.nutrition.fat_g && (
-                <div>
-                  <span className="font-medium">Fat:</span> {recipe.nutrition.fat_g}g
-                </div>
-              )}
-              {!recipe.nutrition.calories &&
-                !recipe.nutrition.protein_g &&
-                !recipe.nutrition.carbs_g &&
-                !recipe.nutrition.fat_g && (
-                  <p className="col-span-2 text-stone-500">No nutrition estimate available.</p>
-                )}
-            </div>
-          </SectionCard>
-        </div>
-
-        <SectionCard title="Steps" className="mt-8">
-          <ol className="space-y-3">
-            {recipe.instructions.map((instruction, index) => (
-              <li key={index} className="flex">
-                <span className="font-semibold mr-3" style={{ color: 'var(--primary)' }}>
-                  {index + 1}.
-                </span>
-                <span className="text-stone-700">{instruction}</span>
-              </li>
-            ))}
-          </ol>
-        </SectionCard>
-
-        {/* Rating and Feedback Section - After cooking */}
-        <SectionCard
-          title="How did it go?"
-          subtitle="Made this recipe? Let us know what you thought."
-          className="mt-8"
+      <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:items-start">
+        <section
+          aria-labelledby="ingredients-heading"
+          className="card p-5 sm:p-6 lg:sticky lg:top-6"
         >
-          <p className="text-sm text-stone-500 mb-4">
-            Your feedback helps improve future recommendations.
-          </p>
-
-          <div className="flex flex-wrap items-center gap-6 mb-4">
-            {/* Like button with heartbeat */}
-            <button
-              onClick={() => {
-                if (!liked) {
-                  setJustLiked(true);
-                  setTimeout(() => setJustLiked(false), 600);
-                }
-                setLiked(!liked);
-              }}
-              className="flex items-center space-x-2 group"
-            >
-              {liked ? (
-                <HeartSolidIcon
-                  className={`h-6 w-6 text-red-500 transition-transform ${justLiked ? 'animate-heartbeat' : ''}`}
-                />
-              ) : (
-                <HeartIcon className="h-6 w-6 text-stone-400 group-hover:text-red-500 group-hover:scale-110 transition-all duration-200" />
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 id="ingredients-heading" className="section-title">
+                Ingredients
+              </h2>
+              {recipe.ingredients.length > 0 && (
+                <p className="helper-text mt-0.5" aria-live="polite">
+                  {checked.size === recipe.ingredients.length
+                    ? 'Everything gathered'
+                    : `${checked.size} of ${recipe.ingredients.length} gathered`}
+                </p>
               )}
-              <span
-                className={`text-sm transition-colors ${liked ? 'text-red-600 font-medium' : 'text-stone-600'}`}
+            </div>
+            <Stepper label="Servings" value={servings} onChange={setServings} min={1} max={24} />
+          </div>
+          {scale !== 1 && (
+            <p className="mt-3 rounded-xl bg-primary-soft px-3 py-2 text-xs font-medium text-primary-ink">
+              Scaled from {baseServings} to {servings} servings.{' '}
+              <button
+                type="button"
+                onClick={() => setServings(baseServings)}
+                className="underline underline-offset-2"
               >
-                {liked ? 'Loved it!' : 'Like'}
-              </span>
-            </button>
+                Reset
+              </button>
+            </p>
+          )}
+          <div className="mt-3">
+            {recipe.ingredients.length > 0 ? (
+              <IngredientChecklist
+                ingredients={recipe.ingredients}
+                checked={checked}
+                onToggle={toggleIngredient}
+                scale={scale}
+              />
+            ) : (
+              <p className="helper-text">No ingredients listed.</p>
+            )}
+          </div>
+        </section>
 
-            {/* Star rating with bounce animation */}
-            <div className="flex items-center space-x-1">
-              {[1, 2, 3, 4, 5].map((star, idx) => (
-                <button
-                  key={star}
-                  onClick={() => {
-                    setRating(star);
-                    setJustRated(true);
-                    setTimeout(() => setJustRated(false), 500);
-                  }}
-                  onMouseEnter={() => setHoveredRating(star)}
-                  onMouseLeave={() => setHoveredRating(0)}
-                  className="p-1 transition-transform duration-150 hover:scale-125"
-                >
-                  {star <= (hoveredRating || rating) ? (
-                    <StarSolidIcon
-                      className={`h-6 w-6 text-yellow-400 ${
-                        justRated && star <= rating ? 'animate-bounce-in' : ''
-                      }`}
-                      style={justRated ? { animationDelay: `${idx * 50}ms` } : undefined}
-                    />
-                  ) : (
-                    <StarIcon className="h-6 w-6 text-stone-300" />
-                  )}
-                </button>
-              ))}
-              {rating > 0 && (
-                <span className="ml-2 text-sm text-stone-600 animate-fade-in">
-                  {rating} star{rating > 1 ? 's' : ''}
+        <div className="space-y-6">
+          <section aria-labelledby="method-heading" className="card p-5 sm:p-6">
+            <div className="flex items-center justify-between gap-3">
+              <h2 id="method-heading" className="section-title">
+                Method
+              </h2>
+              {minutes > 0 && (
+                <span className="inline-flex items-center gap-1 text-sm text-stone-500">
+                  <ClockIcon className="h-4 w-4" />
+                  {formatMinutes(minutes)}
                 </span>
               )}
             </div>
-          </div>
+            {canCook ? (
+              <ol className="mt-4 space-y-1">
+                {recipe.instructions.map((instruction, index) => (
+                  <li key={index}>
+                    <button
+                      type="button"
+                      onClick={() => setCookStep(index)}
+                      className="group flex w-full gap-4 rounded-xl p-3 text-left transition hover:bg-stone-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-primary-soft"
+                    >
+                      <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-primary-soft text-sm font-semibold text-primary-ink">
+                        {index + 1}
+                      </span>
+                      <span className="flex-1 text-[15px] leading-relaxed text-stone-700">
+                        {instruction}
+                      </span>
+                      <span className="sr-only">, open in cook mode</span>
+                    </button>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className="helper-text mt-3">No steps written for this recipe.</p>
+            )}
+          </section>
 
-          {/* Notes */}
-          <div className="mb-4">
-            <label htmlFor="notes" className="block text-sm font-medium text-stone-700 mb-1">
-              Notes (optional)
+          {hasNutrition(recipe.nutrition) && (
+            <section aria-labelledby="nutrition-heading" className="card p-5 sm:p-6">
+              <h2 id="nutrition-heading" className="section-title">
+                Nutrition <span className="font-normal text-stone-400">per serving</span>
+              </h2>
+              <div className="mt-4">
+                <NutritionTiles nutrition={recipe.nutrition} />
+              </div>
+            </section>
+          )}
+
+          {recipe.source_urls.length > 0 && (
+            <section aria-labelledby="sources-heading" className="surface-warm rounded-2xl p-5">
+              <h2
+                id="sources-heading"
+                className="flex items-center gap-2 text-sm font-semibold text-stone-800"
+              >
+                <GlobeAltIcon className="h-4 w-4" />
+                Inspired by
+              </h2>
+              <ul className="mt-3 flex flex-wrap gap-2">
+                {recipe.source_urls.map((url, index) => (
+                  <li key={url}>
+                    <a href={url} target="_blank" rel="noopener noreferrer" className="chip">
+                      {sourceLabel(url, index)}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          <section
+            id="feedback"
+            aria-labelledby="feedback-heading"
+            className="card scroll-mt-6 p-5 sm:p-6"
+          >
+            <h2 id="feedback-heading" className="section-title">
+              How did it go?
+            </h2>
+            <p className="helper-text mt-0.5">Your rating and notes shape what we suggest next.</p>
+
+            <div className="mt-4 flex flex-wrap items-center gap-4">
+              <button
+                type="button"
+                onClick={() => setLiked(value => !value)}
+                aria-pressed={liked}
+                className={`chip ${liked ? 'border-red-200 bg-red-50 text-red-600' : ''}`}
+              >
+                {liked ? (
+                  <HeartSolidIcon className="h-4 w-4 animate-bounce-in" />
+                ) : (
+                  <HeartIcon className="h-4 w-4" />
+                )}
+                {liked ? 'Loved it' : 'Love it'}
+              </button>
+
+              <div
+                role="radiogroup"
+                aria-label="Rating"
+                className="flex items-center"
+                onMouseLeave={() => setHoveredRating(0)}
+              >
+                {[1, 2, 3, 4, 5].map(star => (
+                  <button
+                    key={star}
+                    type="button"
+                    role="radio"
+                    aria-checked={rating === star}
+                    aria-label={`${star} star${star > 1 ? 's' : ''}`}
+                    onClick={() => setRating(rating === star ? 0 : star)}
+                    onMouseEnter={() => setHoveredRating(star)}
+                    className="rounded-lg p-1.5 transition-transform hover:scale-110 focus:outline-none focus-visible:ring-4 focus-visible:ring-primary-soft"
+                  >
+                    {star <= displayRating ? (
+                      <StarSolidIcon className="h-6 w-6 text-amber-400" />
+                    ) : (
+                      <StarIcon className="h-6 w-6 text-stone-300" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <label htmlFor="recipe-notes" className="label mt-4">
+              Notes for next time
             </label>
             <textarea
-              id="notes"
+              id="recipe-notes"
               value={notes}
-              onChange={e => setNotes(e.target.value)}
+              onChange={event => setNotes(event.target.value)}
               rows={3}
               className="input"
-              placeholder="Any tweaks for next time?"
+              placeholder="More garlic, less salt, swap in chicken thighs…"
             />
-          </div>
 
-          <button onClick={handleSaveFeedback} disabled={savingFeedback} className="btn-primary">
-            {savingFeedback ? 'Saving...' : 'Save notes'}
-          </button>
-        </SectionCard>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={handleSaveFeedback}
+                disabled={savingFeedback || !feedbackDirty}
+                className="btn-primary"
+              >
+                {savingFeedback ? 'Saving…' : 'Save'}
+              </button>
+              {savedFeedback && !feedbackDirty && (
+                <span className="inline-flex items-center gap-1.5 text-sm text-stone-500">
+                  <CheckCircleSolidIcon className="h-4 w-4 text-primary" />
+                  Saved
+                </span>
+              )}
+            </div>
+          </section>
+        </div>
       </div>
+
+      {cookStep !== null && (
+        <CookMode
+          title={recipe.name}
+          steps={recipe.instructions}
+          ingredients={recipe.ingredients}
+          checked={checked}
+          onToggleIngredient={toggleIngredient}
+          scale={scale}
+          initialStep={cookStep}
+          onClose={closeCookMode}
+          onFinish={handleFinishCooking}
+        />
+      )}
+
+      {showPlanDialog && (
+        <AddToPlanDialog
+          recipe={{ id: recipe.id, name: recipe.name, servings }}
+          onClose={() => setShowPlanDialog(false)}
+        />
+      )}
 
       <ConfirmDialog
         isOpen={showDeleteDialog}
-        title="Delete recipe?"
-        description="This will permanently remove the recipe and any saved feedback."
+        title="Delete this recipe?"
+        description="It will be removed from your recipes, meal plans and saved notes. This can't be undone."
         confirmLabel="Delete recipe"
         tone="danger"
         loading={deleting}
         onCancel={() => {
-          if (!deleting) {
-            setShowDeleteDialog(false);
-          }
+          if (!deleting) setShowDeleteDialog(false);
         }}
         onConfirm={handleDelete}
       />
+    </div>
+  );
+}
+
+function RecipeDetailSkeleton() {
+  return (
+    <div className="mx-auto max-w-5xl" role="status" aria-label="Loading recipe">
+      <div className="skeleton mb-4 h-4 w-20" />
+      <div className="surface grid overflow-hidden md:grid-cols-[2fr_3fr]">
+        <div className="skeleton h-44 rounded-none md:h-72" />
+        <div className="space-y-3 p-7">
+          <div className="skeleton h-3 w-24" />
+          <div className="skeleton h-8 w-3/4" />
+          <div className="skeleton h-4 w-full" />
+          <div className="skeleton h-4 w-2/3" />
+          <div className="flex gap-6 pt-4">
+            <div className="skeleton h-10 w-16" />
+            <div className="skeleton h-10 w-16" />
+            <div className="skeleton h-10 w-16" />
+          </div>
+        </div>
+      </div>
+      <div className="mt-6 grid gap-6 lg:grid-cols-[2fr_3fr]">
+        <div className="card space-y-3 p-5">
+          {Array.from({ length: 6 }, (_, index) => (
+            <div key={index} className="skeleton h-5 w-full" />
+          ))}
+        </div>
+        <div className="card space-y-3 p-5">
+          {Array.from({ length: 4 }, (_, index) => (
+            <div key={index} className="skeleton h-12 w-full" />
+          ))}
+        </div>
+      </div>
+      <span className="sr-only">Loading recipe…</span>
     </div>
   );
 }
