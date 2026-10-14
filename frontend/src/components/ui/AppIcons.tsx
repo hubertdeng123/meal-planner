@@ -6,6 +6,7 @@ import {
   ArrowRightIcon as ArrowRightHeroIcon,
   ArrowRightStartOnRectangleIcon as ArrowRightStartOnRectangleHeroIcon,
   ArrowTopRightOnSquareIcon as ArrowTopRightOnSquareHeroIcon,
+  ArrowsPointingOutIcon as ArrowsPointingOutHeroIcon,
   Bars3Icon as Bars3HeroIcon,
   BarsArrowDownIcon as BarsArrowDownHeroIcon,
   BarsArrowUpIcon as BarsArrowUpHeroIcon,
@@ -19,10 +20,12 @@ import {
   ChevronDownIcon as ChevronDownHeroIcon,
   ChevronLeftIcon as ChevronLeftHeroIcon,
   ChevronRightIcon as ChevronRightHeroIcon,
+  ChevronUpIcon as ChevronUpHeroIcon,
   ClipboardDocumentListIcon as ClipboardDocumentListHeroIcon,
   ClockIcon as ClockHeroIcon,
   Cog6ToothIcon as Cog6ToothHeroIcon,
   DocumentDuplicateIcon as DocumentDuplicateHeroIcon,
+  EllipsisHorizontalIcon as EllipsisHorizontalHeroIcon,
   EnvelopeIcon as EnvelopeHeroIcon,
   ExclamationCircleIcon as ExclamationCircleHeroIcon,
   ExclamationTriangleIcon as ExclamationTriangleHeroIcon,
@@ -36,7 +39,9 @@ import {
   LightBulbIcon as LightBulbHeroIcon,
   LinkIcon as LinkHeroIcon,
   MagnifyingGlassIcon as MagnifyingGlassHeroIcon,
+  MinusIcon as MinusHeroIcon,
   PencilIcon as PencilHeroIcon,
+  PlayIcon as PlayHeroIcon,
   PlusCircleIcon as PlusCircleHeroIcon,
   PlusIcon as PlusHeroIcon,
   ScaleIcon as ScaleHeroIcon,
@@ -45,6 +50,7 @@ import {
   SparklesIcon as SparklesHeroIcon,
   Squares2X2Icon as Squares2X2HeroIcon,
   StarIcon as StarHeroIcon,
+  StopIcon as StopHeroIcon,
   TrashIcon as TrashHeroIcon,
   UserCircleIcon as UserCircleHeroIcon,
   UserGroupIcon as UserGroupHeroIcon,
@@ -126,11 +132,13 @@ export function HungryHelperLogo({ size = 32, className = '' }: AppIconProps) {
       aria-hidden="true"
     >
       <rect width="32" height="32" rx="9" fill="#1f6f4a" />
+      <path d="M15.6 13.6c-.2-3.9 2.3-6.9 6.6-7.5.1 4.2-2.4 7-6.6 7.5Z" fill="#a7e3bf" />
       <path
-        d="M15.6 13.6c-.2-3.9 2.3-6.9 6.6-7.5.1 4.2-2.4 7-6.6 7.5Z"
-        fill="#a7e3bf"
+        d="M15.6 13.6c.6-2 1.8-3.6 3.6-4.8"
+        stroke="#1f6f4a"
+        strokeWidth="1"
+        strokeLinecap="round"
       />
-      <path d="M15.6 13.6c.6-2 1.8-3.6 3.6-4.8" stroke="#1f6f4a" strokeWidth="1" strokeLinecap="round" />
       <circle cx="11" cy="11.2" r="2.6" fill="#e2572f" />
       <path d="M6.5 15.2h19a9.5 9.5 0 0 1-19 0Z" fill="#fff" />
       <path d="M12.5 26.2h7" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" />
@@ -187,6 +195,12 @@ export const EyeSlashIcon = withHeroIcon(EyeSlashHeroIcon);
 export const LightBulbIcon = withHeroIcon(LightBulbHeroIcon);
 export const ChartBarIcon = withHeroIcon(ChartBarHeroIcon);
 export const FireIcon = withHeroIcon(FireHeroIcon);
+export const MinusIcon = withHeroIcon(MinusHeroIcon);
+export const EllipsisHorizontalIcon = withHeroIcon(EllipsisHorizontalHeroIcon);
+export const ChevronUpIcon = withHeroIcon(ChevronUpHeroIcon);
+export const PlayIcon = withHeroIcon(PlayHeroIcon);
+export const StopIcon = withHeroIcon(StopHeroIcon);
+export const ArrowsPointingOutIcon = withHeroIcon(ArrowsPointingOutHeroIcon);
 
 export const RecipeBookIcon = withHeroIcon(BookOpenHeroIcon);
 export const BookOpenIcon = RecipeBookIcon;

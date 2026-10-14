@@ -15,7 +15,7 @@ function hashString(value: string) {
   return Math.abs(hash);
 }
 
-export function recipePalette(name: string) {
+function recipePalette(name: string) {
   return PALETTES[hashString(name || 'recipe') % PALETTES.length];
 }
 

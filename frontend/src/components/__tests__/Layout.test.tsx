@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { render } from '../../test/utils';
 import Layout from '../Layout';
@@ -65,7 +65,8 @@ describe('Layout', () => {
       </Layout>
     );
 
-    expect(screen.getByText('Hungry Helper')).toBeInTheDocument();
+    // Rendered once in the desktop sidebar and once in the mobile top bar.
+    expect(screen.getAllByText('Hungry Helper')).toHaveLength(2);
   });
 
   it('shows mobile menu toggle button', () => {
@@ -117,8 +118,21 @@ describe('Layout', () => {
       </Layout>
     );
 
-    // Check that the layout has proper responsive classes
-    const nav = screen.getByRole('navigation');
+    const nav = screen.getByRole('navigation', { name: 'Main' });
     expect(nav).toBeInTheDocument();
+  });
+
+  it('includes the mobile tab bar inside the single main navigation', () => {
+    render(
+      <Layout>
+        <div>Test Content</div>
+      </Layout>
+    );
+
+    const nav = screen.getByRole('navigation');
+    const cookLinks = within(nav).getAllByRole('link', { name: 'Make a recipe' });
+    expect(cookLinks.length).toBe(2);
+    cookLinks.forEach(link => expect(link).toHaveAttribute('href', '/generate'));
+    expect(within(nav).getAllByRole('link', { name: /Plan|Meal plans/ }).length).toBeGreaterThan(0);
   });
 });

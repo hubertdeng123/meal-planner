@@ -1,11 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  CalendarMealIcon,
-  GroceryBagIcon,
-  HungryHelperLogo,
-  SparklesIcon,
-} from './ui/AppIcons';
+import { CalendarMealIcon, GroceryBagIcon, HungryHelperLogo, SparklesIcon } from './ui/AppIcons';
 
 const highlights = [
   {
@@ -73,9 +68,7 @@ export function AuthLayout({ children, footer }: AuthLayoutProps) {
           </ul>
         </div>
 
-        <p className="relative text-xs text-white/50">
-          Plan smarter. Waste less. Eat better.
-        </p>
+        <p className="relative text-xs text-white/50">Plan smarter. Waste less. Eat better.</p>
       </aside>
 
       <div className="flex min-h-screen flex-col px-5 py-8 sm:px-10 lg:min-h-0">

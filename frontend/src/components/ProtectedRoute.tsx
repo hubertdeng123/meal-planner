@@ -4,7 +4,7 @@ import Layout from './Layout';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  mode?: 'full' | 'condensed' | 'focus';
+  mode?: 'full' | 'focus';
 }
 
 export default function ProtectedRoute({ children, mode = 'full' }: ProtectedRouteProps) {

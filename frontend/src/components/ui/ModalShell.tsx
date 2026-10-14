@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useId, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { XMarkIcon } from './AppIcons';
 
@@ -35,6 +35,8 @@ export function ModalShell({
   hideCloseButton = false,
   bodyClassName = '',
 }: ModalShellProps) {
+  const titleId = useId();
+
   useEffect(() => {
     if (!onClose) return;
 
@@ -73,11 +75,16 @@ export function ModalShell({
         onClick={event => event.stopPropagation()}
         role="dialog"
         aria-modal="true"
+        aria-labelledby={title ? titleId : undefined}
       >
         {(title || description || (!hideCloseButton && onClose)) && (
           <div className="flex items-start justify-between gap-4 px-6 pb-2 pt-5">
             <div className="min-w-0">
-              {title && <h3 className="text-lg font-semibold text-stone-900">{title}</h3>}
+              {title && (
+                <h3 id={titleId} className="text-lg font-semibold text-stone-900">
+                  {title}
+                </h3>
+              )}
               {description && <p className="mt-1 text-sm text-stone-600">{description}</p>}
             </div>
             {!hideCloseButton && onClose && (
