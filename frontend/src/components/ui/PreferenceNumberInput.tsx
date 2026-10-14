@@ -1,32 +1,51 @@
+import { useId } from 'react';
+
 interface PreferenceNumberInputProps {
   label: string;
-  placeholder?: string;
   value: number | undefined;
   onChange: (value: number | undefined) => void;
+  placeholder?: string;
+  unit?: string;
   min?: number;
-  helperText?: string;
+  hint?: string;
 }
 
-export default function PreferenceNumberInput({
+export function PreferenceNumberInput({
   label,
-  placeholder,
   value,
   onChange,
+  placeholder,
+  unit,
   min = 0,
-  helperText,
+  hint,
 }: PreferenceNumberInputProps) {
+  const id = useId();
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
-      <input
-        type="number"
-        placeholder={placeholder}
-        min={min}
-        value={value ?? ''}
-        onChange={e => onChange(e.target.value ? parseInt(e.target.value) : undefined)}
-        className="input w-full"
-      />
-      {helperText && <p className="text-xs text-gray-500 mt-1">{helperText}</p>}
+      <label htmlFor={id} className="label">
+        {label}
+      </label>
+      <div className="relative">
+        <input
+          id={id}
+          type="number"
+          inputMode="numeric"
+          min={min}
+          placeholder={placeholder}
+          value={value ?? ''}
+          onChange={event => {
+            const next = Number.parseInt(event.target.value, 10);
+            onChange(Number.isFinite(next) && next >= min ? next : undefined);
+          }}
+          className={`input ${unit ? 'pr-14' : ''}`}
+        />
+        {unit && (
+          <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-sm text-stone-400">
+            {unit}
+          </span>
+        )}
+      </div>
+      {hint && <p className="helper-text">{hint}</p>}
     </div>
   );
 }
