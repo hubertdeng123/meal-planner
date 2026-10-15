@@ -252,33 +252,40 @@ export function IngredientRulesComponent({ preferences, onChange }: PreferenceCo
     });
   };
 
+  const currentRules = preferences.ingredient_rules?.[activeCategory] || [];
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap gap-2">
-        {categories.map(category => (
-          <button
-            key={category.key}
-            onClick={() => setActiveCategory(category.key)}
-            className={`px-3 py-2 rounded text-sm font-medium transition-all ${
-              activeCategory === category.key
-                ? 'bg-primary-soft text-primary-hover border-2 border-primary/30'
-                : 'bg-slate-100 text-gray-600 border-2 border-transparent hover:bg-slate-200'
-            }`}
-          >
-            {category.title}
-          </button>
-        ))}
+        {categories.map(category => {
+          const isActive = activeCategory === category.key;
+          return (
+            <button
+              key={category.key}
+              type="button"
+              aria-pressed={isActive}
+              onClick={() => setActiveCategory(category.key)}
+              className={`rounded-full border px-4 py-2 text-sm font-semibold transition-all duration-150 ${
+                isActive
+                  ? 'border-[#C84B31]/40 bg-[#F9F1EA] text-[#9A3412] shadow-2xs'
+                  : 'border-[#E7E0D6] bg-[#FAF7F2] text-[#57534E] hover:border-[#D6CEC2] hover:bg-white hover:text-[#1C1917]'
+              }`}
+            >
+              {category.title}
+            </button>
+          );
+        })}
       </div>
 
-      <div className="border rounded-lg p-4">
-        <h3 className="font-medium text-gray-900 mb-2">
+      <div className="rounded-2xl border border-[#E7E0D6] bg-[#FAF7F2] p-5">
+        <h3 className="font-display text-lg font-semibold text-[#1C1917] mb-1">
           {categories.find(c => c.key === activeCategory)?.title} Ingredients
         </h3>
-        <p className="text-sm text-gray-600 mb-4">
+        <p className="text-sm text-[#57534E] mb-4">
           {categories.find(c => c.key === activeCategory)?.description}
         </p>
 
-        <div className="flex gap-2 mb-4">
+        <div className="flex flex-col sm:flex-row gap-2.5 mb-5">
           <input
             type="text"
             placeholder="Ingredient name"
@@ -294,46 +301,58 @@ export function IngredientRulesComponent({ preferences, onChange }: PreferenceCo
             className="flex-1 input text-sm"
           />
           <button
+            type="button"
             onClick={() => {
               addIngredientRule(activeCategory, newIngredient, newReason);
               setNewIngredient('');
               setNewReason('');
             }}
             disabled={!newIngredient.trim()}
-            className="btn-primary text-sm px-3 py-2 disabled:opacity-50"
+            className="btn-primary text-sm px-5 py-2.5 disabled:opacity-50"
           >
             Add
           </button>
         </div>
 
-        <div className="space-y-2 max-h-48 overflow-y-auto">
-          {(preferences.ingredient_rules?.[activeCategory] || []).map((item, index) => (
-            <div key={index} className="flex items-center justify-between bg-slate-50 p-2 rounded">
-              <div>
-                <span className="font-medium text-sm">{item.ingredient}</span>
-                {item.reason && <span className="text-gray-500 text-sm ml-2">({item.reason})</span>}
+        <div className="space-y-2 max-h-56 overflow-y-auto">
+          {currentRules.map((item, index) => (
+            <div
+              key={index}
+              className="flex items-center justify-between gap-3 rounded-xl border border-[#E7E0D6] bg-white px-3.5 py-2.5"
+            >
+              <div className="min-w-0">
+                <span className="font-semibold text-sm text-[#1C1917]">{item.ingredient}</span>
+                {item.reason && (
+                  <span className="text-[#78716C] text-xs ml-2">({item.reason})</span>
+                )}
               </div>
               <button
+                type="button"
                 onClick={() => removeIngredientRule(activeCategory, index)}
-                className="text-red-500 hover:text-red-700 text-sm"
+                className="text-xs font-semibold text-[#B91C1C] hover:text-[#991B1B] transition-colors"
               >
                 Remove
               </button>
             </div>
           ))}
-          {(preferences.ingredient_rules?.[activeCategory] || []).length === 0 && (
-            <p className="text-gray-500 text-sm italic">Nothing here yet</p>
+          {currentRules.length === 0 && (
+            <p className="rounded-xl border border-dashed border-[#D6CEC2] bg-white/60 px-4 py-3 text-[#78716C] text-sm italic">
+              Nothing here yet
+            </p>
           )}
         </div>
 
-        <div className="mt-4">
-          <h4 className="font-medium text-gray-900 mb-2">Quick picks:</h4>
-          <div className="flex flex-wrap gap-1">
+        <div className="mt-5 pt-4 border-t border-[#E7E0D6]">
+          <h4 className="text-xs font-semibold uppercase tracking-[0.12em] text-[#78716C] mb-2.5">
+            Quick picks:
+          </h4>
+          <div className="flex flex-wrap gap-1.5">
             {COMMON_INGREDIENTS.slice(0, 8).map(ingredient => (
               <button
                 key={ingredient}
+                type="button"
                 onClick={() => addIngredientRule(activeCategory, ingredient, 'Common ingredient')}
-                className="px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded text-xs text-gray-700 transition-colors"
+                className="rounded-full border border-[#E7E0D6] bg-white px-3 py-1 text-xs font-medium text-[#57534E] transition-colors hover:border-[#C84B31]/40 hover:bg-[#F9F1EA] hover:text-[#B83B22]"
               >
                 + {ingredient}
               </button>
@@ -393,7 +412,7 @@ export function FoodTypeRulesComponent({ preferences, onChange }: PreferenceComp
             })
           }
         />
-        <p className="text-xs text-gray-500 mt-2">
+        <p className="text-xs text-[#78716C] mt-2">
           Simple: Basic recipes. Medium: Balanced complexity. Complex: Advanced techniques.
         </p>
       </div>
@@ -418,11 +437,11 @@ export function NutritionalRulesComponent({ preferences, onChange }: PreferenceC
         onChange={daily_calorie_target => updateNutritionalRules({ daily_calorie_target })}
       />
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+      <div className="rounded-2xl border border-[#E7E0D6] bg-[#FAF7F2] p-4 sm:p-5">
+        <label className="block text-sm font-semibold text-[#1C1917] mb-3">
           Daily Calorie Range (optional)
         </label>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <PreferenceNumberInput
             label="Minimum"
             placeholder="e.g., 1800"
@@ -452,11 +471,11 @@ export function NutritionalRulesComponent({ preferences, onChange }: PreferenceC
         </div>
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+      <div className="rounded-2xl border border-[#E7E0D6] bg-[#FAF7F2] p-4 sm:p-5">
+        <label className="block text-sm font-semibold text-[#1C1917] mb-3">
           Daily Macro Targets (grams, optional)
         </label>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <PreferenceNumberInput
             label="Protein (g)"
             placeholder="120"
@@ -488,7 +507,7 @@ export function NutritionalRulesComponent({ preferences, onChange }: PreferenceC
             }
           />
         </div>
-        <p className="text-xs text-gray-500 mt-1">Target grams per day for each macronutrient</p>
+        <p className="text-xs text-[#78716C] mt-2">Target grams per day for each macronutrient</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -557,15 +576,20 @@ export function SchedulingRulesComponent({ preferences, onChange }: PreferenceCo
         />
       </div>
 
-      <div>
-        <label className="flex items-center space-x-2 cursor-pointer">
+      <div className="rounded-2xl border border-[#E7E0D6] bg-[#FAF7F2] p-4">
+        <label className="flex items-center gap-3 cursor-pointer">
           <input
             type="checkbox"
             checked={preferences.scheduling_rules.batch_cooking_preference}
             onChange={e => updateSchedulingRules({ batch_cooking_preference: e.target.checked })}
-            className="rounded border-gray-300 text-primary focus:ring-primary-soft"
+            className="h-4 w-4 rounded border-[#D6CEC2] text-[#C84B31] focus:ring-[#C84B31]/30"
           />
-          <span className="text-sm font-medium text-gray-700">I prefer batch cooking</span>
+          <div>
+            <span className="text-sm font-semibold text-[#1C1917]">I prefer batch cooking</span>
+            <p className="text-xs text-[#57534E] mt-0.5">
+              Cook larger portions on key days to enjoy effortless weeknight leftovers
+            </p>
+          </div>
         </label>
       </div>
 

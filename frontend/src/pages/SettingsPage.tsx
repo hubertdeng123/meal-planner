@@ -42,16 +42,68 @@ const WEEKDAYS = [
   { value: 6, label: 'Sunday' },
 ];
 
-const PREFERENCE_TABS = [
-  { id: 'account', name: 'Account', icon: UserIcon },
-  { id: 'notifications', name: 'Notifications', icon: BellIcon },
-  { id: 'basic', name: 'Food favorites', icon: HeartIcon },
-  { id: 'ingredients', name: 'Ingredients', icon: SparklesIcon },
-  { id: 'cooking', name: 'Cooking style', icon: Cog6ToothIcon },
-  { id: 'nutrition', name: 'Nutrition', icon: ScaleIcon },
-  { id: 'schedule', name: 'Schedule', icon: CalendarIcon },
-  { id: 'dietary', name: 'Dietary rules', icon: ClipboardDocumentListIcon },
+const PREFERENCE_GROUPS = [
+  {
+    groupLabel: 'Account & Alerts',
+    tabs: [
+      {
+        id: 'account',
+        name: 'Account',
+        subtitle: 'Your profile details and sign-in email',
+        icon: UserIcon,
+      },
+      {
+        id: 'notifications',
+        name: 'Notifications',
+        subtitle: 'Weekly planning nudges and email delivery schedule',
+        icon: BellIcon,
+      },
+    ],
+  },
+  {
+    groupLabel: 'Culinary & Dietary Profile',
+    tabs: [
+      {
+        id: 'basic',
+        name: 'Food favorites',
+        subtitle: 'Cuisines, spice comfort, and flavor profiles',
+        icon: HeartIcon,
+      },
+      {
+        id: 'ingredients',
+        name: 'Ingredients',
+        subtitle: 'Ingredients to prioritize, include, or avoid',
+        icon: SparklesIcon,
+      },
+      {
+        id: 'cooking',
+        name: 'Cooking style',
+        subtitle: 'Preferred proteins, techniques, and complexity',
+        icon: Cog6ToothIcon,
+      },
+      {
+        id: 'nutrition',
+        name: 'Nutrition',
+        subtitle: 'Calorie goals, macro targets, and micronutrient limits',
+        icon: ScaleIcon,
+      },
+      {
+        id: 'schedule',
+        name: 'Schedule',
+        subtitle: 'Cooking days, prep-time limits, and batch cooking',
+        icon: CalendarIcon,
+      },
+      {
+        id: 'dietary',
+        name: 'Dietary rules',
+        subtitle: 'Health considerations, ethical choices, and dietary laws',
+        icon: ClipboardDocumentListIcon,
+      },
+    ],
+  },
 ];
+
+const PREFERENCE_TABS = PREFERENCE_GROUPS.flatMap(group => group.tabs);
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('account');
@@ -67,7 +119,7 @@ export default function SettingsPage() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
-    loadSettings();
+    void loadSettings();
   }, []);
 
   const loadSettings = async () => {
@@ -117,7 +169,6 @@ export default function SettingsPage() {
       const updatedPrefs = await notificationService.updatePreferences(notificationPreferences);
       setNotificationPreferences(updatedPrefs);
 
-      // Reload reminder schedule
       const scheduleData = await notificationService.getReminderSchedule().catch(() => null);
       if (scheduleData) {
         setReminderSchedule(scheduleData);
@@ -186,41 +237,53 @@ export default function SettingsPage() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#C84B31]" />
       </div>
     );
   }
 
   if (!notificationPreferences || !userPreferences) {
     return (
-      <div className="text-center py-12">
-        <ExclamationCircleIcon className="mx-auto h-12 w-12 text-red-400" />
-        <h2 className="mt-4 text-lg font-semibold text-stone-900">Settings are taking a nap</h2>
-        <p className="mt-2 text-stone-600">Give the page a refresh to wake them up.</p>
+      <div className="surface p-10 text-center">
+        <ExclamationCircleIcon className="mx-auto h-12 w-12 text-[#B91C1C]" />
+        <h2 className="mt-4 font-display text-xl font-semibold text-[#1C1917]">
+          Settings are taking a nap
+        </h2>
+        <p className="mt-2 text-sm text-[#57534E]">Give the page a refresh to wake them up.</p>
       </div>
     );
   }
 
   const renderAccountTab = () => (
     <div className="space-y-6">
-      <div className="card p-6">
-        <div className="flex items-center mb-4">
-          <UserIcon className="h-6 w-6 text-stone-500 mr-3" />
-          <h2 className="text-xl font-semibold text-stone-900">Account info</h2>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="surface p-6 sm:p-8">
+        <div className="flex items-start gap-3.5 border-b border-[#E7E0D6] pb-5 mb-6">
+          <div className="icon-container-premium icon-container-orange shrink-0">
+            <UserIcon className="h-5 w-5 text-[#C84B31]" />
+          </div>
           <div>
-            <label className="block text-sm font-medium text-stone-700 mb-1">Username</label>
-            <div className="input bg-slate-50 text-stone-500">
+            <h2 className="section-title">Account info</h2>
+            <p className="section-subtitle mt-0.5">
+              Your registered kitchen identity and contact address
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div>
+            <label className="block text-sm font-semibold text-[#1C1917] mb-2">Username</label>
+            <div className="rounded-xl border border-[#E7E0D6] bg-[#FAF7F2] px-3.5 py-2.5 text-sm font-medium text-[#57534E]">
               {user?.username || 'Not available'}
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-stone-700 mb-1">Email</label>
-            <div className="input bg-slate-50 text-stone-500">{user?.email || 'Not available'}</div>
+            <label className="block text-sm font-semibold text-[#1C1917] mb-2">Email</label>
+            <div className="rounded-xl border border-[#E7E0D6] bg-[#FAF7F2] px-3.5 py-2.5 text-sm font-medium text-[#57534E]">
+              {user?.email || 'Not available'}
+            </div>
           </div>
         </div>
-        <p className="text-sm text-stone-500 mt-4">
+        <p className="text-xs text-[#78716C] mt-5">
           Need to change account info? Reach out to support.
         </p>
       </div>
@@ -229,20 +292,27 @@ export default function SettingsPage() {
 
   const renderNotificationsTab = () => (
     <div className="space-y-6">
-      <div className="card p-6">
-        <div className="flex items-center mb-6">
-          <EnvelopeIcon className="h-6 w-6 text-stone-500 mr-3" />
-          <h2 className="text-xl font-semibold text-stone-900">Email notifications</h2>
+      <div className="surface p-6 sm:p-8">
+        <div className="flex items-start gap-3.5 border-b border-[#E7E0D6] pb-5 mb-6">
+          <div className="icon-container-premium icon-container-orange shrink-0">
+            <EnvelopeIcon className="h-5 w-5 text-[#C84B31]" />
+          </div>
+          <div>
+            <h2 className="section-title">Email notifications</h2>
+            <p className="section-subtitle mt-0.5">
+              Configure weekly meal-planning reminders and delivery windows
+            </p>
+          </div>
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-5">
           {/* Master Toggle */}
-          <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-200/70">
+          <div className="flex items-center justify-between gap-4 rounded-2xl border border-[#E7E0D6] bg-[#FAF7F2] p-4 sm:p-5">
             <div>
-              <h3 className="text-sm font-medium text-stone-900">Email notifications</h3>
-              <p className="text-sm text-stone-500">Flip all email nudges on or off</p>
+              <h3 className="text-sm font-semibold text-[#1C1917]">Email notifications</h3>
+              <p className="mt-0.5 text-sm text-[#57534E]">Flip all email nudges on or off</p>
             </div>
-            <label className="relative inline-flex items-center cursor-pointer">
+            <label className="relative inline-flex items-center cursor-pointer shrink-0">
               <input
                 type="checkbox"
                 checked={notificationPreferences.email_notifications_enabled}
@@ -254,22 +324,24 @@ export default function SettingsPage() {
                 }
                 className="sr-only peer"
               />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-soft rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+              <div className="w-11 h-6 bg-[#D6CEC2] peer-focus:outline-none peer-focus:ring-3 peer-focus:ring-[#C84B31]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[#D6CEC2] after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#C84B31]" />
             </label>
           </div>
 
           {/* Weekly Planning Reminder */}
           {notificationPreferences.email_notifications_enabled && (
-            <div className="border border-slate-200/70 rounded-2xl p-4 bg-white">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center">
-                  <BellIcon className="h-5 w-5 text-gray-400 mr-2" />
+            <div className="rounded-2xl border border-[#E7E0D6] bg-white p-5">
+              <div className="flex items-center justify-between gap-4 mb-4">
+                <div className="flex items-start gap-3">
+                  <BellIcon className="h-5 w-5 text-[#C84B31] mt-0.5 shrink-0" />
                   <div>
-                    <h3 className="text-sm font-medium text-stone-900">Weekly planning reminder</h3>
-                    <p className="text-sm text-stone-500">A gentle nudge to plan the week</p>
+                    <h3 className="text-sm font-semibold text-[#1C1917]">
+                      Weekly planning reminder
+                    </h3>
+                    <p className="mt-0.5 text-sm text-[#57534E]">A gentle nudge to plan the week</p>
                   </div>
                 </div>
-                <label className="relative inline-flex items-center cursor-pointer">
+                <label className="relative inline-flex items-center cursor-pointer shrink-0">
                   <input
                     type="checkbox"
                     checked={notificationPreferences.weekly_planning_reminder}
@@ -281,14 +353,14 @@ export default function SettingsPage() {
                     }
                     className="sr-only peer"
                   />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-soft rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                  <div className="w-11 h-6 bg-[#D6CEC2] peer-focus:outline-none peer-focus:ring-3 peer-focus:ring-[#C84B31]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[#D6CEC2] after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#C84B31]" />
                 </label>
               </div>
 
               {notificationPreferences.weekly_planning_reminder && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 pt-4 border-t border-slate-200/70">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 pt-4 border-t border-[#E7E0D6]">
                   <div>
-                    <label className="block text-sm font-medium text-stone-700 mb-2">
+                    <label className="block text-sm font-semibold text-[#1C1917] mb-2">
                       Day of Week
                     </label>
                     <select
@@ -310,8 +382,8 @@ export default function SettingsPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-stone-700 mb-2 flex items-center">
-                      <ClockIcon className="h-4 w-4 mr-1" />
+                    <label className="block text-sm font-semibold text-[#1C1917] mb-2 flex items-center gap-1.5">
+                      <ClockIcon className="h-4 w-4 text-[#78716C]" />
                       Time
                     </label>
                     <input
@@ -320,13 +392,13 @@ export default function SettingsPage() {
                       onChange={e =>
                         handleNotificationPreferenceChange('reminder_time', e.target.value)
                       }
-                      className="input"
+                      className="input tabular-nums"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-stone-700 mb-2 flex items-center">
-                      <GlobeAltIcon className="h-4 w-4 mr-1" />
+                    <label className="block text-sm font-semibold text-[#1C1917] mb-2 flex items-center gap-1.5">
+                      <GlobeAltIcon className="h-4 w-4 text-[#78716C]" />
                       Timezone
                     </label>
                     <select
@@ -345,9 +417,10 @@ export default function SettingsPage() {
               )}
 
               {notificationPreferences.weekly_planning_reminder && reminderSchedule && (
-                <div className="mt-4 p-3 bg-[#fff6f7] rounded-2xl border border-primary/15">
-                  <p className="text-sm text-primary-hover">
-                    <strong>Next reminder:</strong> {reminderSchedule.message}
+                <div className="mt-4 rounded-2xl border border-[#C84B31]/25 bg-[#F9F1EA] p-3.5">
+                  <p className="text-sm text-[#B83B22]">
+                    <strong className="font-semibold">Next reminder:</strong>{' '}
+                    {reminderSchedule.message}
                   </p>
                 </div>
               )}
@@ -355,7 +428,7 @@ export default function SettingsPage() {
           )}
         </div>
 
-        <div className="flex gap-4 mt-6">
+        <div className="flex flex-wrap gap-3 mt-6 pt-5 border-t border-[#E7E0D6]">
           <button onClick={saveNotificationPreferences} disabled={saving} className="btn-primary">
             {saving ? 'Saving...' : 'Save notifications'}
           </button>
@@ -401,24 +474,37 @@ export default function SettingsPage() {
 
     if (!Component) return null;
 
+    const activeTabData = PREFERENCE_TABS.find(tab => tab.id === activeTab);
+    const Icon = activeTabData?.icon;
+
     return (
       <div className="space-y-6">
-        <div className="card p-6">
-          <div className="flex items-center mb-6">
-            {(() => {
-              const activeTabData = PREFERENCE_TABS.find(tab => tab.id === activeTab);
-              const Icon = activeTabData?.icon;
-              return Icon ? <Icon className="h-6 w-6 text-stone-500 mr-3" /> : null;
-            })()}
-            <h2 className="text-xl font-semibold text-stone-900">
-              {PREFERENCE_TABS.find(tab => tab.id === activeTab)?.name}
-            </h2>
+        <div className="surface p-6 sm:p-8">
+          <div className="flex items-start gap-3.5 border-b border-[#E7E0D6] pb-5 mb-6">
+            {Icon && (
+              <div className="icon-container-premium icon-container-orange shrink-0">
+                <Icon className="h-5 w-5 text-[#C84B31]" />
+              </div>
+            )}
+            <div>
+              <h2 className="section-title">{activeTabData?.name}</h2>
+              {activeTabData?.subtitle && (
+                <p className="section-subtitle mt-0.5">{activeTabData.subtitle}</p>
+              )}
+            </div>
           </div>
 
           <Component />
 
-          <div className="mt-6">
-            <button onClick={saveUserPreferences} disabled={saving} className="btn-primary">
+          <div className="mt-8 pt-5 border-t border-[#E7E0D6] flex items-center justify-between gap-4">
+            <p className="text-xs text-[#78716C]">
+              Saved preferences automatically guide future AI recipe generation and weekly plans.
+            </p>
+            <button
+              onClick={saveUserPreferences}
+              disabled={saving}
+              className="btn-primary shrink-0"
+            >
               {saving ? 'Saving...' : 'Save preferences'}
             </button>
           </div>
@@ -440,66 +526,106 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-6xl mx-auto">
-      {/* Header */}
-      <PageHeader title="Settings" subtitle="Make Hungry Helper feel like yours" />
+      <PageHeader
+        badge={<span className="badge">Culinary Profile & Alerts</span>}
+        title="Settings"
+        subtitle="Make Hungry Helper feel like yours"
+      />
 
-      {/* Status Message */}
       {message && (
         <div
           className={`mb-6 rounded-2xl p-4 border ${
             message.type === 'success'
-              ? 'bg-emerald-50 border-emerald-200'
-              : 'bg-red-50 border-red-200'
+              ? 'bg-[#ECF5F0] border-[#3F624D]/30'
+              : 'bg-[#FEE2E2] border-[#B91C1C]/25'
           }`}
         >
-          <div className="flex">
-            <div className="flex-shrink-0">
+          <div className="flex items-start gap-3">
+            <div className="shrink-0 mt-0.5">
               {message.type === 'success' ? (
-                <CheckCircleIcon className="h-5 w-5 text-green-400" />
+                <CheckCircleIcon className="h-5 w-5 text-[#2F6F4E]" />
               ) : (
-                <ExclamationCircleIcon className="h-5 w-5 text-red-400" />
+                <ExclamationCircleIcon className="h-5 w-5 text-[#991B1B]" />
               )}
             </div>
-            <div className="ml-3">
-              <p
-                className={`text-sm ${
-                  message.type === 'success' ? 'text-green-700' : 'text-red-700'
-                }`}
-              >
-                {message.text}
-              </p>
-            </div>
+            <p
+              className={`text-sm font-medium ${
+                message.type === 'success' ? 'text-[#2F6F4E]' : 'text-[#991B1B]'
+              }`}
+            >
+              {message.text}
+            </p>
           </div>
         </div>
       )}
 
-      <div className="flex flex-col lg:flex-row gap-8">
-        {/* Tab Navigation */}
-        <div className="lg:w-64 flex-shrink-0">
-          <nav className="space-y-1">
-            {PREFERENCE_TABS.map(tab => {
-              const isActive = activeTab === tab.id;
-              const Icon = tab.icon;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                    isActive
-                      ? 'bg-primary/10 text-primary-hover border-r-2 border-primary'
-                      : 'text-stone-600 hover:text-stone-900 hover:bg-white/70'
-                  }`}
-                >
-                  <Icon className={`mr-3 h-5 w-5 ${isActive ? 'text-primary' : 'text-gray-400'}`} />
-                  {tab.name}
-                </button>
-              );
-            })}
-          </nav>
+      {/* Mobile Horizontally Scrollable Pill Strip (< lg) */}
+      <div className="lg:hidden mb-6 -mx-4 px-4">
+        <div
+          role="tablist"
+          aria-label="Settings sections"
+          className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-2"
+        >
+          {PREFERENCE_TABS.map(tab => {
+            const isActive = activeTab === tab.id;
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => setActiveTab(tab.id)}
+                className={`inline-flex shrink-0 items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-semibold transition-all duration-150 ${
+                  isActive
+                    ? 'border-[#C84B31] bg-[#C84B31] text-white shadow-xs'
+                    : 'border-[#E7E0D6] bg-white text-[#57534E] hover:border-[#D6CEC2] hover:text-[#1C1917]'
+                }`}
+              >
+                <Icon className={`h-4 w-4 ${isActive ? 'text-white' : 'text-[#78716C]'}`} />
+                {tab.name}
+              </button>
+            );
+          })}
         </div>
+      </div>
+
+      <div className="grid gap-8 lg:grid-cols-[260px_1fr] lg:items-start">
+        {/* Desktop Grouped Sidebar (>= lg) */}
+        <aside className="hidden lg:block surface p-4 space-y-6">
+          {PREFERENCE_GROUPS.map(group => (
+            <div key={group.groupLabel}>
+              <p className="eyebrow px-3 mb-2">{group.groupLabel}</p>
+              <div className="space-y-1">
+                {group.tabs.map(tab => {
+                  const isActive = activeTab === tab.id;
+                  const Icon = tab.icon;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      aria-current={isActive ? 'page' : undefined}
+                      className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-sm font-medium rounded-2xl border transition-all duration-150 ${
+                        isActive
+                          ? 'border-[#C84B31]/30 bg-[#F9F1EA] font-semibold text-[#1C1917] shadow-2xs'
+                          : 'border-transparent text-[#57534E] hover:bg-[#FAF7F2] hover:text-[#1C1917]'
+                      }`}
+                    >
+                      <Icon
+                        className={`h-5 w-5 shrink-0 ${
+                          isActive ? 'text-[#C84B31]' : 'text-[#78716C]'
+                        }`}
+                      />
+                      <span className="truncate">{tab.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </aside>
 
         {/* Tab Content */}
-        <div className="flex-1">{renderTabContent()}</div>
+        <div className="min-w-0">{renderTabContent()}</div>
       </div>
     </div>
   );

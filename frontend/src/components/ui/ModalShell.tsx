@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useId, type ReactNode } from 'react';
 import { XMarkIcon } from './AppIcons';
 
 type ModalSize = 'sm' | 'md' | 'lg';
@@ -34,6 +34,10 @@ export function ModalShell({
   hideCloseButton = false,
   bodyClassName = '',
 }: ModalShellProps) {
+  const dialogId = useId();
+  const titleId = title ? `${dialogId}-title` : undefined;
+  const descriptionId = description ? `${dialogId}-description` : undefined;
+
   useEffect(() => {
     if (!onClose) return;
 
@@ -59,19 +63,32 @@ export function ModalShell({
       onClick={handleBackdropClick}
       role="presentation"
     >
-      <div className={`modal-container top-20 ${sizeMap[size]}`}>
+      <div className={`modal-container top-16 sm:top-20 pb-12 ${sizeMap[size]}`}>
         <div
-          className={`modal-panel animate-scale-in animate-slide-in-up ${className}`}
-          style={{ animationDuration: '0.25s' }}
+          className={`modal-panel animate-scale-in ${className}`.trim()}
+          style={{ animationDuration: '0.2s' }}
           onClick={event => event.stopPropagation()}
           role="dialog"
           aria-modal="true"
+          aria-labelledby={titleId}
+          aria-describedby={descriptionId}
         >
           {(title || description || (!hideCloseButton && onClose)) && (
             <div className="mb-4 flex items-start justify-between gap-3">
               <div className="min-w-0">
-                {title && <h3 className="text-lg font-semibold text-stone-900">{title}</h3>}
-                {description && <p className="mt-1 text-sm text-stone-600">{description}</p>}
+                {title && (
+                  <h3
+                    id={titleId}
+                    className="font-display text-xl font-semibold text-[#1C1917] tracking-tight"
+                  >
+                    {title}
+                  </h3>
+                )}
+                {description && (
+                  <p id={descriptionId} className="mt-1.5 text-sm text-[#57534E] leading-relaxed">
+                    {description}
+                  </p>
+                )}
               </div>
               {!hideCloseButton && onClose && (
                 <button
@@ -86,7 +103,7 @@ export function ModalShell({
             </div>
           )}
           {children ? <div className={bodyClassName}>{children}</div> : null}
-          {footer && <div className="mt-6 flex justify-end gap-3">{footer}</div>}
+          {footer && <div className="mt-6 flex flex-wrap justify-end gap-2.5">{footer}</div>}
         </div>
       </div>
     </div>

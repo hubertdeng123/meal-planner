@@ -22,12 +22,12 @@ const PantryPage = lazy(() => import('./pages/PantryPage'));
 function RouteFallback() {
   return (
     <div className="min-h-[40vh] flex items-center justify-center">
-      <div className="flex items-center gap-3 text-sm text-stone-500">
+      <div className="flex items-center gap-3 text-sm font-medium text-[#57534E]">
         <div
-          className="animate-spin rounded-full h-5 w-5 border-b-2"
-          style={{ borderBottomColor: 'var(--primary)' }}
-        ></div>
-        Loading page...
+          className="animate-spin rounded-full h-5 w-5 border-2 border-[#E7E0D6]"
+          style={{ borderTopColor: 'var(--primary)' }}
+        />
+        Loading kitchen...
       </div>
     </div>
   );
@@ -38,8 +38,8 @@ function AppRoutes() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div className="min-h-screen flex items-center justify-center bg-[#FAF7F2]">
+        <div className="animate-spin rounded-full h-10 w-10 border-2 border-[#E7E0D6] border-t-primary" />
       </div>
     );
   }
@@ -50,11 +50,11 @@ function AppRoutes() {
         <Routes>
           <Route
             path="/login"
-            element={isAuthenticated ? <Navigate to="/dashboard" /> : <LoginPage />}
+            element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage />}
           />
           <Route
             path="/register"
-            element={isAuthenticated ? <Navigate to="/dashboard" /> : <RegisterPage />}
+            element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <RegisterPage />}
           />
           <Route
             path="/"
@@ -87,7 +87,7 @@ function AppRoutes() {
           <Route
             path="/generate"
             element={
-              <ProtectedRoute mode="focus">
+              <ProtectedRoute>
                 <GenerateRecipePage />
               </ProtectedRoute>
             }
@@ -103,7 +103,7 @@ function AppRoutes() {
           <Route
             path="/grocery/:id"
             element={
-              <ProtectedRoute mode="focus">
+              <ProtectedRoute>
                 <GroceryListDetailPage />
               </ProtectedRoute>
             }
@@ -139,6 +139,23 @@ function AppRoutes() {
                 <SettingsPage />
               </ProtectedRoute>
             }
+          />
+
+          {/* Intuitive Route Aliases & Legacy Redirects */}
+          <Route path="/home" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/recipes/new" element={<Navigate to="/generate" replace />} />
+          <Route path="/recipes/generate" element={<Navigate to="/generate" replace />} />
+          <Route path="/planner" element={<Navigate to="/meal-plans" replace />} />
+          <Route path="/shopping" element={<Navigate to="/grocery" replace />} />
+          <Route path="/grocery-lists" element={<Navigate to="/grocery" replace />} />
+          <Route path="/inventory" element={<Navigate to="/pantry" replace />} />
+          <Route path="/preferences" element={<Navigate to="/settings" replace />} />
+          <Route path="/profile" element={<Navigate to="/settings" replace />} />
+
+          {/* Catch-all 404 fallback */}
+          <Route
+            path="*"
+            element={<Navigate to={isAuthenticated ? '/dashboard' : '/login'} replace />}
           />
         </Routes>
       </Suspense>

@@ -22,26 +22,36 @@ export default function PreferenceCheckboxList({
   };
 
   const gridCols = {
-    2: 'grid-cols-2',
+    2: 'grid-cols-1 sm:grid-cols-2',
     3: 'grid-cols-2 md:grid-cols-3',
     4: 'grid-cols-2 md:grid-cols-4',
   };
 
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-3">{label}</label>
-      <div className={`grid ${gridCols[columns]} gap-3`}>
-        {items.map(item => (
-          <label key={item} className="flex items-center space-x-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={selectedItems.includes(item)}
-              onChange={() => toggleItem(item)}
-              className="rounded border-gray-300 text-primary focus:ring-primary-soft"
-            />
-            <span className="text-sm text-gray-700">{item}</span>
-          </label>
-        ))}
+      {label && <label className="block text-sm font-semibold text-[#1C1917] mb-3">{label}</label>}
+      <div className={`grid ${gridCols[columns]} gap-2.5`}>
+        {items.map(item => {
+          const isSelected = selectedItems.includes(item);
+          return (
+            <label
+              key={item}
+              className={`flex items-center gap-2.5 rounded-xl border px-3.5 py-2.5 cursor-pointer transition-all duration-150 ${
+                isSelected
+                  ? 'border-[#C84B31]/40 bg-[#F9F1EA] text-[#1C1917] shadow-xs'
+                  : 'border-[#E7E0D6] bg-white text-[#57534E] hover:border-[#D6CEC2] hover:bg-[#FAF7F2] hover:text-[#1C1917]'
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={isSelected}
+                onChange={() => toggleItem(item)}
+                className="h-4 w-4 rounded border-[#D6CEC2] text-[#C84B31] focus:ring-[#C84B31]/30"
+              />
+              <span className="text-sm font-medium leading-snug">{item}</span>
+            </label>
+          );
+        })}
       </div>
     </div>
   );

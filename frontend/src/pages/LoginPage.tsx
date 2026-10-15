@@ -48,101 +48,119 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="app-shell relative overflow-hidden py-12 px-4 sm:px-6 lg:px-10">
-      <div
-        className="pointer-events-none absolute -top-16 -left-24 h-72 w-72 rounded-full blur-3xl"
-        style={{ backgroundColor: 'var(--primary-soft)' }}
-      />
-      <div className="pointer-events-none absolute top-20 right-10 h-64 w-64 rounded-full bg-emerald-200/40 blur-3xl" />
-      <div className="pointer-events-none absolute bottom-8 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-amber-200/40 blur-3xl" />
+    <div className="app-shell flex min-h-screen flex-col justify-center py-12 px-4 sm:px-6 lg:px-10">
+      <div className="mx-auto grid w-full max-w-6xl gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+        {/* Left Editorial Column */}
+        <div className="space-y-8 lg:pr-6">
+          <div className="inline-flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#C84B31] text-white shadow-xs">
+              <HungryHelperLogo size={26} />
+            </div>
+            <div>
+              <span className="font-display text-xl font-semibold tracking-tight text-[#1C1917]">
+                Hungry Helper
+              </span>
+              <p className="text-xs font-medium uppercase tracking-[0.12em] text-[#78716C]">
+                The Editorial Kitchen Companion
+              </p>
+            </div>
+          </div>
 
-      <div className="relative mx-auto flex w-full max-w-6xl flex-col gap-10 lg:flex-row lg:items-center">
-        <div className="flex-1 space-y-6 lg:pr-6">
-          <span className="badge">Dinner, but easy</span>
-          <div className="space-y-5 animate-slide-in-up-subtle">
-            <h1 className="font-display text-4xl sm:text-5xl font-bold text-stone-900 leading-[1.1] tracking-tight">
+          <div className="space-y-4">
+            <span className="badge">Dinner, simplified</span>
+            <h1 className="font-display text-4xl sm:text-5xl font-semibold text-[#1C1917] leading-[1.1] tracking-tight">
               Dinner plans, minus the drama.
             </h1>
-            <p className="text-base sm:text-lg text-stone-500 leading-relaxed max-w-md">
-              A few taps, a solid plan, and a grocery list that behaves. That's the whole vibe.
+            <p className="text-base sm:text-lg text-[#57534E] leading-relaxed max-w-lg">
+              Thoughtful recipes tailored to your pantry, a calm weekly planner, and a grocery list
+              that organizes itself by aisle.
             </p>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <div
-              className="card p-5 soft-hover animate-slide-in-up-subtle"
-              style={{ animationDelay: '100ms' }}
-            >
-              <div className="flex items-start gap-4">
-                <div className="icon-container-premium icon-container-orange flex-shrink-0">
-                  <CalendarMealIcon size={24} />
+            <div className="rounded-2xl border border-[#E7E0D6] bg-white p-5 shadow-2xs">
+              <div className="flex items-start gap-3.5">
+                <div className="icon-container-premium icon-container-orange shrink-0">
+                  <CalendarMealIcon size={22} />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-stone-900 mb-1">Your weekly groove</p>
-                  <p className="text-sm text-stone-600 leading-relaxed">
-                    Gentle nudges so dinner decisions stay chill.
+                  <p className="font-display text-base font-semibold text-[#1C1917]">
+                    Your weekly rhythm
+                  </p>
+                  <p className="mt-1 text-sm text-[#57534E] leading-relaxed">
+                    Balanced meal schedules that adapt to busy weeknights.
                   </p>
                 </div>
               </div>
             </div>
-            <div
-              className="card p-5 soft-hover animate-slide-in-up-subtle"
-              style={{ animationDelay: '200ms' }}
-            >
-              <div className="flex items-start gap-4">
-                <div className="icon-container-premium icon-container-emerald flex-shrink-0">
-                  <GroceryBagIcon size={24} />
+
+            <div className="rounded-2xl border border-[#E7E0D6] bg-white p-5 shadow-2xs">
+              <div className="flex items-start gap-3.5">
+                <div className="icon-container-premium icon-container-emerald shrink-0">
+                  <GroceryBagIcon size={22} />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-stone-900 mb-1">Grocery ready</p>
-                  <p className="text-sm text-stone-600 leading-relaxed">
-                    Lists that know what you need and skip the chaos.
+                  <p className="font-display text-base font-semibold text-[#1C1917]">
+                    Market-ready lists
+                  </p>
+                  <p className="mt-1 text-sm text-[#57534E] leading-relaxed">
+                    Merged ingredient quantities sorted cleanly by store aisle.
                   </p>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <span className="chip">15-min meal mode</span>
-            <span className="chip">Auto grocery lists</span>
-            <span className="chip">Nutrition nudges</span>
+          <div className="rounded-2xl border border-[#E7E0D6] bg-[#F3EFE6]/70 p-5">
+            <p className="eyebrow mb-3">Inside your kitchen studio</p>
+            <div className="grid gap-2.5 sm:grid-cols-3">
+              <div className="flex items-center gap-2.5 rounded-xl border border-[#E7E0D6] bg-white px-3 py-2.5">
+                <OrangeCheckIcon size={18} />
+                <span className="text-xs font-medium text-[#1C1917]">Pantry-first AI recipes</span>
+              </div>
+              <div className="flex items-center gap-2.5 rounded-xl border border-[#E7E0D6] bg-white px-3 py-2.5">
+                <SuccessCheckIcon size={18} />
+                <span className="text-xs font-medium text-[#1C1917]">Nutrition snapshots</span>
+              </div>
+              <div className="flex items-center gap-2.5 rounded-xl border border-[#E7E0D6] bg-white px-3 py-2.5">
+                <AmberCheckIcon size={18} />
+                <span className="text-xs font-medium text-[#1C1917]">1-click grocery sync</span>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="w-full max-w-md">
-          <div className="glass-panel panel-glow p-8 lg:p-10 animate-slide-in-up-subtle">
-            {/* Logo and Header */}
-            <div className="text-center space-y-4">
-              <div className="mx-auto w-16 h-16 gradient-primary rounded-2xl flex items-center justify-center shadow-lg">
-                <HungryHelperLogo size={40} />
+        {/* Right Sign-In Card */}
+        <div className="w-full max-w-md mx-auto lg:max-w-none">
+          <div className="surface p-8 sm:p-10">
+            <div className="text-center space-y-3">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-[#C84B31]/20 bg-[#F9F1EA] text-[#C84B31]">
+                <HungryHelperLogo size={32} />
               </div>
               <div>
-                <h2 className="font-display text-3xl font-semibold text-stone-900">
+                <h2 className="font-display text-3xl font-semibold text-[#1C1917]">
                   Welcome back!
                 </h2>
-                <p className="mt-2 text-stone-500">Sign in and let's get cooking</p>
+                <p className="mt-1.5 text-sm text-[#57534E]">Sign in and let's get cooking</p>
               </div>
             </div>
 
-            {/* Login Form */}
-            <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+            <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
               {error && (
-                <div className="rounded-2xl bg-red-50 p-4 ring-1 ring-red-200">
-                  <div className="flex">
-                    <div className="flex-shrink-0">
-                      <ExclamationCircleIcon className="h-5 w-5 text-red-400" />
-                    </div>
-                    <div className="ml-3">
-                      <p className="text-sm text-red-700">{error}</p>
-                    </div>
+                <div className="rounded-2xl border border-[#B91C1C]/25 bg-[#FEE2E2]/70 p-4">
+                  <div className="flex items-start gap-3">
+                    <ExclamationCircleIcon className="h-5 w-5 shrink-0 text-[#B91C1C] mt-0.5" />
+                    <p className="text-sm font-medium text-[#B91C1C]">{error}</p>
                   </div>
                 </div>
               )}
 
               <div className="space-y-4">
                 <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-stone-700 mb-2">
+                  <label
+                    htmlFor="email"
+                    className="block text-sm font-semibold text-[#1C1917] mb-2"
+                  >
                     Email address
                   </label>
                   <input
@@ -154,14 +172,14 @@ export default function LoginPage() {
                     value={formData.email}
                     onChange={handleChange}
                     className="input"
-                    placeholder="Enter your email"
+                    placeholder="you@example.com"
                   />
                 </div>
 
                 <div>
                   <label
                     htmlFor="password"
-                    className="block text-sm font-medium text-stone-700 mb-2"
+                    className="block text-sm font-semibold text-[#1C1917] mb-2"
                   >
                     Password
                   </label>
@@ -179,7 +197,7 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              <div className="space-y-4">
+              <div className="pt-2 space-y-4">
                 <button
                   type="submit"
                   disabled={loading}
@@ -195,15 +213,12 @@ export default function LoginPage() {
                   )}
                 </button>
 
-                <div className="text-center">
-                  <p className="text-sm text-stone-600">
+                <div className="border-t border-[#E7E0D6] pt-4 text-center">
+                  <p className="text-sm text-[#57534E]">
                     New here?{' '}
                     <Link
                       to="/register"
-                      className="font-semibold transition-colors duration-200"
-                      style={{ color: 'var(--primary)' }}
-                      onMouseOver={e => (e.currentTarget.style.color = 'var(--primary-hover)')}
-                      onMouseOut={e => (e.currentTarget.style.color = 'var(--primary)')}
+                      className="font-semibold text-[#C84B31] hover:text-[#B83B22] transition-colors"
                     >
                       Create an account
                     </Link>
@@ -211,33 +226,6 @@ export default function LoginPage() {
                 </div>
               </div>
             </form>
-          </div>
-
-          {/* Features Preview */}
-          <div className="mt-6 card p-6">
-            <p className="text-xs font-semibold uppercase tracking-[0.15em] text-stone-500 text-center mb-4">
-              What's waiting inside
-            </p>
-            <div className="space-y-3">
-              <div className="flex items-center gap-3 p-2.5 rounded-xl transition-colors hover:bg-stone-50">
-                <div className="flex-shrink-0">
-                  <OrangeCheckIcon size={24} />
-                </div>
-                <p className="text-sm text-stone-700">Recipes that fit your pantry and mood</p>
-              </div>
-              <div className="flex items-center gap-3 p-2.5 rounded-xl transition-colors hover:bg-stone-50">
-                <div className="flex-shrink-0">
-                  <SuccessCheckIcon size={24} />
-                </div>
-                <p className="text-sm text-stone-700">Friendly nutrition snapshots</p>
-              </div>
-              <div className="flex items-center gap-3 p-2.5 rounded-xl transition-colors hover:bg-stone-50">
-                <div className="flex-shrink-0">
-                  <AmberCheckIcon size={24} />
-                </div>
-                <p className="text-sm text-stone-700">Grocery lists that build themselves</p>
-              </div>
-            </div>
           </div>
         </div>
       </div>

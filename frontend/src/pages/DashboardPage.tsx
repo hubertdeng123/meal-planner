@@ -2,9 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowRightIcon,
+  CalendarMealIcon,
   ClockIcon,
   FireStatsIcon,
   PantryIcon,
+  RecipeBookIcon,
   ShoppingCartCheckIcon,
   SparkleWandIcon,
 } from '../components/ui/AppIcons';
@@ -13,6 +15,7 @@ import { SectionCard } from '../components/ui/SectionCard';
 import { StatPill } from '../components/ui/StatPill';
 import dashboardService from '../services/dashboard.service';
 import type { DashboardActionItem, DashboardSummary } from '../types';
+import { parseLocalIsoDate } from '../utils/date';
 
 function getGreeting() {
   const hour = new Date().getHours();
@@ -24,24 +27,27 @@ function getGreeting() {
 function actionTone(impact: DashboardActionItem['impact']) {
   if (impact === 'high') {
     return {
-      badge: 'bg-red-50 text-red-700 border-red-200',
+      badge: 'border-[#B91C1C]/25 bg-[#FEE2E2] text-[#991B1B]',
+      dot: 'bg-[#991B1B]',
       label: 'High impact',
     };
   }
   if (impact === 'medium') {
     return {
-      badge: 'bg-amber-50 text-amber-700 border-amber-200',
+      badge: 'border-[#B45309]/25 bg-[#FEF3C7] text-[#92400E]',
+      dot: 'bg-[#92400E]',
       label: 'Medium impact',
     };
   }
   return {
-    badge: 'bg-stone-100 text-stone-700 border-stone-200',
+    badge: 'border-[#E7E0D6] bg-[#F3EFE6] text-[#57534E]',
+    dot: 'bg-[#78716C]',
     label: 'Low impact',
   };
 }
 
 function formatShortDate(value: string) {
-  const date = new Date(value);
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(value) ? parseLocalIsoDate(value) : new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return new Intl.DateTimeFormat('en-US', {
     weekday: 'short',
@@ -90,10 +96,10 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <div className="h-60 rounded-[2rem] bg-stone-100 animate-pulse" />
-        <div className="grid gap-4 lg:grid-cols-2">
-          <div className="h-72 rounded-3xl bg-stone-100 animate-pulse" />
-          <div className="h-72 rounded-3xl bg-stone-100 animate-pulse" />
+        <div className="h-64 rounded-3xl border border-[#E7E0D6] bg-[#F3EFE6]/70 animate-pulse" />
+        <div className="grid gap-6 lg:grid-cols-2">
+          <div className="h-72 rounded-3xl border border-[#E7E0D6] bg-[#F3EFE6]/70 animate-pulse" />
+          <div className="h-72 rounded-3xl border border-[#E7E0D6] bg-[#F3EFE6]/70 animate-pulse" />
         </div>
       </div>
     );
@@ -115,31 +121,39 @@ export default function DashboardPage() {
 
   const primaryAction = summary.today_brief.primary_action;
   const secondaryActions = summary.action_queue.slice(1, 3);
+  const topExpiringItems = summary.pantry_risk.top_items;
+  const useAllExpiringHref =
+    topExpiringItems.length >= 2
+      ? `/generate?use=${topExpiringItems.map(item => encodeURIComponent(item.name)).join('&use=')}`
+      : null;
 
   return (
     <div className="space-y-8">
-      <section className="relative overflow-hidden rounded-[2rem] border border-stone-200/70 bg-gradient-to-br from-orange-50 via-amber-50 to-emerald-50 p-6 shadow-[0_22px_80px_-52px_rgba(28,25,23,0.5)] sm:p-8 lg:p-10">
-        <div className="pointer-events-none absolute -top-16 right-8 h-40 w-40 rounded-full bg-orange-200/40 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-20 left-12 h-48 w-48 rounded-full bg-emerald-200/35 blur-3xl" />
+      {/* Organic-Modern Editorial Masthead */}
+      <section className="surface relative overflow-hidden p-6 sm:p-8 lg:p-10">
+        <div className="grid gap-8 xl:grid-cols-[1.25fr_0.75fr] xl:items-start">
+          <div className="space-y-6">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="badge">Today's Kitchen</span>
+              <span className="eyebrow">Daily decision cockpit</span>
+              <span className="text-xs text-[#D6CEC2]" aria-hidden="true">
+                •
+              </span>
+              <span className="text-xs font-medium text-[#57534E]">{todayLabel}</span>
+            </div>
 
-        <div className="relative grid gap-8 xl:grid-cols-[1.25fr_0.75fr]">
-          <div className="space-y-5">
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/80 bg-white/80 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-stone-700">
-              Daily decision cockpit
-            </span>
-
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-stone-600">{todayLabel}</p>
-              <h1 className="text-3xl font-bold leading-tight text-stone-900 sm:text-4xl">
+            <div className="space-y-3">
+              <h1 className="font-display text-3xl font-semibold leading-[1.12] tracking-tight text-[#1C1917] sm:text-4xl lg:text-[2.65rem]">
                 {getGreeting()}. {summary.today_brief.headline}
               </h1>
-              <p className="max-w-2xl text-sm text-stone-700 sm:text-base">
+              <p className="max-w-2xl text-base leading-relaxed text-[#57534E]">
                 {summary.today_brief.subline}
               </p>
             </div>
 
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap items-center gap-3 pt-1">
               <Link to={primaryAction.href} className="btn-primary">
+                <SparkleWandIcon size={18} className="text-white" />
                 {primaryAction.label}
               </Link>
               {secondaryActions.map(action => (
@@ -148,38 +162,103 @@ export default function DashboardPage() {
                 </Link>
               ))}
             </div>
+
+            {/* 3-Metric Quick Summary Strip */}
+            <div className="grid grid-cols-1 gap-3 border-t border-[#E7E0D6] pt-6 sm:grid-cols-3">
+              <div className="rounded-2xl border border-[#E7E0D6] bg-[#FAF7F2] px-4 py-3.5">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#78716C]">
+                  Week Coverage
+                </p>
+                <div className="mt-1 flex items-baseline justify-between gap-2">
+                  <span className="font-display text-2xl font-semibold tabular-nums text-[#1C1917]">
+                    {summary.plan_continuity.completion_percent}%
+                  </span>
+                  <span className="text-xs font-medium tabular-nums text-[#57534E]">
+                    {summary.plan_continuity.open_slots} open
+                  </span>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-[#E7E0D6] bg-[#FAF7F2] px-4 py-3.5">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#78716C]">
+                  Pantry Expiring Soon
+                </p>
+                <div className="mt-1 flex items-baseline justify-between gap-2">
+                  <span
+                    className={`font-display text-2xl font-semibold tabular-nums ${
+                      summary.pantry_risk.expiring_3d_count > 0
+                        ? 'text-[#B45309]'
+                        : 'text-[#2F6F4E]'
+                    }`}
+                  >
+                    {summary.pantry_risk.expiring_3d_count}
+                  </span>
+                  <span className="text-xs font-medium text-[#57534E]">
+                    {summary.pantry_risk.expiring_3d_count === 1 ? 'item in 3d' : 'items in 3d'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-[#E7E0D6] bg-[#FAF7F2] px-4 py-3.5">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#78716C]">
+                  Shopping Progress
+                </p>
+                <div className="mt-1 flex items-baseline justify-between gap-2">
+                  <span className="font-display text-2xl font-semibold tabular-nums text-[#1C1917]">
+                    {summary.recent_context.recent_grocery_list
+                      ? summary.recent_context.recent_grocery_list.unchecked_count
+                      : 0}
+                  </span>
+                  <span className="text-xs font-medium text-[#57534E]">
+                    {summary.recent_context.recent_grocery_list ? 'remaining' : 'no active list'}
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div className="rounded-3xl border border-stone-200/70 bg-white/90 p-5 backdrop-blur-sm">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">
-                Right now
-              </p>
-              <FireStatsIcon size={26} />
+          {/* Right now Priority Queue */}
+          <div className="bg-[#FAF7F2] border border-[#E7E0D6] rounded-2xl p-5">
+            <div className="flex items-center justify-between border-b border-[#E7E0D6] pb-3.5">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#78716C]">
+                  Right now
+                </p>
+                <p className="mt-0.5 text-xs text-[#57534E]">Recommended kitchen priorities</p>
+              </div>
+              <div className="icon-container-premium icon-container-orange icon-container-sm">
+                <FireStatsIcon size={18} />
+              </div>
             </div>
 
             <div className="mt-4 space-y-3">
               {summary.action_queue.map(action => {
                 const tone = actionTone(action.impact);
                 return (
-                  <div key={action.id} className="rounded-2xl border border-stone-200 bg-white p-3">
+                  <div
+                    key={action.id}
+                    className="rounded-2xl border border-[#E7E0D6] bg-white p-4 transition-all duration-150 hover:border-[#D6CEC2]"
+                  >
                     <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold text-stone-900">{action.title}</p>
-                        <p className="mt-1 text-xs text-stone-600">{action.rationale}</p>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-[#1C1917]">{action.title}</p>
+                        <p className="mt-1 text-xs leading-relaxed text-[#57534E]">
+                          {action.rationale}
+                        </p>
                       </div>
                       <span
-                        className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold ${tone.badge}`}
+                        className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${tone.badge}`}
                       >
+                        <span className={`h-1.5 w-1.5 rounded-full ${tone.dot}`} />
                         {tone.label}
                       </span>
                     </div>
                     <Link
                       to={action.cta.href}
-                      className="mt-3 inline-flex items-center text-sm font-semibold text-primary hover:text-primary-hover"
+                      className="mt-3 inline-flex items-center text-xs font-semibold uppercase tracking-[0.08em] text-[#C84B31] hover:text-[#B83B22]"
                     >
                       {action.cta.label}
-                      <ArrowRightIcon className="ml-1 h-4 w-4" />
+                      <ArrowRightIcon className="ml-1.5 h-3.5 w-3.5" />
                     </Link>
                   </div>
                 );
@@ -189,6 +268,7 @@ export default function DashboardPage() {
         </div>
       </section>
 
+      {/* Plan Continuity & Interactive Pantry Triage */}
       <section className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
         <SectionCard
           title="Plan continuity"
@@ -202,7 +282,11 @@ export default function DashboardPage() {
               >
                 Open plan
               </Link>
-            ) : null
+            ) : (
+              <Link to="/meal-plans" className="btn-secondary text-sm">
+                View planner
+              </Link>
+            )
           }
         >
           <div className="space-y-4">
@@ -220,29 +304,38 @@ export default function DashboardPage() {
             </div>
 
             {summary.plan_continuity.next_slots.length > 0 ? (
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 {summary.plan_continuity.next_slots.map(slot => (
                   <Link
                     key={`${slot.date}-${slot.meal_type}`}
                     to={slot.href}
-                    className="group flex items-center justify-between rounded-2xl border border-stone-200/70 bg-white px-4 py-3 transition-all hover:-translate-y-0.5 hover:border-stone-300"
+                    className="group flex items-center justify-between rounded-2xl border border-[#E7E0D6] bg-[#FAF7F2]/60 px-4 py-3.5 transition-all hover:-translate-y-0.5 hover:border-[#D6CEC2] hover:bg-white"
                   >
-                    <div>
-                      <p className="text-sm font-semibold text-stone-900">
-                        {titleCaseMealType(slot.meal_type)} • {formatShortDate(slot.date)}
-                      </p>
-                      <p className="mt-1 text-xs text-stone-600">
-                        {slot.has_recipe
-                          ? 'Assigned recipe in this slot'
-                          : 'Open slot waiting for a recipe'}
-                      </p>
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`icon-container-premium icon-container-sm ${
+                          slot.has_recipe ? 'icon-container-emerald' : 'icon-container-orange'
+                        }`}
+                      >
+                        <CalendarMealIcon size={16} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-[#1C1917]">
+                          {titleCaseMealType(slot.meal_type)} • {formatShortDate(slot.date)}
+                        </p>
+                        <p className="mt-0.5 text-xs text-[#57534E]">
+                          {slot.has_recipe
+                            ? 'Assigned recipe in this slot'
+                            : 'Open slot waiting for a recipe'}
+                        </p>
+                      </div>
                     </div>
-                    <ArrowRightIcon className="h-4 w-4 text-stone-400 transition-transform group-hover:translate-x-1" />
+                    <ArrowRightIcon className="h-4 w-4 text-[#78716C] transition-transform group-hover:translate-x-1 group-hover:text-[#1C1917]" />
                   </Link>
                 ))}
               </div>
             ) : (
-              <div className="rounded-2xl border border-dashed border-stone-200 bg-stone-50 p-4 text-sm text-stone-600">
+              <div className="rounded-2xl border border-dashed border-[#D6CEC2] bg-[#FAF7F2] p-5 text-sm text-[#57534E]">
                 No active plan slots yet. Build a plan to unlock week-level guidance.
               </div>
             )}
@@ -254,9 +347,17 @@ export default function DashboardPage() {
           subtitle="Use expiring ingredients before buying more"
           className="p-6"
           action={
-            <Link to={summary.pantry_risk.cta.href} className="btn-secondary text-sm">
-              {summary.pantry_risk.cta.label}
-            </Link>
+            <div className="flex flex-wrap items-center gap-2">
+              {useAllExpiringHref && (
+                <Link to={useAllExpiringHref} className="btn-primary text-xs px-4 py-2">
+                  <SparkleWandIcon size={14} className="text-white" />
+                  Use all expiring
+                </Link>
+              )}
+              <Link to={summary.pantry_risk.cta.href} className="btn-secondary text-sm">
+                {summary.pantry_risk.cta.label}
+              </Link>
+            </div>
           }
         >
           <div className="space-y-4">
@@ -269,30 +370,36 @@ export default function DashboardPage() {
               <StatPill label="Focus" value="Waste prevention" tone="success" />
             </div>
 
-            {summary.pantry_risk.top_items.length > 0 ? (
-              <div className="space-y-2">
-                {summary.pantry_risk.top_items.map(item => (
+            {topExpiringItems.length > 0 ? (
+              <div className="space-y-2.5">
+                {topExpiringItems.map(item => (
                   <div
                     key={`${item.name}-${item.expires_at}`}
-                    className="flex items-center justify-between rounded-2xl border border-stone-200/70 bg-white px-4 py-3"
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#E7E0D6] bg-[#FAF7F2]/60 px-4 py-3 transition-colors hover:border-[#D6CEC2] hover:bg-white"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="icon-container-premium icon-container-emerald icon-container-sm">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="icon-container-premium icon-container-amber icon-container-sm shrink-0">
                         <PantryIcon size={16} />
                       </div>
-                      <div>
-                        <p className="text-sm font-semibold text-stone-900">{item.name}</p>
-                        <p className="text-xs text-stone-600">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-[#1C1917] truncate">{item.name}</p>
+                        <p className="text-xs text-[#B45309] font-medium tabular-nums">
                           Expires {formatShortDate(item.expires_at)}
                         </p>
                       </div>
                     </div>
-                    <SparkleWandIcon className="h-4 w-4 text-emerald-600" />
+                    <Link
+                      to={`/generate?use=${encodeURIComponent(item.name)}`}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-[#C84B31]/25 bg-[#F9F1EA] px-3 py-1.5 text-xs font-semibold text-[#9A3412] transition-colors hover:border-[#C84B31] hover:bg-[#C84B31] hover:text-white"
+                    >
+                      <SparkleWandIcon size={14} />
+                      Cook with this
+                    </Link>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="rounded-2xl border border-dashed border-stone-200 bg-stone-50 p-4 text-sm text-stone-600">
+              <div className="rounded-2xl border border-dashed border-[#D6CEC2] bg-[#FAF7F2] p-5 text-sm text-[#57534E]">
                 Nothing urgent in pantry right now.
               </div>
             )}
@@ -300,33 +407,39 @@ export default function DashboardPage() {
         </SectionCard>
       </section>
 
+      {/* Shopping Continuity & Recent Context */}
       <section className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
         <SectionCard
           title="Shopping continuity"
           subtitle="Pick up where your latest list left off"
           className="p-6"
+          action={
+            <Link to="/grocery" className="btn-ghost text-xs">
+              All lists
+            </Link>
+          }
         >
           {summary.recent_context.recent_grocery_list ? (
             <Link
               to={summary.recent_context.recent_grocery_list.href}
-              className="group flex items-center justify-between rounded-2xl border border-stone-200/70 bg-white px-4 py-3 transition-all hover:-translate-y-0.5 hover:border-stone-300"
+              className="group flex items-center justify-between rounded-2xl border border-[#E7E0D6] bg-[#FAF7F2]/60 px-4 py-4 transition-all hover:-translate-y-0.5 hover:border-[#D6CEC2] hover:bg-white"
             >
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3.5">
                 <div className="icon-container-premium icon-container-emerald">
                   <ShoppingCartCheckIcon size={20} />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-stone-900">Latest grocery list</p>
-                  <p className="text-xs text-stone-600">
+                  <p className="text-sm font-semibold text-[#1C1917]">Latest grocery list</p>
+                  <p className="mt-0.5 text-xs text-[#57534E] tabular-nums">
                     {summary.recent_context.recent_grocery_list.unchecked_count} item(s) still
                     unchecked
                   </p>
                 </div>
               </div>
-              <ArrowRightIcon className="h-4 w-4 text-stone-400 transition-transform group-hover:translate-x-1" />
+              <ArrowRightIcon className="h-4 w-4 text-[#78716C] transition-transform group-hover:translate-x-1 group-hover:text-[#1C1917]" />
             </Link>
           ) : (
-            <div className="rounded-2xl border border-dashed border-stone-200 bg-stone-50 p-4 text-sm text-stone-600">
+            <div className="rounded-2xl border border-dashed border-[#D6CEC2] bg-[#FAF7F2] p-5 text-sm text-[#57534E]">
               No active grocery list yet. Build one from recipes or a meal plan.
             </div>
           )}
@@ -336,10 +449,15 @@ export default function DashboardPage() {
           title="Recent context"
           subtitle="Continue from your latest saved recipes"
           className="p-6"
+          action={
+            <Link to="/recipes" className="btn-ghost text-xs">
+              Recipe Vault
+            </Link>
+          }
         >
           {summary.recent_context.recent_recipes.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-stone-200 bg-stone-50 p-6 text-center">
-              <p className="text-sm text-stone-600">No saved recipes yet.</p>
+            <div className="rounded-2xl border border-dashed border-[#D6CEC2] bg-[#FAF7F2] p-6 text-center">
+              <p className="text-sm text-[#57534E]">No saved recipes yet.</p>
               <Link to="/generate" className="btn-primary mt-4 inline-flex">
                 Generate first recipe
               </Link>
@@ -350,26 +468,33 @@ export default function DashboardPage() {
                 <Link
                   key={recipe.id}
                   to={`/recipes/${recipe.id}`}
-                  className="group flex items-start justify-between rounded-2xl border border-stone-200/70 bg-white px-4 py-3 transition-all hover:-translate-y-0.5 hover:border-stone-300"
+                  className="group flex items-start justify-between gap-4 rounded-2xl border border-[#E7E0D6] bg-[#FAF7F2]/60 px-4 py-3.5 transition-all hover:-translate-y-0.5 hover:border-[#D6CEC2] hover:bg-white"
                 >
-                  <div>
-                    <p className="text-sm font-semibold text-stone-900">{recipe.name}</p>
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <span className="inline-flex items-center gap-1 rounded-full bg-stone-100 px-2.5 py-1 text-[11px] font-semibold text-stone-600">
-                        <ClockIcon className="h-3.5 w-3.5" />
-                        {recipe.total_minutes > 0 ? `${recipe.total_minutes} min` : 'Time not set'}
-                      </span>
-                      {recipe.tags.slice(0, 2).map(tag => (
-                        <span
-                          key={tag}
-                          className="rounded-full bg-orange-50 px-2.5 py-1 text-[11px] font-semibold text-orange-700"
-                        >
-                          {tag}
+                  <div className="flex items-start gap-3 min-w-0">
+                    <div className="icon-container-premium icon-container-orange icon-container-sm mt-0.5 shrink-0">
+                      <RecipeBookIcon size={16} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-[#1C1917] truncate">{recipe.name}</p>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-[#E7E0D6] bg-white px-2.5 py-0.5 text-[11px] font-medium tabular-nums text-[#57534E]">
+                          <ClockIcon className="h-3 w-3 text-[#78716C]" />
+                          {recipe.total_minutes > 0
+                            ? `${recipe.total_minutes} min`
+                            : 'Time not set'}
                         </span>
-                      ))}
+                        {recipe.tags.slice(0, 2).map(tag => (
+                          <span
+                            key={tag}
+                            className="rounded-full border border-[#C84B31]/20 bg-[#F9F1EA] px-2.5 py-0.5 text-[11px] font-semibold text-[#9A3412]"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   </div>
-                  <ArrowRightIcon className="mt-1 h-4 w-4 text-stone-400 transition-transform group-hover:translate-x-1" />
+                  <ArrowRightIcon className="mt-1 h-4 w-4 shrink-0 text-[#78716C] transition-transform group-hover:translate-x-1 group-hover:text-[#1C1917]" />
                 </Link>
               ))}
             </div>

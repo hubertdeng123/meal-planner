@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react';
 
-type StatPillTone = 'default' | 'warm' | 'success';
+export type StatPillTone = 'default' | 'warm' | 'success';
 
 interface StatPillProps {
   label: string;
@@ -11,19 +11,27 @@ interface StatPillProps {
 }
 
 const toneClassMap: Record<StatPillTone, string> = {
-  default: 'border-stone-200/70 bg-white text-stone-700',
-  warm: 'border-orange-200/70 bg-orange-50/80 text-orange-800',
-  success: 'border-emerald-200/70 bg-emerald-50/80 text-emerald-800',
+  default: 'border-[#E7E0D6] bg-[#FAF7F2] text-[#1C1917]',
+  warm: 'border-[#C84B31]/25 bg-[#F9F1EA] text-[#9A3412]',
+  success: 'border-[#3F624D]/25 bg-[#ECF5F0] text-[#2F6F4E]',
+};
+
+const labelToneMap: Record<StatPillTone, string> = {
+  default: 'text-[#78716C]',
+  warm: 'text-[#9A3412]',
+  success: 'text-[#2F6F4E]',
 };
 
 export function StatPill({ label, value, tone = 'default', className = '', style }: StatPillProps) {
   return (
     <div
-      className={`rounded-2xl border px-4 py-3 ${toneClassMap[tone]} ${className}`}
+      className={`rounded-2xl border px-4 py-3 transition-colors ${toneClassMap[tone]} ${className}`.trim()}
       style={style}
     >
-      <p className="text-[11px] font-semibold uppercase tracking-wide opacity-75">{label}</p>
-      <p className="mt-1 text-base font-semibold">{value}</p>
+      <p className={`text-[11px] font-semibold uppercase tracking-[0.1em] ${labelToneMap[tone]}`}>
+        {label}
+      </p>
+      <p className="mt-1 text-base font-semibold tabular-nums leading-snug">{value}</p>
     </div>
   );
 }

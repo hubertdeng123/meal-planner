@@ -37,7 +37,7 @@ export function HungryHelperLogo({ className = '', size = 32 }: IconProps) {
         >
           <stop offset="0%" stopColor="#fdba74" />
           <stop offset="52%" stopColor="#fb923c" />
-          <stop offset="100%" stopColor="#ea580c" />
+          <stop offset="100%" stopColor="#c84b31" />
         </linearGradient>
         <linearGradient
           id={bowlGradId}
@@ -85,7 +85,7 @@ export function HungryHelperLogo({ className = '', size = 32 }: IconProps) {
         </linearGradient>
       </defs>
 
-      <ellipse cx="16" cy="26.9" rx="8.5" ry="2.3" fill="#cbd5e1" opacity="0.35" />
+      <ellipse cx="16" cy="26.9" rx="8.5" ry="2.3" fill="#d6cec2" opacity="0.35" />
 
       <circle cx="16" cy="16" r="13" fill={`url(#${badgeGradId})`} />
       <circle cx="16" cy="16" r="10.5" fill="#fffaf4" opacity="0.96" />
@@ -93,7 +93,7 @@ export function HungryHelperLogo({ className = '', size = 32 }: IconProps) {
       <path
         d="M8.8 16.15C8.8 14.85 9.85 13.8 11.15 13.8H20.85C22.15 13.8 23.2 14.85 23.2 16.15V19.45C23.2 22.15 21.01 24.35 18.3 24.35H13.7C10.99 24.35 8.8 22.15 8.8 19.45V16.15Z"
         fill={`url(#${bowlGradId})`}
-        stroke="#ea580c"
+        stroke="#c84b31"
         strokeWidth="1.1"
       />
       <path
@@ -160,7 +160,7 @@ export function CalendarMealIcon({ className = '', size = 32 }: IconProps) {
       <defs>
         <linearGradient id="calGrad" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#fb923c" />
-          <stop offset="100%" stopColor="#ea580c" />
+          <stop offset="100%" stopColor="#c84b31" />
         </linearGradient>
         <linearGradient id="calHeader" x1="0%" y1="0%" x2="0%" y2="100%">
           <stop offset="0%" stopColor="#c2410c" />
@@ -206,7 +206,7 @@ export function GroceryBagIcon({ className = '', size = 32 }: IconProps) {
         </linearGradient>
         <linearGradient id="carrotGrad" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#fb923c" />
-          <stop offset="100%" stopColor="#ea580c" />
+          <stop offset="100%" stopColor="#c84b31" />
         </linearGradient>
       </defs>
       {/* Bag body */}
@@ -265,7 +265,7 @@ export function RecipeBookIcon({ className = '', size = 32 }: IconProps) {
           <stop offset="100%" stopColor="#fde68a" />
         </linearGradient>
         <linearGradient id="bookSpine" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#ea580c" />
+          <stop offset="0%" stopColor="#c84b31" />
           <stop offset="100%" stopColor="#fb923c" />
         </linearGradient>
       </defs>
@@ -307,7 +307,7 @@ export function SparkleWandIcon({ className = '', size = 32 }: IconProps) {
       <defs>
         <linearGradient id="wandGrad" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#fb923c" />
-          <stop offset="100%" stopColor="#ea580c" />
+          <stop offset="100%" stopColor="#c84b31" />
         </linearGradient>
         <linearGradient id="sparkleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#fef3c7" />
@@ -356,7 +356,7 @@ export function FireStatsIcon({ className = '', size = 32 }: IconProps) {
     >
       <defs>
         <linearGradient id="fireGrad" x1="0%" y1="100%" x2="0%" y2="0%">
-          <stop offset="0%" stopColor="#ea580c" />
+          <stop offset="0%" stopColor="#c84b31" />
           <stop offset="50%" stopColor="#fb923c" />
           <stop offset="100%" stopColor="#fbbf24" />
         </linearGradient>
@@ -466,8 +466,8 @@ export function SettingsGearIcon({ className = '', size = 32 }: IconProps) {
     >
       <defs>
         <linearGradient id="gearGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#a8a29e" />
-          <stop offset="100%" stopColor="#78716c" />
+          <stop offset="0%" stopColor="#78716c" />
+          <stop offset="100%" stopColor="#57534e" />
         </linearGradient>
       </defs>
       {/* Gear teeth */}
@@ -527,7 +527,7 @@ export function OrangeCheckIcon({ className = '', size = 32 }: IconProps) {
       <defs>
         <linearGradient id="orangeCheckGrad" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#fb923c" />
-          <stop offset="100%" stopColor="#ea580c" />
+          <stop offset="100%" stopColor="#c84b31" />
         </linearGradient>
       </defs>
       <circle cx="16" cy="16" r="12" fill="url(#orangeCheckGrad)" />

@@ -12,7 +12,6 @@ import authService from '../services/auth.service';
 import { useAuth } from '../hooks/useAuth';
 import type { UserCreate, UserPreferences, APIError } from '../types';
 
-// Simplified lists - only show the most common/popular options
 const TOP_CUISINES = [
   'Italian',
   'Mexican',
@@ -32,7 +31,23 @@ const COMMON_DIETARY_RESTRICTIONS = [
   'Nut-Free',
 ];
 
-const STEP_TITLES = ['Create your account', 'Taste profile', 'Fine-tune it'];
+const STEP_META = [
+  {
+    title: 'Account Details',
+    subtitle: 'Set up your personal kitchen credentials',
+    shortLabel: 'Account',
+  },
+  {
+    title: 'Taste Profile',
+    subtitle: 'Tell us your favorite cuisines and dietary needs (optional)',
+    shortLabel: 'Taste Profile',
+  },
+  {
+    title: 'Dietary Rules & Pace',
+    subtitle: 'Choose your ideal weeknight cooking rhythm (optional)',
+    shortLabel: 'Dietary Rules',
+  },
+];
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -90,7 +105,6 @@ export default function RegisterPage() {
   const handleUserDataSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Basic validation
     if (!userData.email || !userData.username || !userData.password) {
       setError('Please fill in all fields');
       return;
@@ -106,7 +120,6 @@ export default function RegisterPage() {
   };
 
   const handleSkipToRegistration = async () => {
-    // Skip preferences and register with just account details
     setError('');
     setLoading(true);
 
@@ -151,39 +164,77 @@ export default function RegisterPage() {
     return array.includes(item) ? array.filter(i => i !== item) : [...array, item];
   };
 
-  const renderProgressBar = () => (
-    <div className="mb-8">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-medium text-stone-700">
-          Step {step} of {STEP_TITLES.length}
-        </span>
-        <span className="text-sm text-stone-500">
-          {Math.round((step / STEP_TITLES.length) * 100)}% Complete
-        </span>
+  const renderProgressBar = () => {
+    const currentMeta = STEP_META[step - 1];
+    return (
+      <div className="mb-8 border-b border-[#E7E0D6] pb-6">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[#C84B31]">
+            Step {step} of {STEP_META.length}
+          </span>
+          <span className="text-xs font-medium tabular-nums text-[#78716C]">
+            {Math.round((step / STEP_META.length) * 100)}% Complete
+          </span>
+        </div>
+
+        {/* Visual Step Progress Bar */}
+        <div className="w-full bg-[#F3EFE6] rounded-full h-2 overflow-hidden">
+          <div
+            className="h-2 rounded-full bg-[#C84B31] transition-all duration-300"
+            style={{
+              width: `${(step / STEP_META.length) * 100}%`,
+            }}
+          />
+        </div>
+
+        {/* Step Pill Indicators */}
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          {STEP_META.map((item, idx) => {
+            const stepNumber = idx + 1;
+            const isCurrent = step === stepNumber;
+            const isDone = step > stepNumber;
+            return (
+              <div
+                key={item.shortLabel}
+                className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-medium transition-colors ${
+                  isCurrent
+                    ? 'border-[#C84B31]/40 bg-[#F9F1EA] text-[#1C1917]'
+                    : isDone
+                      ? 'border-[#3F624D]/30 bg-[#ECF5F0] text-[#2F6F4E]'
+                      : 'border-[#E7E0D6] bg-[#FAF7F2] text-[#78716C]'
+                }`}
+              >
+                <span
+                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold tabular-nums ${
+                    isCurrent
+                      ? 'bg-[#C84B31] text-white'
+                      : isDone
+                        ? 'bg-[#2F6F4E] text-white'
+                        : 'bg-[#E7E0D6] text-[#57534E]'
+                  }`}
+                >
+                  {stepNumber}
+                </span>
+                <span className="truncate">{item.shortLabel}</span>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="mt-6">
+          <h2 className="font-display text-2xl sm:text-3xl font-semibold text-[#1C1917]">
+            {currentMeta.title}
+          </h2>
+          <p className="mt-1.5 text-sm text-[#57534E]">{currentMeta.subtitle}</p>
+        </div>
       </div>
-      <div className="w-full bg-stone-200 rounded-full h-2">
-        <div
-          className="h-2 rounded-full transition-all duration-300"
-          style={{
-            width: `${(step / STEP_TITLES.length) * 100}%`,
-            backgroundColor: 'var(--primary)',
-          }}
-        />
-      </div>
-      <h2 className="mt-4 text-2xl font-semibold text-stone-900">{STEP_TITLES[step - 1]}</h2>
-      {step === 2 && (
-        <p className="mt-2 text-sm text-stone-600">Tell us your flavor compass (optional)</p>
-      )}
-      {step === 3 && (
-        <p className="mt-2 text-sm text-stone-600">Optional tweaks for extra finesse</p>
-      )}
-    </div>
-  );
+    );
+  };
 
   const renderAccountDetails = () => (
-    <form onSubmit={handleUserDataSubmit} className="space-y-6">
+    <form onSubmit={handleUserDataSubmit} className="space-y-5">
       <div>
-        <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="email" className="block text-sm font-semibold text-[#1C1917] mb-2">
           Email Address
         </label>
         <input
@@ -194,12 +245,13 @@ export default function RegisterPage() {
           required
           value={userData.email}
           onChange={handleUserDataChange}
-          className="mt-2 input"
+          placeholder="you@example.com"
+          className="input"
         />
       </div>
 
       <div>
-        <label htmlFor="username" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="username" className="block text-sm font-semibold text-[#1C1917] mb-2">
           Username
         </label>
         <input
@@ -210,12 +262,13 @@ export default function RegisterPage() {
           required
           value={userData.username}
           onChange={handleUserDataChange}
-          className="mt-2 input"
+          placeholder="How should we greet you?"
+          className="input"
         />
       </div>
 
       <div>
-        <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="password" className="block text-sm font-semibold text-[#1C1917] mb-2">
           Password
         </label>
         <input
@@ -226,44 +279,40 @@ export default function RegisterPage() {
           required
           value={userData.password}
           onChange={handleUserDataChange}
-          className="mt-2 input"
+          placeholder="Create a password"
+          className="input"
         />
-        <p className="mt-1 text-xs text-gray-500">Minimum 6 characters</p>
+        <p className="mt-1.5 text-xs text-[#78716C]">Minimum 6 characters</p>
       </div>
 
-      <button type="submit" className="w-full btn-primary flex items-center justify-center">
-        Continue
-        <ChevronRightIcon className="ml-2 h-5 w-5" />
-      </button>
+      <div className="pt-2">
+        <button type="submit" className="w-full btn-primary py-3 text-base">
+          Continue to Taste Profile
+          <ChevronRightIcon className="ml-1.5 h-5 w-5" />
+        </button>
+      </div>
     </form>
   );
 
   const renderBasicPreferences = () => (
-    <div className="space-y-8">
+    <div className="space-y-7">
       {/* Cuisines */}
       <div>
-        <label className="block text-sm font-medium text-stone-700 mb-3">
-          What cuisines make you happy? <span className="text-stone-500">(Pick any)</span>
+        <label className="block text-sm font-semibold text-[#1C1917] mb-3">
+          What cuisines make you happy?{' '}
+          <span className="font-normal text-[#78716C]">(Pick any)</span>
         </label>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {TOP_CUISINES.map(cuisine => {
             const isSelected = preferences.food_preferences.cuisines.includes(cuisine);
             return (
               <label
                 key={cuisine}
-                className={`
-                  relative flex items-center justify-center px-4 py-3 rounded-2xl border-2 cursor-pointer transition-all
-                  ${isSelected ? '' : 'border-stone-200 bg-white text-stone-700 hover:border-stone-300'}
-                `}
-                style={
+                className={`relative flex min-h-[48px] items-center justify-center rounded-2xl border px-4 py-3 cursor-pointer transition-all duration-150 ${
                   isSelected
-                    ? {
-                        borderColor: 'var(--primary)',
-                        backgroundColor: 'var(--primary-soft)',
-                        color: 'var(--primary-hover)',
-                      }
-                    : undefined
-                }
+                    ? 'border-[#C84B31] bg-[#F9F1EA] text-[#B83B22] shadow-xs'
+                    : 'border-[#E7E0D6] bg-white text-[#1C1917] hover:border-[#D6CEC2] hover:bg-[#FAF7F2]'
+                }`}
               >
                 <input
                   type="checkbox"
@@ -280,12 +329,9 @@ export default function RegisterPage() {
                   className="sr-only"
                 />
                 {isSelected && (
-                  <CheckCircleIcon
-                    className="absolute top-2 right-2 h-5 w-5"
-                    style={{ color: 'var(--primary)' }}
-                  />
+                  <CheckCircleIcon className="absolute top-2 right-2 h-4 w-4 text-[#C84B31]" />
                 )}
-                <span className="text-sm font-medium">{cuisine}</span>
+                <span className="text-sm font-semibold">{cuisine}</span>
               </label>
             );
           })}
@@ -294,28 +340,20 @@ export default function RegisterPage() {
 
       {/* Dietary Restrictions */}
       <div>
-        <label className="block text-sm font-medium text-stone-700 mb-3">
-          Any dietary restrictions? <span className="text-stone-500">(Optional)</span>
+        <label className="block text-sm font-semibold text-[#1C1917] mb-3">
+          Any dietary restrictions? <span className="font-normal text-[#78716C]">(Optional)</span>
         </label>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {COMMON_DIETARY_RESTRICTIONS.map(restriction => {
             const isSelected = preferences.dietary_restrictions.includes(restriction);
             return (
               <label
                 key={restriction}
-                className={`
-                  relative flex items-center justify-center px-4 py-3 rounded-2xl border-2 cursor-pointer transition-all
-                  ${isSelected ? '' : 'border-stone-200 bg-white text-stone-700 hover:border-stone-300'}
-                `}
-                style={
+                className={`relative flex min-h-[48px] items-center justify-center rounded-2xl border px-4 py-3 cursor-pointer transition-all duration-150 ${
                   isSelected
-                    ? {
-                        borderColor: 'var(--primary)',
-                        backgroundColor: 'var(--primary-soft)',
-                        color: 'var(--primary-hover)',
-                      }
-                    : undefined
-                }
+                    ? 'border-[#3F624D] bg-[#ECF5F0] text-[#2F6F4E] shadow-xs'
+                    : 'border-[#E7E0D6] bg-white text-[#1C1917] hover:border-[#D6CEC2] hover:bg-[#FAF7F2]'
+                }`}
               >
                 <input
                   type="checkbox"
@@ -329,45 +367,40 @@ export default function RegisterPage() {
                   className="sr-only"
                 />
                 {isSelected && (
-                  <CheckCircleIcon
-                    className="absolute top-2 right-2 h-5 w-5"
-                    style={{ color: 'var(--primary)' }}
-                  />
+                  <CheckCircleIcon className="absolute top-2 right-2 h-4 w-4 text-[#2F6F4E]" />
                 )}
-                <span className="text-sm font-medium">{restriction}</span>
+                <span className="text-sm font-semibold">{restriction}</span>
               </label>
             );
           })}
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3 pt-4">
+      <div className="flex flex-col sm:flex-row gap-3 pt-2">
         <button
           type="button"
           onClick={() => setStep(1)}
-          className="btn-secondary flex items-center justify-center"
+          className="btn-secondary flex items-center justify-center py-3"
         >
-          <ChevronLeftIcon className="mr-2 h-5 w-5" />
+          <ChevronLeftIcon className="mr-1.5 h-5 w-5" />
           Back
         </button>
         <button
           type="button"
           onClick={() => setStep(3)}
-          className="flex-1 btn-primary flex items-center justify-center"
+          className="flex-1 btn-primary flex items-center justify-center py-3"
         >
           Continue
-          <ChevronRightIcon className="ml-2 h-5 w-5" />
+          <ChevronRightIcon className="ml-1.5 h-5 w-5" />
         </button>
       </div>
 
-      {/* Skip option */}
-      <div className="text-center pt-2">
+      <div className="text-center pt-1">
         <button
           type="button"
           onClick={handleSkipToRegistration}
           disabled={loading}
-          className="text-sm underline transition-colors"
-          style={{ color: 'var(--primary)' }}
+          className="text-sm font-semibold text-[#C84B31] hover:text-[#B83B22] underline underline-offset-4 transition-colors"
         >
           {loading ? 'Setting things up...' : 'Skip for now, finish later'}
         </button>
@@ -378,16 +411,15 @@ export default function RegisterPage() {
   const renderOptionalPreferences = () => (
     <div className="space-y-6">
       {/* Info box */}
-      <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4">
-        <div className="flex items-start">
-          <SparklesIcon className="h-5 w-5 text-emerald-600 mt-0.5 mr-3 flex-shrink-0" />
+      <div className="rounded-2xl border border-[#3F624D]/25 bg-[#ECF5F0] p-4">
+        <div className="flex items-start gap-3">
+          <SparklesIcon className="h-5 w-5 text-[#2F6F4E] mt-0.5 shrink-0" />
           <div>
-            <p className="text-sm text-emerald-900 font-medium">
-              You can customize all preferences later
+            <p className="text-sm font-semibold text-[#1C1917]">
+              You can customize all preferences anytime
             </p>
-            <p className="text-sm text-emerald-700 mt-1">
-              Skip this step and update later in Settings. We'll use easy defaults to get you
-              started!
+            <p className="text-sm text-[#57534E] mt-1">
+              Skip this step and fine-tune your full culinary profile in Settings whenever you like.
             </p>
           </div>
         </div>
@@ -395,25 +427,21 @@ export default function RegisterPage() {
 
       {/* Meal Complexity Preference */}
       <div>
-        <label className="block text-sm font-medium text-stone-700 mb-3">
-          How ambitious are you feeling?
+        <label className="block text-sm font-semibold text-[#1C1917] mb-3">
+          How ambitious are you feeling on weeknights?
         </label>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {(['simple', 'medium', 'complex'] as const).map(complexity => {
             const isSelected =
               preferences.food_type_rules.meal_complexity_preference === complexity;
             return (
               <label
                 key={complexity}
-                className={`
-                  relative flex flex-col items-center justify-center px-4 py-4 rounded-2xl border-2 cursor-pointer transition-all
-                  ${isSelected ? '' : 'border-stone-200 bg-white hover:border-stone-300'}
-                `}
-                style={
+                className={`relative flex flex-col items-center justify-center rounded-2xl border px-4 py-4 cursor-pointer transition-all duration-150 ${
                   isSelected
-                    ? { borderColor: 'var(--primary)', backgroundColor: 'var(--primary-soft)' }
-                    : undefined
-                }
+                    ? 'border-[#C84B31] bg-[#F9F1EA] shadow-xs'
+                    : 'border-[#E7E0D6] bg-white hover:border-[#D6CEC2] hover:bg-[#FAF7F2]'
+                }`}
               >
                 <input
                   type="radio"
@@ -430,10 +458,12 @@ export default function RegisterPage() {
                   }
                   className="sr-only"
                 />
-                <span className="text-sm font-medium capitalize text-stone-900">{complexity}</span>
-                <span className="text-xs text-stone-500 mt-1 text-center">
-                  {complexity === 'simple' && '15-30 min'}
-                  {complexity === 'medium' && '30-60 min'}
+                <span className="text-sm font-semibold capitalize text-[#1C1917]">
+                  {complexity}
+                </span>
+                <span className="text-xs text-[#57534E] mt-1 text-center tabular-nums">
+                  {complexity === 'simple' && '15–30 min'}
+                  {complexity === 'medium' && '30–60 min'}
                   {complexity === 'complex' && '60+ min'}
                 </span>
               </label>
@@ -443,12 +473,12 @@ export default function RegisterPage() {
       </div>
 
       {/* Action buttons */}
-      <div className="flex flex-col gap-3 pt-4">
+      <div className="flex flex-col gap-3 pt-3">
         <button
           type="button"
           onClick={handleFinalSubmit}
           disabled={loading}
-          className="w-full btn-primary flex items-center justify-center"
+          className="w-full btn-primary flex items-center justify-center py-3 text-base"
         >
           {loading ? (
             <>
@@ -458,7 +488,7 @@ export default function RegisterPage() {
           ) : (
             <>
               Create account
-              <ChevronRightIcon className="ml-2 h-5 w-5" />
+              <ChevronRightIcon className="ml-1.5 h-5 w-5" />
             </>
           )}
         </button>
@@ -466,48 +496,51 @@ export default function RegisterPage() {
         <button
           type="button"
           onClick={() => setStep(2)}
-          className="btn-secondary flex items-center justify-center"
+          className="btn-secondary flex items-center justify-center py-2.5"
           disabled={loading}
         >
-          <ChevronLeftIcon className="mr-2 h-5 w-5" />
+          <ChevronLeftIcon className="mr-1.5 h-5 w-5" />
           Back
         </button>
 
-        {/* Prominent Skip Button */}
         <button
           type="button"
           onClick={handleSkipToRegistration}
           disabled={loading}
-          className="w-full py-3 px-4 rounded-2xl border-2 border-dashed border-stone-200 text-stone-600 hover:border-stone-300 hover:bg-white transition-all font-medium"
+          className="w-full py-3 px-4 rounded-2xl border border-dashed border-[#D6CEC2] bg-[#FAF7F2] text-sm font-semibold text-[#57534E] hover:border-[#78716C] hover:bg-white hover:text-[#1C1917] transition-all"
         >
-          Skip for now - I'll finish in Settings
+          Skip for now — I'll finish in Settings
         </button>
       </div>
     </div>
   );
 
   return (
-    <div className="app-shell flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div className="app-shell flex min-h-screen items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-2xl w-full">
-        {/* Header */}
+        {/* Editorial Brand Header */}
         <div className="text-center mb-8">
-          <Link to="/login" className="inline-flex items-center space-x-3 mb-6">
-            <div className="h-12 w-12 rounded-lg gradient-primary sticker flex items-center justify-center">
-              <HungryHelperLogo size={30} />
+          <Link to="/login" className="inline-flex items-center gap-3 mb-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#C84B31] text-white shadow-xs">
+              <HungryHelperLogo size={28} />
             </div>
-            <h1 className="font-display text-3xl font-semibold text-gray-900">Hungry Helper</h1>
+            <span className="font-display text-3xl font-semibold text-[#1C1917]">
+              Hungry Helper
+            </span>
           </Link>
-          <p className="text-gray-600">Start your account and line up some tasty wins</p>
+          <p className="text-sm sm:text-base text-[#57534E]">
+            Your bespoke culinary concierge — set up your kitchen in three quick steps.
+          </p>
         </div>
 
-        {/* Main card */}
-        <div className="card-premium panel-glow">
+        {/* Main Onboarding Card */}
+        <div className="surface p-6 sm:p-10">
           {renderProgressBar()}
 
           {error && (
-            <div className="mb-6 p-4 rounded-lg bg-red-50 border border-red-200 flex items-start">
-              <ExclamationCircleIcon className="h-5 w-5 text-red-600 mr-3 mt-0.5 flex-shrink-0" />
-              <p className="text-sm text-red-800">{error}</p>
+            <div className="mb-6 rounded-2xl border border-[#B91C1C]/25 bg-[#FEE2E2]/70 p-4 flex items-start gap-3">
+              <ExclamationCircleIcon className="h-5 w-5 text-[#B91C1C] mt-0.5 shrink-0" />
+              <p className="text-sm font-medium text-[#B91C1C]">{error}</p>
             </div>
           )}
 
@@ -517,12 +550,11 @@ export default function RegisterPage() {
         </div>
 
         {/* Footer */}
-        <p className="text-center text-sm text-stone-600 mt-6">
+        <p className="text-center text-sm text-[#57534E] mt-6">
           Already have an account?{' '}
           <Link
             to="/login"
-            className="font-semibold transition-colors"
-            style={{ color: 'var(--primary)' }}
+            className="font-semibold text-[#C84B31] hover:text-[#B83B22] transition-colors"
           >
             Sign in
           </Link>

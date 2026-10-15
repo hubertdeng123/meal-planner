@@ -17,10 +17,12 @@ export function ToolbarRow({
     controlsClassName || (helper ? 'md:grid-cols-[1fr_auto]' : 'md:grid-cols-1');
 
   return (
-    <div className={`mt-6 surface-muted p-4 sm:p-5 ${className}`}>
+    <div className={`mt-6 surface-muted p-4 sm:p-5 ${className}`.trim()}>
       <div className={`grid gap-3 md:items-center ${resolvedControlsClassName}`}>
         {children}
-        {helper ? <div className="text-xs text-stone-500 md:text-right">{helper}</div> : null}
+        {helper ? (
+          <div className="text-xs font-medium text-[#57534E] md:text-right">{helper}</div>
+        ) : null}
       </div>
     </div>
   );

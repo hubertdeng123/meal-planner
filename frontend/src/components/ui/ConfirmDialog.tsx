@@ -1,5 +1,4 @@
 import { ExclamationTriangleIcon } from './AppIcons';
-
 import { ModalShell } from './ModalShell';
 
 type ConfirmTone = 'danger' | 'default';
@@ -36,11 +35,17 @@ export function ConfirmDialog({
       size="sm"
       onClose={loading ? undefined : onCancel}
       title={
-        <span className="inline-flex items-center gap-2">
-          <ExclamationTriangleIcon
-            className={`h-5 w-5 ${tone === 'danger' ? 'text-red-600' : 'text-amber-500'}`}
-          />
-          {title}
+        <span className="inline-flex items-center gap-2.5">
+          <span
+            className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
+              tone === 'danger' ? 'bg-[#FEE2E2] text-[#B91C1C]' : 'bg-[#FEF3C7] text-[#B45309]'
+            }`}
+          >
+            <ExclamationTriangleIcon
+              className={`h-4 w-4 ${tone === 'danger' ? 'text-[#B91C1C]' : 'text-[#B45309]'}`}
+            />
+          </span>
+          <span>{title}</span>
         </span>
       }
       description={description}

@@ -1,7 +1,10 @@
 export function parseLocalIsoDate(value: string): Date {
-  const [year, month, day] = value.split('-').map(Number);
+  const datePart = value.slice(0, 10);
+  const [year, month, day] = datePart.split('-').map(Number);
   return new Date(year, month - 1, day);
 }
+
+export const parseLocalDate = parseLocalIsoDate;
 
 export function toLocalIsoDate(value: Date): string {
   const year = value.getFullYear();

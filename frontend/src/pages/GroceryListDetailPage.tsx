@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import {
   ShoppingCartIcon,
   PlusIcon,
@@ -11,6 +11,9 @@ import {
   EnvelopeIcon,
   ChevronDownIcon,
   ArchiveBoxIcon,
+  CalendarIcon,
+  CheckCircleIcon,
+  PantryIcon,
 } from '../components/ui/AppIcons';
 import groceryService from '../services/grocery.service';
 import notificationService from '../services/notification.service';
@@ -26,7 +29,9 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { InlineStatus } from '../components/ui/InlineStatus';
 import { ModalShell } from '../components/ui/ModalShell';
 import { SectionCard } from '../components/ui/SectionCard';
+import { KitchenSubNav } from '../components/ui/KitchenSubNav';
 import { useToast } from '../contexts/ToastContext';
+import { formatLocalDate } from '../utils/date';
 
 interface GroupedItems {
   [category: string]: GroceryItem[];
@@ -67,6 +72,7 @@ export default function GroceryListDetailPage() {
   });
   const [showSendDropdown, setShowSendDropdown] = useState(false);
   const [hideChecked, setHideChecked] = useState(false);
+  const [selectedAisle, setSelectedAisle] = useState<string>('all');
   const [recentlyChecked, setRecentlyChecked] = useState<Set<number>>(new Set());
   const [itemToDelete, setItemToDelete] = useState<GroceryItem | null>(null);
   const [showArchiveDialog, setShowArchiveDialog] = useState(false);
@@ -105,7 +111,6 @@ export default function GroceryListDetailPage() {
         !item.checked
       );
 
-      // Track recently checked items for animation
       if (isChecking) {
         setRecentlyChecked(prev => new Set(prev).add(item.id));
         setTimeout(() => {
@@ -216,31 +221,25 @@ export default function GroceryListDetailPage() {
         text: successMessage,
       });
 
-      // Clear message after 5 seconds
       setTimeout(() => {
         setNotificationMessage(null);
       }, 5000);
     } catch (error: unknown) {
       console.error('Failed to send notification:', error);
 
-      // Handle different types of errors with specific messages
       let errorMessage = 'Could not send the grocery email.';
       const apiError = error as APIError;
 
       if (apiError.response?.status === 400) {
-        // User-related errors (like disabled notifications, invalid email)
         errorMessage =
           apiError.response?.data?.detail ||
           'Double-check notification settings and the email address.';
       } else if (apiError.response?.status === 503) {
-        // Service unavailable (SMTP configuration, connection, authentication issues)
         errorMessage =
           apiError.response?.data?.detail || 'Email service is taking a break. Try again soon.';
       } else if (apiError.response?.status === 500) {
-        // Internal server errors (template errors, unexpected issues)
         errorMessage = apiError.response?.data?.detail || 'Something went sideways. Try again.';
       } else if (('code' in apiError && apiError.code === 'NETWORK_ERROR') || !apiError.response) {
-        // Network connectivity issues
         errorMessage = 'Network hiccup. Check your connection and try again.';
       }
 
@@ -249,7 +248,6 @@ export default function GroceryListDetailPage() {
         text: errorMessage,
       });
 
-      // Clear error message after 5 seconds
       setTimeout(() => {
         setNotificationMessage(null);
       }, 5000);
@@ -268,7 +266,6 @@ export default function GroceryListDetailPage() {
     newEmails[index] = value;
     setAdditionalEmails(newEmails);
 
-    // Clear error for this field
     const newErrors = [...emailErrors];
     newErrors[index] = '';
     setEmailErrors(newErrors);
@@ -287,7 +284,6 @@ export default function GroceryListDetailPage() {
   };
 
   const handleSendWithEmails = () => {
-    // Validate all email fields
     const newErrors = additionalEmails.map(email => {
       if (email.trim() === '') return '';
       if (!validateEmail(email.trim())) return 'Invalid email address';
@@ -296,16 +292,13 @@ export default function GroceryListDetailPage() {
 
     setEmailErrors(newErrors);
 
-    // Check if there are any validation errors
     const hasErrors = newErrors.some(error => error !== '');
     if (hasErrors) return;
 
-    // Send notification
     const validEmails = additionalEmails.filter(email => email.trim() !== '');
     handleSendNotification(validEmails);
     setShowNotificationModal(false);
 
-    // Reset form
     setAdditionalEmails(['']);
     setEmailErrors([]);
   };
@@ -373,7 +366,12 @@ export default function GroceryListDetailPage() {
     () => (groceryList ? groupItemsByCategory(groceryList.items) : {}),
     [groceryList]
   );
+  const allCategories = useMemo(
+    () => Object.keys(groupedItems).sort(sortCategoryNames),
+    [groupedItems]
+  );
   const checkedCount = groceryList ? groceryList.items.filter(item => item.checked).length : 0;
+  const totalItems = groceryList ? groceryList.items.length : 0;
   const completionPercentage = getCompletionPercentage();
 
   if (loading) {
@@ -382,7 +380,7 @@ export default function GroceryListDetailPage() {
         <div
           className="animate-spin rounded-full h-12 w-12 border-b-2"
           style={{ borderBottomColor: 'var(--primary)' }}
-        ></div>
+        />
       </div>
     );
   }
@@ -390,7 +388,7 @@ export default function GroceryListDetailPage() {
   if (!groceryList) {
     return (
       <div className="text-center py-12">
-        <p className="text-stone-500">We couldn't find that list.</p>
+        <p className="text-[#78716C]">We couldn't find that list.</p>
       </div>
     );
   }
@@ -403,180 +401,274 @@ export default function GroceryListDetailPage() {
         ])
       )
     : groupedItems;
+
+  const activeAisle =
+    selectedAisle !== 'all' && allCategories.includes(selectedAisle) ? selectedAisle : 'all';
+
   const categories = Object.keys(filteredGroupedItems)
     .filter(category => filteredGroupedItems[category].length > 0)
+    .filter(category => activeAisle === 'all' || category === activeAisle)
     .sort(sortCategoryNames);
 
   return (
     <div>
+      <KitchenSubNav
+        actions={
+          <Link to="/grocery" className="btn-ghost text-xs">
+            <ArrowLeftIcon className="h-3.5 w-3.5" />
+            <span>All Grocery Lists</span>
+          </Link>
+        }
+      />
+
       {/* Notification Message */}
       {notificationMessage && (
         <div
           className={`mb-4 rounded-2xl p-4 border ${
             notificationMessage.type === 'success'
-              ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-              : 'bg-red-50 border-red-200 text-red-700'
+              ? 'bg-[#ECF5F0] border-[#3F624D]/25 text-[#2F6F4E]'
+              : 'bg-[#FEE2E2] border-[#B91C1C]/25 text-[#991B1B]'
           }`}
         >
-          <p className="text-sm">{notificationMessage.text}</p>
+          <p className="text-sm font-medium">{notificationMessage.text}</p>
         </div>
       )}
 
-      {/* Header */}
+      {/* Responsive Mobile-First Header */}
       <div className="mb-6">
-        <div className="flex items-center mb-4">
-          <button onClick={() => navigate('/grocery')} className="icon-button-outline mr-3">
-            <ArrowLeftIcon className="h-5 w-5" />
-          </button>
-          <div className="flex items-center flex-1">
-            <ShoppingCartIcon className="h-8 w-8 text-emerald-500 mr-3" />
-            <div>
-              <h1 className="text-2xl font-semibold text-stone-900">
-                {groceryList.name || 'Grocery list'}
-              </h1>
-              <p className="text-sm text-stone-500">
-                Created {new Date(groceryList.created_at).toLocaleDateString()}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between mb-5">
+          <div className="flex items-start gap-3.5 min-w-0">
+            <button
+              onClick={() => navigate('/grocery')}
+              className="icon-button-outline shrink-0 mt-0.5"
+              title="Back to grocery lists"
+              aria-label="Back to grocery lists"
+            >
+              <ArrowLeftIcon className="h-5 w-5" />
+            </button>
+            <div className="icon-container-premium icon-container-emerald shrink-0 hidden sm:flex">
+              <ShoppingCartIcon className="h-6 w-6 text-[#2F6F4E]" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="font-display text-2xl sm:text-3xl font-semibold text-[#1C1917] tracking-tight break-words">
+                  {groceryList.name || 'Grocery list'}
+                </h1>
+                {groceryList.meal_plan_id && (
+                  <Link
+                    to={`/meal-plans/${groceryList.meal_plan_id}`}
+                    className="inline-flex items-center gap-1 rounded-full border border-[#C84B31]/25 bg-[#F9F1EA] px-2.5 py-0.5 text-xs font-semibold text-[#9A3412] hover:bg-[#F3E5D8]"
+                  >
+                    <CalendarIcon className="h-3 w-3" />
+                    <span>Plan #{groceryList.meal_plan_id}</span>
+                  </Link>
+                )}
+              </div>
+              <p className="mt-1 text-sm text-[#78716C]">
+                Created {formatLocalDate(groceryList.created_at)} •{' '}
+                <span className="tabular-nums">{totalItems} items</span> across{' '}
+                <span className="tabular-nums">{allCategories.length} aisles</span>
               </p>
             </div>
           </div>
-          <div className="flex space-x-3">
-            {/* Enhanced Send Notification Button Group */}
+
+          <div className="flex flex-wrap items-center gap-2.5 sm:shrink-0">
+            {/* Email Split Button */}
             <div className="relative">
-              <div className="flex">
-                {/* Main Send Button */}
+              <div className="inline-flex">
                 <button
                   onClick={() => handleSendNotification()}
                   disabled={sendingNotification}
-                  className="flex items-center rounded-l-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md disabled:opacity-50"
+                  className="inline-flex items-center rounded-l-full border border-[#D6CEC2] bg-white px-4 py-2.5 text-sm font-semibold text-[#1C1917] shadow-2xs transition-colors hover:bg-[#FAF7F2] disabled:opacity-50"
                 >
                   {sendingNotification ? (
                     <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-slate-600 mr-2" />
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#57534E] mr-2" />
                       Sending...
                     </>
                   ) : (
                     <>
-                      <EnvelopeIcon className="h-4 w-4 mr-2" />
+                      <EnvelopeIcon className="h-4 w-4 mr-2 text-[#57534E]" />
                       Email me
                     </>
                   )}
                 </button>
 
-                {/* Dropdown Toggle Button */}
                 <button
                   onClick={() => setShowSendDropdown(!showSendDropdown)}
                   disabled={sendingNotification}
-                  className="rounded-r-full border border-l-0 border-slate-200 bg-white px-2 py-2 text-slate-600 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary-soft"
+                  className="inline-flex items-center rounded-r-full border border-l-0 border-[#D6CEC2] bg-white px-2.5 py-2.5 text-[#57534E] shadow-2xs transition-colors hover:bg-[#FAF7F2] hover:text-[#1C1917]"
                   title="More sending options"
+                  aria-label="More sending options"
+                  aria-expanded={showSendDropdown}
                 >
                   <ChevronDownIcon
-                    className={`h-4 w-4 transition-transform duration-200 ${showSendDropdown ? 'rotate-180' : ''}`}
+                    className={`h-4 w-4 transition-transform duration-200 ${
+                      showSendDropdown ? 'rotate-180' : ''
+                    }`}
                   />
                 </button>
               </div>
 
-              {/* Dropdown Menu */}
               {showSendDropdown && (
-                <div className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-lg border border-slate-200 z-10">
+                <div className="absolute right-0 mt-2 w-64 rounded-2xl border border-[#E7E0D6] bg-white shadow-lg z-30">
                   <div className="py-2">
                     <button
                       onClick={() => {
                         setShowSendDropdown(false);
                         setShowNotificationModal(true);
                       }}
-                      className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center"
+                      className="w-full text-left px-4 py-2.5 text-sm font-medium text-[#1C1917] hover:bg-[#FAF7F2] flex items-center"
                     >
-                      <PlusIcon className="h-4 w-4 mr-3 text-slate-400" />
+                      <PlusIcon className="h-4 w-4 mr-2.5 text-[#78716C]" />
                       Send to extra people
                     </button>
-                    <div className="border-t border-slate-100 my-1"></div>
-                    <div className="px-4 py-2 text-xs text-slate-500">
-                      "Email me" sends it to your account address
+                    <div className="border-t border-[#E7E0D6] my-1" />
+                    <div className="px-4 py-2 text-xs text-[#78716C]">
+                      "Email me" sends this checklist to your account email address.
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Click outside to close dropdown */}
               {showSendDropdown && (
-                <div className="fixed inset-0 z-0" onClick={() => setShowSendDropdown(false)}></div>
+                <div className="fixed inset-0 z-20" onClick={() => setShowSendDropdown(false)} />
               )}
             </div>
 
             <button onClick={() => setShowAddModal(true)} className="btn-primary">
-              <PlusIcon className="h-4 w-4 mr-2" />
-              Add item
+              <PlusIcon className="h-4 w-4" />
+              <span>Add item</span>
             </button>
           </div>
         </div>
 
-        {/* Progress with celebration at 100% */}
+        {/* Shopping Progress & Aisle Quick-Filter Bar */}
         <div
-          className={`surface progress-fun p-4 transition-all duration-500 sticky top-20 z-20 ${
-            completionPercentage === 100 ? 'animate-celebration-glow ring-2 ring-emerald-300' : ''
+          className={`surface p-4 sm:p-5 transition-all duration-300 sticky top-20 z-20 ${
+            completionPercentage === 100 && totalItems > 0
+              ? 'border-[#3F624D]/40 bg-[#ECF5F0]/90 backdrop-blur-md'
+              : 'bg-white/95 backdrop-blur-md'
           }`}
         >
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-stone-700">Progress</span>
-            <span className="text-sm text-stone-500">
-              {checkedCount} of {groceryList.items.length} checked
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+            <div className="flex items-center gap-2.5">
+              <span className="text-sm font-semibold text-[#1C1917]">Shopping Progress</span>
+              {completionPercentage === 100 && totalItems > 0 ? (
+                <InlineStatus label="All done" tone="success" />
+              ) : (
+                <InlineStatus label={`${completionPercentage}% done`} tone="neutral" />
+              )}
+            </div>
+            <span className="text-sm font-medium text-[#57534E] tabular-nums">
+              {checkedCount} of {totalItems} checked
             </span>
           </div>
-          <div className="relative w-full bg-stone-200 rounded-full h-2.5 overflow-hidden">
+
+          <div className="relative w-full bg-[#E7E0D6] rounded-full h-2.5 overflow-hidden">
             <div
-              className="h-full rounded-full transition-all duration-500 ease-out bg-emerald-500"
+              className="h-full rounded-full transition-all duration-500 ease-out bg-[#2F6F4E]"
               style={{ width: `${completionPercentage}%` }}
             />
-            {completionPercentage === 100 && (
-              <div className="absolute inset-0 bg-emerald-400/30 animate-pulse rounded-full" />
-            )}
           </div>
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs">
-            {completionPercentage === 100 ? (
-              <InlineStatus label="All done" tone="success" className="animate-bounce-in" />
+
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            {/* Aisle Quick-Filter Pills */}
+            {allCategories.length > 0 ? (
+              <div
+                role="group"
+                aria-label="Filter by store aisle"
+                className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0"
+              >
+                <button
+                  type="button"
+                  onClick={() => setSelectedAisle('all')}
+                  aria-pressed={activeAisle === 'all'}
+                  className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors tabular-nums ${
+                    activeAisle === 'all'
+                      ? 'border-[#1C1917] bg-[#1C1917] text-white'
+                      : 'border-[#E7E0D6] bg-[#FAF7F2] text-[#57534E] hover:border-[#D6CEC2] hover:text-[#1C1917]'
+                  }`}
+                >
+                  All Aisles ({allCategories.length})
+                </button>
+                {allCategories.map(cat => {
+                  const catItems = groupedItems[cat] || [];
+                  const remainingCount = catItems.filter(i => !i.checked).length;
+                  const isSelected = activeAisle === cat;
+                  return (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setSelectedAisle(prev => (prev === cat ? 'all' : cat))}
+                      aria-pressed={isSelected}
+                      className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors tabular-nums ${
+                        isSelected
+                          ? 'border-[#C84B31] bg-[#F9F1EA] text-[#9A3412]'
+                          : remainingCount === 0
+                            ? 'border-[#3F624D]/25 bg-[#ECF5F0] text-[#2F6F4E]'
+                            : 'border-[#E7E0D6] bg-[#FAF7F2] text-[#57534E] hover:border-[#D6CEC2] hover:text-[#1C1917]'
+                      }`}
+                    >
+                      {cat} ({remainingCount})
+                    </button>
+                  );
+                })}
+              </div>
             ) : (
-              <InlineStatus label={`${completionPercentage}% done`} tone="neutral" />
+              <span className="text-xs text-[#78716C]">
+                Add items to organize your list by aisle.
+              </span>
             )}
-            <span className="text-stone-500">Tap-friendly controls below speed up shopping.</span>
-          </div>
-          <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
-            <button
-              className="btn-secondary !px-4 !py-2.5 text-xs"
-              disabled={bulkUpdating || checkedCount === 0}
-              onClick={handleUncheckAll}
-            >
-              Uncheck all
-            </button>
-            <button
-              className="btn-secondary !px-4 !py-2.5 text-xs"
-              onClick={() => setHideChecked(prev => !prev)}
-            >
-              {hideChecked ? 'Show checked' : 'Collapse checked'}
-            </button>
+
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <button
+                className="btn-secondary !px-3.5 !py-1.5 text-xs"
+                disabled={bulkUpdating || checkedCount === 0}
+                onClick={handleUncheckAll}
+              >
+                Uncheck all
+              </button>
+              <button
+                className="btn-secondary !px-3.5 !py-1.5 text-xs"
+                aria-pressed={hideChecked}
+                onClick={() => setHideChecked(prev => !prev)}
+              >
+                {hideChecked ? 'Show checked' : 'Collapse checked'}
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Completion banner - shown when 100% done */}
-        {completionPercentage === 100 && groceryList.items.length > 0 && (
-          <div
-            className="mt-4 p-5 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 animate-slide-in-up"
-            style={{ animationFillMode: 'forwards' }}
-          >
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <h3 className="text-lg font-semibold text-emerald-800 flex items-center gap-2">
-                  <span className="text-2xl">🛒</span>
-                  Shopping complete!
-                </h3>
-                <p className="text-emerald-700 text-sm mt-1">Ready to start cooking?</p>
+        {/* 100% Completion Banner */}
+        {completionPercentage === 100 && totalItems > 0 && (
+          <div className="mt-4 rounded-3xl border border-[#3F624D]/30 bg-[#ECF5F0] p-5 sm:p-6 animate-slide-in-up">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+              <div className="flex items-start gap-3.5">
+                <div className="icon-container-premium icon-container-emerald shrink-0">
+                  <CheckCircleIcon className="h-6 w-6 text-[#2F6F4E]" />
+                </div>
+                <div>
+                  <h3 className="font-display text-xl font-semibold text-[#1C1917]">
+                    Shopping complete!
+                  </h3>
+                  <p className="text-sm text-[#2F6F4E] mt-0.5">
+                    Every aisle is checked off. Update your pantry staples or head back to your meal
+                    plan.
+                  </p>
+                </div>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap items-center gap-2.5">
                 <button onClick={() => navigate('/meal-plans')} className="btn-secondary">
                   Back to meal plans
                 </button>
+                <button onClick={() => navigate('/pantry')} className="btn-secondary">
+                  <PantryIcon className="h-4 w-4" />
+                  <span>Manage pantry</span>
+                </button>
                 <button onClick={() => setShowArchiveDialog(true)} className="btn-danger">
-                  <ArchiveBoxIcon className="h-4 w-4 mr-2" />
-                  Archive list
+                  <ArchiveBoxIcon className="h-4 w-4" />
+                  <span>Archive list</span>
                 </button>
               </div>
             </div>
@@ -584,118 +676,151 @@ export default function GroceryListDetailPage() {
         )}
       </div>
 
-      {/* Items by Category */}
+      {/* Items by Aisle / Category */}
       {categories.length === 0 ? (
         <EmptyState
           icon={<ShoppingCartIcon className="h-12 w-12" />}
-          title={groceryList.items.length === 0 ? 'Nothing on the list yet' : 'All items checked'}
+          title={totalItems === 0 ? 'Nothing on the list yet' : 'All items checked'}
           description={
-            groceryList.items.length === 0
-              ? 'Add a few items to get rolling.'
-              : 'Nice work. Everything is checked off.'
+            totalItems === 0
+              ? 'Add a few ingredients to get your shopping run started.'
+              : 'Everything in this view is checked off.'
           }
           action={
-            groceryList.items.length === 0 ? (
+            totalItems === 0 ? (
               <button onClick={() => setShowAddModal(true)} className="btn-primary">
-                <PlusIcon className="h-4 w-4 mr-2" />
+                <PlusIcon className="h-4 w-4" />
                 Add an item
               </button>
             ) : (
-              <button onClick={() => setHideChecked(false)} className="btn-secondary">
-                Show checked items
-              </button>
+              <div className="flex flex-wrap justify-center gap-2">
+                {activeAisle !== 'all' && (
+                  <button onClick={() => setSelectedAisle('all')} className="btn-secondary">
+                    Show all aisles
+                  </button>
+                )}
+                {hideChecked && (
+                  <button onClick={() => setHideChecked(false)} className="btn-secondary">
+                    Show checked items
+                  </button>
+                )}
+              </div>
             )
           }
         />
       ) : (
         <div className="space-y-6">
-          {categories.map(category => (
-            <SectionCard
-              key={category}
-              bare
-              className="overflow-hidden"
-              title={category}
-              subtitle={`${groupedItems[category].filter(item => item.checked).length} of ${groupedItems[category].length} checked`}
-              headerClassName="category-header-fun px-4 py-3 border-b border-slate-200/70 bg-slate-50 mb-0"
-              contentClassName="divide-y divide-stone-200/70"
-            >
-              {filteredGroupedItems[category].map(item => (
-                <div
-                  key={item.id}
-                  className={`px-4 py-3 flex items-center transition-all duration-200 ${
-                    recentlyChecked.has(item.id) ? 'bg-emerald-50' : ''
-                  }`}
-                >
-                  <label className="flex h-10 w-10 items-center justify-center mr-2 relative rounded-full hover:bg-stone-100">
-                    <input
-                      type="checkbox"
-                      checked={item.checked}
-                      onChange={() => handleToggleItem(item)}
-                      className={`h-6 w-6 rounded border-stone-300 text-emerald-600 focus:ring-emerald-500 transition-transform ${
-                        recentlyChecked.has(item.id) ? 'animate-check-in' : ''
-                      }`}
-                      aria-label={`Mark ${item.name} as ${item.checked ? 'unchecked' : 'checked'}`}
-                    />
-                    {recentlyChecked.has(item.id) && (
-                      <span className="absolute inset-0 rounded-full bg-emerald-400/30 animate-success-ripple" />
-                    )}
-                  </label>
+          {categories.map(category => {
+            const categoryTotal = groupedItems[category].length;
+            const categoryChecked = groupedItems[category].filter(item => item.checked).length;
+            const aisleComplete = categoryTotal > 0 && categoryChecked === categoryTotal;
 
-                  {editingItem?.id === item.id ? (
-                    <EditItemForm
-                      item={item}
-                      onSave={updates => handleUpdateItem(item, updates)}
-                      onCancel={() => setEditingItem(null)}
-                    />
-                  ) : (
-                    <div className="flex-1 flex items-center justify-between">
-                      <div className="flex-1 relative">
-                        <div className="flex items-center">
+            return (
+              <SectionCard
+                key={category}
+                bare
+                className="overflow-hidden"
+                title={
+                  <span className="inline-flex items-center gap-2.5">
+                    <span>{category}</span>
+                    {aisleComplete && (
+                      <span className="rounded-full bg-[#ECF5F0] border border-[#3F624D]/25 px-2.5 py-0.5 font-sans text-xs font-semibold text-[#2F6F4E]">
+                        Aisle done
+                      </span>
+                    )}
+                  </span>
+                }
+                subtitle={`${categoryChecked} of ${categoryTotal} checked`}
+                headerClassName="bg-[#FAF7F2] border-b border-[#E7E0D6] px-5 py-3.5 mb-0"
+                contentClassName="divide-y divide-[#E7E0D6]/80"
+              >
+                {filteredGroupedItems[category].map(item => (
+                  <div
+                    key={item.id}
+                    className={`min-h-[52px] px-4 sm:px-5 py-3 flex items-center gap-3 transition-colors duration-150 ${
+                      recentlyChecked.has(item.id)
+                        ? 'bg-[#ECF5F0]/70'
+                        : item.checked
+                          ? 'bg-[#FAF7F2]/60'
+                          : 'bg-white hover:bg-[#FAF7F2]/50'
+                    }`}
+                  >
+                    <label className="flex h-11 w-11 shrink-0 items-center justify-center relative rounded-full cursor-pointer hover:bg-[#F3EFE6]/80">
+                      <input
+                        type="checkbox"
+                        checked={item.checked}
+                        onChange={() => handleToggleItem(item)}
+                        className={`h-5 w-5 rounded border-[#D6CEC2] text-[#2F6F4E] focus:ring-[#2F6F4E] transition-transform cursor-pointer ${
+                          recentlyChecked.has(item.id) ? 'animate-check-in' : ''
+                        }`}
+                        style={{ accentColor: '#2F6F4E' }}
+                        aria-label={`Mark ${item.name} as ${item.checked ? 'unchecked' : 'checked'}`}
+                      />
+                      {recentlyChecked.has(item.id) && (
+                        <span className="absolute inset-0 rounded-full bg-[#2F6F4E]/20 animate-success-ripple" />
+                      )}
+                    </label>
+
+                    {editingItem?.id === item.id ? (
+                      <EditItemForm
+                        item={item}
+                        onSave={updates => handleUpdateItem(item, updates)}
+                        onCancel={() => setEditingItem(null)}
+                      />
+                    ) : (
+                      <div className="flex-1 flex items-center justify-between gap-3 min-w-0">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleItem(item)}
+                          className="flex-1 text-left flex flex-wrap items-center gap-2 min-w-0 py-1 focus:outline-none"
+                        >
                           <span
-                            className={`font-medium transition-colors duration-200 ${
-                              item.checked ? 'text-stone-400' : 'text-stone-900'
+                            className={`text-base font-medium transition-colors duration-150 ${
+                              item.checked
+                                ? 'text-[#78716C] line-through decoration-[#78716C]'
+                                : 'text-[#1C1917]'
                             }`}
                           >
                             {item.name}
                           </span>
-                          {item.quantity && (
+                          {(item.quantity || item.unit) && (
                             <span
-                              className={`ml-2 text-sm transition-colors duration-200 ${
-                                item.checked ? 'text-stone-300' : 'text-stone-500'
+                              className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-mono tabular-nums ${
+                                item.checked
+                                  ? 'border-[#E7E0D6] bg-[#F3EFE6]/50 text-[#78716C]'
+                                  : 'border-[#E7E0D6] bg-[#FAF7F2] text-[#57534E]'
                               }`}
                             >
-                              {item.quantity} {item.unit}
+                              {[item.quantity, item.unit].filter(Boolean).join(' ')}
                             </span>
                           )}
+                        </button>
+
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => setEditingItem(item)}
+                            className="icon-button-muted h-10 w-10"
+                            title={`Edit ${item.name}`}
+                            aria-label={`Edit ${item.name}`}
+                          >
+                            <PencilIcon className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => setItemToDelete(item)}
+                            className="icon-button-danger h-10 w-10"
+                            title={`Delete ${item.name}`}
+                            aria-label={`Delete ${item.name}`}
+                          >
+                            <TrashIcon className="h-4 w-4" />
+                          </button>
                         </div>
-                        {item.checked && (
-                          <span
-                            className="absolute left-0 top-1/2 h-px bg-stone-400 animate-strike"
-                            style={{ width: '100%', maxWidth: '200px' }}
-                          />
-                        )}
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => setEditingItem(item)}
-                          className="icon-button-muted h-10 w-10"
-                        >
-                          <PencilIcon className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => setItemToDelete(item)}
-                          className="icon-button-danger h-10 w-10"
-                          title={`Delete ${item.name}`}
-                        >
-                          <TrashIcon className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </SectionCard>
-          ))}
+                    )}
+                  </div>
+                ))}
+              </SectionCard>
+            );
+          })}
         </div>
       )}
 
@@ -722,7 +847,7 @@ export default function GroceryListDetailPage() {
         >
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-stone-700 mb-1">Item name *</label>
+              <label className="block text-sm font-medium text-[#1C1917] mb-1">Item name *</label>
               <input
                 type="text"
                 value={newItem.name}
@@ -734,7 +859,7 @@ export default function GroceryListDetailPage() {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-medium text-stone-700 mb-1">Quantity</label>
+                <label className="block text-sm font-medium text-[#1C1917] mb-1">Quantity</label>
                 <input
                   type="number"
                   value={newItem.quantity || ''}
@@ -749,7 +874,7 @@ export default function GroceryListDetailPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-stone-700 mb-1">Unit</label>
+                <label className="block text-sm font-medium text-[#1C1917] mb-1">Unit</label>
                 <input
                   type="text"
                   value={newItem.unit || ''}
@@ -761,7 +886,7 @@ export default function GroceryListDetailPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-stone-700 mb-1">Category</label>
+              <label className="block text-sm font-medium text-[#1C1917] mb-1">Category</label>
               <select
                 value={newItem.category || ''}
                 onChange={e => setNewItem({ ...newItem, category: e.target.value })}
@@ -822,7 +947,7 @@ export default function GroceryListDetailPage() {
           }
         >
           <div className="space-y-3">
-            <label className="block text-sm font-medium text-stone-700">
+            <label className="block text-sm font-medium text-[#1C1917]">
               Additional recipients (optional)
             </label>
 
@@ -833,11 +958,11 @@ export default function GroceryListDetailPage() {
                     type="email"
                     value={email}
                     onChange={e => handleEmailChange(index, e.target.value)}
-                    className={`input w-full ${emailErrors[index] ? 'border-red-300' : ''}`}
+                    className={`input w-full ${emailErrors[index] ? 'border-[#B91C1C]' : ''}`}
                     placeholder="email@example.com"
                   />
                   {emailErrors[index] && (
-                    <p className="text-red-500 text-xs mt-1">{emailErrors[index]}</p>
+                    <p className="text-[#B91C1C] text-xs mt-1">{emailErrors[index]}</p>
                   )}
                 </div>
                 {additionalEmails.length > 1 && (
@@ -854,8 +979,7 @@ export default function GroceryListDetailPage() {
 
             <button
               onClick={addEmailField}
-              className="text-sm flex items-center transition-colors"
-              style={{ color: 'var(--primary)' }}
+              className="text-sm font-semibold flex items-center transition-colors text-[#C84B31] hover:text-[#B83B22]"
             >
               <PlusIcon className="h-4 w-4 mr-1" />
               Add another email
@@ -921,7 +1045,7 @@ function EditItemForm({
   };
 
   return (
-    <div className="flex-1 grid grid-cols-4 gap-2 items-center">
+    <div className="flex-1 grid grid-cols-1 sm:grid-cols-4 gap-2 items-center">
       <input
         type="text"
         value={name}
@@ -944,10 +1068,14 @@ function EditItemForm({
         placeholder="Unit"
       />
       <div className="flex items-center space-x-1">
-        <button onClick={handleSave} className="icon-button text-emerald-600 hover:bg-emerald-50">
+        <button
+          onClick={handleSave}
+          className="icon-button text-[#2F6F4E] hover:bg-[#ECF5F0]"
+          title="Save changes"
+        >
           <CheckIcon className="h-4 w-4" />
         </button>
-        <button onClick={onCancel} className="icon-button-danger">
+        <button onClick={onCancel} className="icon-button-danger" title="Cancel editing">
           <XMarkIcon className="h-4 w-4" />
         </button>
       </div>

@@ -63,12 +63,12 @@ type BrandIconProps = {
 };
 
 const toneClassMap: Record<IconTone, string> = {
-  default: 'text-stone-700',
-  muted: 'text-stone-500',
-  primary: 'text-primary',
-  success: 'text-emerald-600',
-  warning: 'text-amber-500',
-  danger: 'text-red-600',
+  default: 'text-[#57534E]',
+  muted: 'text-[#78716C]',
+  primary: 'text-[#C84B31]',
+  success: 'text-[#2F6F4E]',
+  warning: 'text-[#B45309]',
+  danger: 'text-[#B91C1C]',
 };
 
 function resolveIconSize(size?: IconSize): number | undefined {
@@ -138,7 +138,7 @@ function PantryJarIcon({ className = '', size = 32 }: BrandIconProps) {
       <rect x="7" y="6" width="18" height="5" rx="2.5" fill="url(#jarTopGrad)" />
       <path
         d="M12 16c1.3-1 2.7-1 4 0 1.3 1 2.7 1 4 0"
-        stroke="#ea580c"
+        stroke="#c84b31"
         strokeWidth="1.5"
         strokeLinecap="round"
       />

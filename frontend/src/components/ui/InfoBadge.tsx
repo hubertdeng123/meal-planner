@@ -7,12 +7,18 @@ interface InfoBadgeProps {
 
 export function InfoBadge({ icon, label, value, className = '' }: InfoBadgeProps) {
   return (
-    <div className={`flex flex-col items-center gap-1 ${className}`}>
-      <div className="flex items-center gap-2">
-        <span className="text-2xl">{icon}</span>
-        <span className="text-sm font-medium text-gray-600">{label}</span>
+    <div
+      className={`flex flex-col items-center gap-1 rounded-2xl border border-[#E7E0D6] bg-[#FAF7F2] px-4 py-3 ${className}`.trim()}
+    >
+      <div className="flex items-center gap-1.5">
+        <span className="text-lg" aria-hidden="true">
+          {icon}
+        </span>
+        <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[#78716C]">
+          {label}
+        </span>
       </div>
-      <div className="text-lg font-semibold text-gray-900">{value}</div>
+      <div className="text-base font-semibold tabular-nums text-[#1C1917]">{value}</div>
     </div>
   );
 }

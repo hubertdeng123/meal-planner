@@ -17,16 +17,16 @@ export default function PreferenceNumberInput({
 }: PreferenceNumberInputProps) {
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
+      <label className="block text-sm font-semibold text-[#1C1917] mb-2">{label}</label>
       <input
         type="number"
         placeholder={placeholder}
         min={min}
         value={value ?? ''}
         onChange={e => onChange(e.target.value ? parseInt(e.target.value) : undefined)}
-        className="input w-full"
+        className="input w-full tabular-nums"
       />
-      {helperText && <p className="text-xs text-gray-500 mt-1">{helperText}</p>}
+      {helperText && <p className="text-xs text-[#78716C] mt-1.5">{helperText}</p>}
     </div>
   );
 }

@@ -22,44 +22,44 @@ export function EmptyState({
   const isCompact = variant === 'compact';
 
   return (
-    <div className={`surface text-center ${isCompact ? 'p-6' : 'p-10'} ${className}`}>
+    <div
+      className={`surface text-center ${isCompact ? 'p-6 sm:p-7' : 'p-10 sm:p-12'} ${className}`.trim()}
+    >
       {icon && (
-        <div
-          className={`flex justify-center text-stone-300 ${isCompact ? 'mb-4' : 'mb-6'} animate-float`}
-        >
+        <div className={`flex justify-center text-[#78716C] ${isCompact ? 'mb-4' : 'mb-5'}`}>
           <div
-            className={`${isCompact ? 'w-12 h-12' : 'w-16 h-16'} flex items-center justify-center`}
+            className={`${isCompact ? 'h-12 w-12 rounded-2xl' : 'h-16 w-16 rounded-2xl'} flex items-center justify-center border border-[#E7E0D6] bg-[#FAF7F2] shadow-xs`}
           >
             {icon}
           </div>
         </div>
       )}
       <h2
-        className={`${isCompact ? 'text-xl' : 'text-2xl'} font-semibold text-stone-900 animate-slide-in-up opacity-0`}
+        className={`font-display ${isCompact ? 'text-xl' : 'text-2xl'} font-semibold text-[#1C1917] tracking-tight animate-slide-in-up opacity-0`}
         style={{ animationFillMode: 'forwards' }}
       >
         {title}
       </h2>
       {description && (
         <p
-          className={`${isCompact ? 'mt-2 text-sm' : 'mt-3'} text-stone-600 animate-slide-in-up opacity-0`}
-          style={{ animationDelay: '100ms', animationFillMode: 'forwards' }}
+          className={`mx-auto max-w-md ${isCompact ? 'mt-1.5 text-sm' : 'mt-2.5 text-base'} text-[#57534E] leading-relaxed animate-slide-in-up opacity-0`}
+          style={{ animationDelay: '80ms', animationFillMode: 'forwards' }}
         >
           {description}
         </p>
       )}
       {valueProp && (
         <p
-          className="mt-2 text-sm text-stone-500 animate-slide-in-up opacity-0"
-          style={{ animationDelay: '150ms', animationFillMode: 'forwards' }}
+          className="mx-auto mt-2 max-w-md text-xs font-medium text-[#78716C] animate-slide-in-up opacity-0"
+          style={{ animationDelay: '130ms', animationFillMode: 'forwards' }}
         >
           {valueProp}
         </p>
       )}
       {action && (
         <div
-          className={`${isCompact ? 'mt-5' : 'mt-8'} flex justify-center animate-slide-in-up opacity-0`}
-          style={{ animationDelay: '200ms', animationFillMode: 'forwards' }}
+          className={`${isCompact ? 'mt-5' : 'mt-7'} flex flex-wrap justify-center gap-3 animate-slide-in-up opacity-0`}
+          style={{ animationDelay: '180ms', animationFillMode: 'forwards' }}
         >
           {action}
         </div>

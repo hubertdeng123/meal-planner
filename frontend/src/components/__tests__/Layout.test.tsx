@@ -16,12 +16,13 @@ vi.mock('react-router-dom', async () => {
       children,
       to,
       className,
+      ...rest
     }: {
       children: React.ReactNode;
       to: string;
       className?: string;
-    }) => (
-      <a href={to} className={className}>
+    } & React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
+      <a href={to} className={className} {...rest}>
         {children}
       </a>
     ),
@@ -120,5 +121,36 @@ describe('Layout', () => {
     // Check that the layout has proper responsive classes
     const nav = screen.getByRole('navigation');
     expect(nav).toBeInTheDocument();
+  });
+
+  it('includes a keyboard accessible skip-to-main-content link and #main-content landmark', () => {
+    render(
+      <Layout>
+        <div>Test Content</div>
+      </Layout>
+    );
+
+    const skipLink = screen.getByRole('link', { name: 'Skip to main content' });
+    expect(skipLink).toBeInTheDocument();
+    expect(skipLink).toHaveAttribute('href', '#main-content');
+
+    const main = screen.getByRole('main');
+    expect(main).toHaveAttribute('id', 'main-content');
+    expect(main).toHaveAttribute('tabindex', '-1');
+  });
+
+  it('renders primary Organic-Modern navigation items and CTA', () => {
+    render(
+      <Layout>
+        <div>Test Content</div>
+      </Layout>
+    );
+
+    expect(screen.getAllByText('Today').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Recipe Vault').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Meal Plans').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Grocery Lists').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Pantry').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Make a Recipe').length).toBeGreaterThan(0);
   });
 });
