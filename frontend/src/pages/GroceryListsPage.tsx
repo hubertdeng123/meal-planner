@@ -1,483 +1,272 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  ShoppingCartIcon,
+  CheckCircleSolidIcon,
   PlusIcon,
+  ShoppingBagIcon,
   TrashIcon,
-  CalendarIcon,
-  ArrowRightIcon,
 } from '../components/ui/AppIcons';
-import groceryService from '../services/grocery.service';
-import recipeService from '../services/recipe.service';
-import type { GroceryList, Recipe } from '../types';
-import { PageHeader } from '../components/ui/PageHeader';
-import { EmptyState } from '../components/ui/EmptyState';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
-import { ModalShell } from '../components/ui/ModalShell';
-import { ToolbarRow } from '../components/ui/ToolbarRow';
-import { KitchenSubNav } from '../components/ui/KitchenSubNav';
+import { EmptyState } from '../components/ui/EmptyState';
+import { ErrorState } from '../components/ui/ErrorState';
+import { OverflowMenu } from '../components/ui/OverflowMenu';
+import { SkeletonGrid } from '../components/ui/Skeletons';
+import { NewListDialog, type NewListRequest } from '../components/grocery/NewListDialog';
 import { useToast } from '../contexts/ToastContext';
+import groceryService from '../services/grocery.service';
+import mealPlanService from '../services/mealPlan.service';
+import type { GroceryList } from '../types';
 import { formatLocalDate } from '../utils/date';
+import { groupByAisle } from '../utils/grocery';
+
+const PAGE_SIZE = 12;
+
+function listTitle(list: GroceryList): string {
+  return (
+    list.name ||
+    `List from ${formatLocalDate(list.created_at, { weekday: 'short', month: 'short', day: 'numeric' })}`
+  );
+}
 
 export default function GroceryListsPage() {
   const navigate = useNavigate();
   const { addToast } = useToast();
-  const [groceryLists, setGroceryLists] = useState<GroceryList[]>([]);
-  const [totalLists, setTotalLists] = useState(0);
-  const [recipes, setRecipes] = useState<Recipe[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [selectedRecipes, setSelectedRecipes] = useState<number[]>([]);
-  const [creating, setCreating] = useState(false);
-  const [creatingEmpty, setCreatingEmpty] = useState(false);
+  const [lists, setLists] = useState<GroceryList[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
-  const [searchInput, setSearchInput] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<'created_at' | 'name'>('created_at');
-  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error' | 'more'>('loading');
+  const [showNew, setShowNew] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [listToDelete, setListToDelete] = useState<GroceryList | null>(null);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
-  const pageSize = 9;
+  const [deleting, setDeleting] = useState(false);
+
+  const load = useCallback(
+    async (targetPage: number) => {
+      setStatus(targetPage === 1 ? 'loading' : 'more');
+      try {
+        const result = await groceryService.getGroceryListsPaginated({
+          page: targetPage,
+          pageSize: PAGE_SIZE,
+          sort: 'created_at',
+          order: 'desc',
+        });
+        setLists(current => (targetPage === 1 ? result.items : [...current, ...result.items]));
+        setPage(targetPage);
+        setTotalPages(result.total_pages);
+        setStatus('ready');
+      } catch (error) {
+        console.error('Failed to load grocery lists:', error);
+        if (targetPage === 1) setStatus('error');
+        else {
+          setStatus('ready');
+          addToast('Could not load more lists.', 'error');
+        }
+      }
+    },
+    [addToast]
+  );
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setPage(1);
-      setSearchQuery(searchInput.trim());
-    }, 250);
-    return () => clearTimeout(timer);
-  }, [searchInput]);
+    void load(1);
+  }, [load]);
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [groceryListsData, recipesData] = await Promise.all([
-        groceryService.getGroceryListsPaginated({
-          page,
-          pageSize,
-          q: searchQuery || undefined,
-          sort: sortBy,
-          order: sortOrder,
-        }),
-        recipeService.getRecipes(0, 500),
-      ]);
-      setGroceryLists(groceryListsData.items);
-      setTotalLists(groceryListsData.total ?? groceryListsData.items.length);
-      setTotalPages(groceryListsData.total_pages);
-      setRecipes(recipesData);
-    } catch (error) {
-      console.error('Failed to load data:', error);
-      addToast('Could not load grocery lists. Try again?', 'error');
-    } finally {
-      setLoading(false);
-    }
-  }, [addToast, page, pageSize, searchQuery, sortBy, sortOrder]);
-
-  useEffect(() => {
-    void loadData();
-  }, [loadData]);
-
-  const handleCreateEmptyList = async () => {
-    setCreatingEmpty(true);
-    try {
-      const newGroceryList = await groceryService.createGroceryList({});
-      addToast('New grocery list created.', 'success');
-      navigate(`/grocery/${newGroceryList.id}`);
-    } catch (error) {
-      console.error('Failed to create empty grocery list:', error);
-      addToast('Could not create a new list. Try again?', 'error');
-    } finally {
-      setCreatingEmpty(false);
-    }
-  };
-
-  const handleCreateFromRecipes = async () => {
-    if (selectedRecipes.length === 0) return;
-
+  const create = async (request: NewListRequest) => {
     setCreating(true);
     try {
-      const newGroceryList = await groceryService.createGroceryListFromRecipes(selectedRecipes);
-      setGroceryLists([newGroceryList, ...groceryLists]);
-      setTotalLists(prev => prev + 1);
-      setShowCreateModal(false);
-      setSelectedRecipes([]);
-      addToast('Grocery list created.', 'success');
+      const list =
+        request.source === 'plan'
+          ? await mealPlanService.createGroceryList(request.planId)
+          : request.source === 'recipes'
+            ? await groceryService.createGroceryListFromRecipes(request.recipeIds)
+            : await groceryService.createGroceryList({});
+      navigate(`/grocery/${list.id}`);
     } catch (error) {
       console.error('Failed to create grocery list:', error);
       addToast('Could not build that list. Try again?', 'error');
-    } finally {
       setCreating(false);
     }
   };
 
-  const handleDeleteGroceryList = async () => {
+  const handleDelete = async () => {
     if (!listToDelete) return;
-    setDeletingId(listToDelete.id);
+    setDeleting(true);
     try {
       await groceryService.deleteGroceryList(listToDelete.id);
-      setGroceryLists(groceryLists.filter(list => list.id !== listToDelete.id));
-      setTotalLists(prev => Math.max(0, prev - 1));
-      addToast('Grocery list deleted.', 'success');
+      setLists(current => current.filter(list => list.id !== listToDelete.id));
+      addToast('List deleted.', 'success');
       setListToDelete(null);
     } catch (error) {
       console.error('Failed to delete grocery list:', error);
       addToast('Could not delete that list. Try again?', 'error');
     } finally {
-      setDeletingId(null);
+      setDeleting(false);
     }
   };
 
-  const toggleRecipeSelection = (recipeId: number) => {
-    setSelectedRecipes(prev =>
-      prev.includes(recipeId) ? prev.filter(id => id !== recipeId) : [...prev, recipeId]
-    );
-  };
-
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div
-          className="animate-spin rounded-full h-12 w-12 border-b-2"
-          style={{ borderBottomColor: 'var(--primary)' }}
-        />
-      </div>
-    );
-  }
+  const active = lists.filter(
+    list => list.items.length === 0 || list.items.some(item => !item.checked)
+  );
+  const done = lists.filter(
+    list => list.items.length > 0 && list.items.every(item => item.checked)
+  );
 
   return (
-    <div>
-      <KitchenSubNav
-        groceryCount={totalLists || groceryLists.length}
-        actions={
-          <Link to="/pantry" className="btn-ghost text-xs">
-            <span>Check Pantry Inventory</span>
-            <ArrowRightIcon className="h-3.5 w-3.5" />
-          </Link>
-        }
-      />
-
-      <PageHeader
-        badge={<span className="badge">Kitchen &amp; Shop</span>}
-        title="Grocery Lists"
-        subtitle="Turn weekly meal plans and favorite recipes into organized, aisle-by-aisle shopping runs."
-        actions={
-          <>
-            <Link to="/meal-plans" className="btn-secondary">
-              Build from Meal Plan
-            </Link>
-            <button
-              type="button"
-              onClick={handleCreateEmptyList}
-              disabled={creatingEmpty}
-              className="btn-secondary"
-            >
-              <PlusIcon className="h-4 w-4" />
-              {creatingEmpty ? 'Creating...' : 'New empty list'}
-            </button>
-            <button type="button" onClick={() => setShowCreateModal(true)} className="btn-primary">
-              <PlusIcon className="h-4 w-4" />
-              Build from recipes
-            </button>
-          </>
-        }
-      />
-
-      <ToolbarRow helper="Ingredients are automatically grouped by store aisle">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="flex-1">
-            <input
-              value={searchInput}
-              onChange={e => setSearchInput(e.target.value)}
-              className="input"
-              placeholder="Search lists by name..."
-              aria-label="Search lists by name"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <select
-              value={`${sortBy}:${sortOrder}`}
-              onChange={e => {
-                const [nextSort, nextOrder] = e.target.value.split(':') as [
-                  'created_at' | 'name',
-                  'desc' | 'asc',
-                ];
-                setPage(1);
-                setSortBy(nextSort);
-                setSortOrder(nextOrder);
-              }}
-              aria-label="Sort grocery lists"
-              className="input !w-auto min-w-[170px]"
-            >
-              <option value="created_at:desc">Newest first</option>
-              <option value="created_at:asc">Oldest first</option>
-              <option value="name:asc">Name (A–Z)</option>
-              <option value="name:desc">Name (Z–A)</option>
-            </select>
-          </div>
+    <div className="mx-auto max-w-4xl">
+      <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="page-title">Groceries</h1>
+          <p className="page-subtitle">Shop by aisle. Check things off as they go in the cart.</p>
         </div>
-      </ToolbarRow>
+        <button type="button" className="btn-primary" onClick={() => setShowNew(true)}>
+          <PlusIcon className="h-4 w-4" />
+          New list
+        </button>
+      </header>
 
-      {groceryLists.length === 0 && !searchQuery ? (
+      {status === 'loading' ? (
+        <SkeletonGrid count={4} variant="card" testId="grocery-loading" />
+      ) : status === 'error' ? (
+        <ErrorState
+          title="Couldn't load your lists"
+          description="Check your connection and try again."
+          onRetry={() => void load(1)}
+        />
+      ) : lists.length === 0 ? (
         <EmptyState
-          icon={<ShoppingCartIcon className="h-12 w-12" />}
-          title="Your shopping trip, sorted"
-          description="Pick a few recipes or start from a weekly meal plan to build your aisle-by-aisle list in seconds."
-          valueProp="We combine duplicate ingredients and organize by store aisle so you spend less time backtracking."
+          icon={<ShoppingBagIcon className="h-10 w-10" />}
+          title="No grocery lists yet"
+          description="Build one from this week's plan or a few recipes, and it's sorted by aisle for you."
           action={
-            <div className="flex flex-wrap items-center justify-center gap-3">
-              <button onClick={() => setShowCreateModal(true)} className="btn-primary">
-                <PlusIcon className="h-4 w-4" />
-                Build my first list
+            <div className="flex flex-wrap justify-center gap-2">
+              <button type="button" className="btn-primary" onClick={() => setShowNew(true)}>
+                New list
               </button>
               <Link to="/meal-plans" className="btn-secondary">
-                Build from Meal Plan
+                Go to meal plans
               </Link>
             </div>
           }
         />
-      ) : groceryLists.length === 0 ? (
-        <EmptyState
-          title="No grocery lists matched"
-          description="Try another search phrase or clear your filter."
-          variant="compact"
-          action={
-            <button
-              className="btn-secondary"
-              onClick={() => {
-                setSearchInput('');
-                setSearchQuery('');
-              }}
-            >
-              Clear search
-            </button>
-          }
-        />
       ) : (
-        <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {groceryLists.map(groceryList => {
-            const totalItems = groceryList.items.length;
-            const checkedItems = groceryList.items.filter(item => item.checked).length;
-            const pct = totalItems > 0 ? Math.round((checkedItems / totalItems) * 100) : 0;
-
-            const categoryCounts = groceryList.items.reduce<Record<string, number>>((acc, item) => {
-              const cat = item.category || 'Other';
-              acc[cat] = (acc[cat] || 0) + 1;
-              return acc;
-            }, {});
-            const categoryEntries = Object.entries(categoryCounts).slice(0, 4);
-            const remainingCategories = Math.max(0, Object.keys(categoryCounts).length - 4);
-
-            return (
-              <div
-                key={groceryList.id}
-                className="card card-hover flex flex-col justify-between p-6"
-              >
-                <div>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3.5 min-w-0">
-                      <div className="icon-container-premium icon-container-emerald shrink-0">
-                        <ShoppingCartIcon className="h-5 w-5 text-[#2F6F4E]" />
-                      </div>
-                      <div className="min-w-0">
-                        <h3 className="font-display text-xl font-semibold leading-snug text-[#1C1917] line-clamp-2">
-                          {groceryList.name || 'Grocery list'}
-                        </h3>
-                        <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-[#78716C]">
-                          <CalendarIcon className="h-3.5 w-3.5 shrink-0" />
-                          <span>Created {formatLocalDate(groceryList.created_at)}</span>
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => setListToDelete(groceryList)}
-                      disabled={deletingId === groceryList.id}
-                      className="icon-button-danger shrink-0"
-                      title={`Delete ${groceryList.name || 'grocery list'}`}
-                      aria-label={`Delete ${groceryList.name || 'grocery list'}`}
-                    >
-                      <TrashIcon className="h-4 w-4" />
-                    </button>
-                  </div>
-
-                  {groceryList.meal_plan_id && (
-                    <div className="mt-3">
-                      <Link
-                        to={`/meal-plans/${groceryList.meal_plan_id}`}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-[#C84B31]/25 bg-[#F9F1EA] px-3 py-1 text-xs font-semibold text-[#9A3412] hover:bg-[#F3E5D8] transition-colors"
-                      >
-                        <CalendarIcon className="h-3.5 w-3.5" />
-                        <span>Linked Meal Plan #{groceryList.meal_plan_id}</span>
-                      </Link>
-                    </div>
-                  )}
-
-                  {/* Completion Progress */}
-                  <div className="mt-5 rounded-2xl border border-[#E7E0D6] bg-[#FAF7F2] p-3.5">
-                    <div className="flex items-center justify-between text-xs font-semibold">
-                      <span className="text-[#57534E] tabular-nums">
-                        {checkedItems}/{totalItems} checked
-                      </span>
-                      <span className="font-mono text-[#2F6F4E] tabular-nums">{pct}%</span>
-                    </div>
-                    <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-[#E7E0D6]">
-                      <div
-                        className="h-full rounded-full bg-[#2F6F4E] transition-all duration-300"
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Category Preview Chips */}
-                  <div className="mt-4 flex flex-wrap gap-1.5">
-                    {categoryEntries.length > 0 ? (
-                      <>
-                        {categoryEntries.map(([cat, count]) => (
-                          <span key={cat} className="chip text-xs tabular-nums">
-                            {cat} ({count})
-                          </span>
-                        ))}
-                        {remainingCategories > 0 && (
-                          <span className="chip text-xs tabular-nums">
-                            +{remainingCategories} more
-                          </span>
-                        )}
-                      </>
-                    ) : (
-                      <span className="text-xs text-[#78716C] italic">No items added yet</span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="mt-6 pt-4 border-t border-[#E7E0D6]/80">
-                  <Link
-                    to={`/grocery/${groceryList.id}`}
-                    className="btn-secondary w-full justify-center"
-                  >
-                    <span>Open shopping list</span>
-                    <ArrowRightIcon className="h-4 w-4" />
-                  </Link>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {totalPages > 1 && (
-        <div className="mt-8 flex items-center justify-center gap-3">
-          <button
-            className="btn-secondary"
-            disabled={page === 1}
-            onClick={() => setPage(prev => Math.max(1, prev - 1))}
-          >
-            Previous
-          </button>
-          <span className="text-sm font-medium text-[#57534E] tabular-nums">
-            Page {page} of {totalPages}
-          </span>
-          <button
-            className="btn-secondary"
-            disabled={page === totalPages}
-            onClick={() => setPage(prev => Math.min(totalPages, prev + 1))}
-          >
-            Next
-          </button>
-        </div>
-      )}
-
-      {/* Create Modal */}
-      {showCreateModal && (
-        <ModalShell
-          size="lg"
-          title="Build a grocery list from recipes"
-          description="Select the recipes you want to shop for. Duplicate ingredients are merged automatically."
-          onClose={() => {
-            setShowCreateModal(false);
-            setSelectedRecipes([]);
-          }}
-          footer={
-            <>
+        <div className="space-y-8 animate-fade-in">
+          {active.length > 0 && (
+            <section aria-labelledby="active-heading">
+              <h2 id="active-heading" className="section-title mb-3">
+                To shop
+              </h2>
+              <ListGrid lists={active} onDelete={setListToDelete} />
+            </section>
+          )}
+          {done.length > 0 && (
+            <section aria-labelledby="done-heading">
+              <h2 id="done-heading" className="section-title mb-3">
+                Done
+              </h2>
+              <ListGrid lists={done} onDelete={setListToDelete} />
+            </section>
+          )}
+          {page < totalPages && (
+            <div className="flex justify-center">
               <button
-                onClick={() => {
-                  setShowCreateModal(false);
-                  setSelectedRecipes([]);
-                }}
+                type="button"
                 className="btn-secondary"
+                disabled={status === 'more'}
+                onClick={() => void load(page + 1)}
               >
-                Cancel
+                {status === 'more' ? 'Loading…' : 'Show older lists'}
               </button>
-              <button
-                onClick={handleCreateFromRecipes}
-                disabled={creating || selectedRecipes.length === 0}
-                className="btn-primary"
-              >
-                {creating ? 'Building...' : `Build list (${selectedRecipes.length} recipes)`}
-              </button>
-            </>
-          }
-        >
-          <div className="mt-3">
-            <div className="max-h-96 overflow-y-auto pr-1">
-              {recipes.length === 0 ? (
-                <p className="text-[#78716C] text-center py-8">
-                  No recipes yet.{' '}
-                  <Link to="/generate" className="text-[#C84B31] font-semibold hover:underline">
-                    Make a recipe
-                  </Link>
-                  .
-                </p>
-              ) : (
-                <div className="space-y-2.5">
-                  {recipes.map(recipe => {
-                    const isSelected = selectedRecipes.includes(recipe.id);
-                    return (
-                      <label
-                        key={recipe.id}
-                        className={`flex items-center p-3.5 border rounded-2xl cursor-pointer transition-colors ${
-                          isSelected
-                            ? 'border-[#C84B31]/40 bg-[#F9F1EA]/70'
-                            : 'border-[#E7E0D6] bg-white hover:bg-[#FAF7F2]'
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => toggleRecipeSelection(recipe.id)}
-                          className="h-4 w-4 rounded border-[#D6CEC2]"
-                          style={{ accentColor: 'var(--primary)' }}
-                        />
-                        <div className="ml-3 flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-[#1C1917] truncate">
-                            {recipe.name}
-                          </p>
-                          <p className="text-xs text-[#78716C] tabular-nums">
-                            {recipe.ingredients.length} ingredients
-                          </p>
-                        </div>
-                      </label>
-                    );
-                  })}
-                </div>
-              )}
             </div>
-          </div>
-        </ModalShell>
+          )}
+        </div>
+      )}
+
+      {showNew && (
+        <NewListDialog
+          creating={creating}
+          onCreate={request => void create(request)}
+          onClose={() => setShowNew(false)}
+        />
       )}
 
       <ConfirmDialog
         isOpen={Boolean(listToDelete)}
-        title="Delete grocery list?"
-        description="This permanently removes the list and all checked states."
+        title="Delete this list?"
+        description="The list and its items will be removed."
         confirmLabel="Delete list"
         tone="danger"
-        loading={deletingId !== null}
+        loading={deleting}
         onCancel={() => {
-          if (!deletingId) {
-            setListToDelete(null);
-          }
+          if (!deleting) setListToDelete(null);
         }}
-        onConfirm={handleDeleteGroceryList}
+        onConfirm={handleDelete}
       />
     </div>
+  );
+}
+
+function ListGrid({
+  lists,
+  onDelete,
+}: {
+  lists: GroceryList[];
+  onDelete: (list: GroceryList) => void;
+}) {
+  return (
+    <ul className="stagger grid gap-3 sm:grid-cols-2">
+      {lists.map(list => {
+        const total = list.items.length;
+        const checked = list.items.filter(item => item.checked).length;
+        const left = total - checked;
+        const percent = total ? Math.round((checked / total) * 100) : 0;
+        const aisles = groupByAisle(list.items.filter(item => !item.checked))
+          .slice(0, 3)
+          .map(group => group.aisle);
+        const done = total > 0 && left === 0;
+        return (
+          <li
+            key={list.id}
+            className="relative rounded-2xl border border-stone-200 bg-white p-4 shadow-xs transition hover:shadow-md"
+          >
+            <Link
+              to={`/grocery/${list.id}`}
+              className="block rounded-lg pr-10 focus:outline-none focus-visible:ring-4 focus-visible:ring-primary-soft"
+            >
+              <span className="block truncate font-semibold text-stone-900">{listTitle(list)}</span>
+              <span className="mt-0.5 flex items-center gap-1.5 text-sm text-stone-500">
+                {done ? (
+                  <>
+                    <CheckCircleSolidIcon className="h-4 w-4 text-primary" />
+                    All {total} items in the cart
+                  </>
+                ) : total === 0 ? (
+                  'Empty list'
+                ) : (
+                  `${left} of ${total} left${aisles.length ? ` · ${aisles.join(', ')}` : ''}`
+                )}
+              </span>
+              {total > 0 && (
+                <span className="progress-track mt-4 block h-1.5" aria-hidden="true">
+                  <span className="progress-bar block" style={{ width: `${percent}%` }} />
+                </span>
+              )}
+            </Link>
+            <div className="absolute right-2 top-2">
+              <OverflowMenu
+                label={`Actions for ${listTitle(list)}`}
+                buttonClassName="icon-button-muted h-9 w-9"
+                items={[
+                  {
+                    label: 'Delete list',
+                    icon: TrashIcon,
+                    tone: 'danger',
+                    onSelect: () => onDelete(list),
+                  },
+                ]}
+              />
+            </div>
+          </li>
+        );
+      })}
+    </ul>
   );
 }

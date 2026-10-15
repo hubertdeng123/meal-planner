@@ -3,13 +3,17 @@ from functools import lru_cache
 from typing import Literal, TypedDict
 
 from pydantic_ai import Agent, ToolOutput
+from pydantic_ai.models import Model
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 from app.core.config import settings
 from app.schemas.llm_response import RecipeLLM
+from app.agents.demo_model import DEMO_MODEL_NAME, build_demo_model
 from app.agents.recipe_deps import RecipeAgentDeps
 
 logger = logging.getLogger(__name__)
+
+OUTPUT_TOOL_NAME = "final_recipe"
 
 SYSTEM_PROMPT = """You are a professional chef and nutritionist. Generate detailed, delicious recipes.
 
@@ -31,13 +35,17 @@ QUALITY:
 - Create unique, creative recipes with interesting flavor combinations
 
 OUTPUT FORMAT (CRITICAL):
+- Call the final_recipe tool exactly once with the complete recipe
+- Fill the fields in schema order: name, description, cuisine, ingredients, instructions, then the rest
 - The `name` field must contain only the dish title
 - Do not prepend labels like "Recipe:", "Recipe Name:", or leading punctuation
 """
 
+ProviderName = Literal["grok", "together", "demo"]
+
 
 class RecipeAgentConfig(TypedDict):
-    provider: Literal["grok", "together"]
+    provider: ProviderName
     model: str
     base_url: str
     api_key: str
@@ -50,26 +58,49 @@ class RecipeAgentStatus(TypedDict):
     reason: str | None
 
 
+def _grok_config() -> RecipeAgentConfig:
+    return {
+        "provider": "grok",
+        "model": settings.GROK_MODEL,
+        "base_url": settings.GROK_BASE_URL,
+        "api_key": settings.GROK_API_KEY,
+    }
+
+
+def _together_config() -> RecipeAgentConfig:
+    return {
+        "provider": "together",
+        "model": settings.TOGETHER_MODEL,
+        "base_url": settings.TOGETHER_BASE_URL,
+        "api_key": settings.TOGETHER_API_KEY,
+    }
+
+
+def _demo_config() -> RecipeAgentConfig:
+    return {"provider": "demo", "model": DEMO_MODEL_NAME, "base_url": "", "api_key": ""}
+
+
+def _has_key(value: str | None) -> bool:
+    """True for a real-looking key; env.example placeholders count as missing."""
+    key = (value or "").strip()
+    return bool(key) and not (key.startswith("your-") and key.endswith("-here"))
+
+
 def _resolve_model_config() -> tuple[RecipeAgentConfig | None, str | None]:
     provider = settings.LLM_PROVIDER
-    has_grok = bool(settings.GROK_API_KEY and settings.GROK_API_KEY.strip())
-    has_together = bool(settings.TOGETHER_API_KEY and settings.TOGETHER_API_KEY.strip())
+    has_grok = _has_key(settings.GROK_API_KEY)
+    has_together = _has_key(settings.TOGETHER_API_KEY)
+    is_production = settings.is_production
+
+    if provider == "demo":
+        if is_production:
+            return None, "LLM_PROVIDER 'demo' is not allowed in production."
+        return _demo_config(), None
 
     if provider == "grok":
         if not has_grok:
-            return (
-                None,
-                "LLM_PROVIDER is set to 'grok' but GROK_API_KEY is missing.",
-            )
-        return (
-            {
-                "provider": "grok",
-                "model": settings.GROK_MODEL,
-                "base_url": settings.GROK_BASE_URL,
-                "api_key": settings.GROK_API_KEY,
-            },
-            None,
-        )
+            return None, "LLM_PROVIDER is set to 'grok' but GROK_API_KEY is missing."
+        return _grok_config(), None
 
     if provider == "together":
         if not has_together:
@@ -77,42 +108,17 @@ def _resolve_model_config() -> tuple[RecipeAgentConfig | None, str | None]:
                 None,
                 "LLM_PROVIDER is set to 'together' but TOGETHER_API_KEY is missing.",
             )
-        return (
-            {
-                "provider": "together",
-                "model": settings.TOGETHER_MODEL,
-                "base_url": settings.TOGETHER_BASE_URL,
-                "api_key": settings.TOGETHER_API_KEY,
-            },
-            None,
-        )
+        return _together_config(), None
 
-    # auto: prefer Grok if configured, else Together.
+    # auto: prefer Grok, then Together, then the offline demo model outside production.
     if has_grok:
-        return (
-            {
-                "provider": "grok",
-                "model": settings.GROK_MODEL,
-                "base_url": settings.GROK_BASE_URL,
-                "api_key": settings.GROK_API_KEY,
-            },
-            None,
-        )
+        return _grok_config(), None
     if has_together:
-        return (
-            {
-                "provider": "together",
-                "model": settings.TOGETHER_MODEL,
-                "base_url": settings.TOGETHER_BASE_URL,
-                "api_key": settings.TOGETHER_API_KEY,
-            },
-            None,
-        )
+        return _together_config(), None
+    if not is_production:
+        return _demo_config(), None
 
-    return (
-        None,
-        "No LLM API key configured. Set GROK_API_KEY or TOGETHER_API_KEY.",
-    )
+    return None, "No LLM API key configured. Set GROK_API_KEY or TOGETHER_API_KEY."
 
 
 def get_recipe_agent_status() -> RecipeAgentStatus:
@@ -132,14 +138,20 @@ def get_recipe_agent_status() -> RecipeAgentStatus:
     }
 
 
-def _build_recipe_agent(config: RecipeAgentConfig) -> Agent:
-    model = OpenAIChatModel(
+def _build_model(config: RecipeAgentConfig) -> Model:
+    if config["provider"] == "demo":
+        return build_demo_model(delay_scale=settings.DEMO_LLM_DELAY_SCALE)
+    return OpenAIChatModel(
         config["model"],
         provider=OpenAIProvider(
             base_url=config["base_url"],
             api_key=config["api_key"],
         ),
     )
+
+
+def build_recipe_agent(model: Model) -> Agent[RecipeAgentDeps, RecipeLLM]:
+    """Create the recipe agent around ``model`` (also used by tests)."""
     return Agent(
         model=model,
         deps_type=RecipeAgentDeps,
@@ -148,7 +160,7 @@ def _build_recipe_agent(config: RecipeAgentConfig) -> Agent:
         output_retries=4,
         output_type=ToolOutput(
             RecipeLLM,
-            name="final_recipe",
+            name=OUTPUT_TOOL_NAME,
             strict=True,
         ),
         system_prompt=SYSTEM_PROMPT,
@@ -156,7 +168,7 @@ def _build_recipe_agent(config: RecipeAgentConfig) -> Agent:
 
 
 @lru_cache(maxsize=1)
-def get_recipe_agent() -> Agent:
+def get_recipe_agent() -> Agent[RecipeAgentDeps, RecipeLLM]:
     config, reason = _resolve_model_config()
     if config is None:
         raise RuntimeError(reason or "Recipe generation is not configured.")
@@ -165,10 +177,6 @@ def get_recipe_agent() -> Agent:
         "Recipe agent provider=%s model=%s base_url=%s",
         config["provider"],
         config["model"],
-        config["base_url"],
+        config["base_url"] or "-",
     )
-    return _build_recipe_agent(config)
-
-
-# Note: Tools are disabled - user context is prefetched and included in the prompt
-# This avoids LLM tool-calling latency and duplicate calls
+    return build_recipe_agent(_build_model(config))

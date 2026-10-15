@@ -45,3 +45,40 @@ class RecipeLLM(BaseModel):
     source_urls: list[str] = Field(
         default_factory=list, description="Source URLs if any"
     )
+
+
+class IngredientDraft(BaseModel):
+    """An ingredient that may still be mid-stream."""
+
+    name: str | None = None
+    quantity: float | None = None
+    unit: str | None = None
+    notes: str | None = None
+
+
+class NutritionDraft(BaseModel):
+    """Nutrition facts that may still be mid-stream."""
+
+    calories: float | None = None
+    protein_g: float | None = None
+    carbs_g: float | None = None
+    fat_g: float | None = None
+    fiber_g: float | None = None
+    sugar_g: float | None = None
+    sodium_mg: float | None = None
+
+
+class RecipeDraft(BaseModel):
+    """`RecipeLLM` with every field optional, used for partial snapshots while streaming."""
+
+    name: str | None = None
+    description: str | None = None
+    cuisine: str | None = None
+    ingredients: list[IngredientDraft] | None = None
+    instructions: list[str] | None = None
+    prep_time_minutes: int | None = None
+    cook_time_minutes: int | None = None
+    servings: int | None = None
+    tags: list[str] | None = None
+    nutrition: NutritionDraft | None = None
+    source_urls: list[str] | None = None

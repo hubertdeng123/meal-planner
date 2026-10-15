@@ -62,9 +62,10 @@ Replace all user preferences.
 ## Recipes (`/api/v1/recipes`)
 
 ### POST `/recipes/generate/stream`
-Generate a recipe with AI streaming.
+Generate a recipe, streaming progress as Server-Sent Events (streaming contract v2; the
+contract of record is `docs/redesign/README.md`).
 
-- **Request Body**:
+- **Request Body** (`RecipeGenerationRequest`):
   ```json
   {
     "meal_type": "dinner",
@@ -80,25 +81,60 @@ Generate a recipe with AI streaming.
   }
   ```
   All fields optional except `servings` (default: 4).
-- **Response**: `text/event-stream` (SSE)
-- **SSE Event Types**:
-  | Type | Payload | Description |
-  |------|---------|-------------|
-  | `status` | `{message}` | Progress updates |
-  | `thinking_start` | — | LLM reasoning begins |
-  | `thinking` | `{content}` | Reasoning token chunk |
-  | `thinking_end` | — | Reasoning complete |
-  | `recipe_start` | — | Recipe output begins |
-  | `recipe_name` | `{content: "name"}` | Recipe name |
-  | `recipe_description` | `{content: "desc"}` | Description |
-  | `recipe_metadata` | `{content: {prep_time, cook_time, servings}}` | Timing info |
-  | `ingredients_start` | — | Ingredients section |
-  | `ingredient` | `{content: {name, quantity, unit, notes}}` | Single ingredient |
-  | `instructions_start` | — | Instructions section |
-  | `instruction` | `{step, content}` | Single step |
-  | `nutrition` | `{content: NutritionFacts}` | Nutrition data |
-  | `complete` | `{recipe_id, message}` | Generation done, recipe saved |
-  | `error` | `{message}` | Error occurred |
+- **Response**: `200 text/event-stream`. Every frame is a named event with a JSON payload:
+  ```
+  event: <type>
+  data: <json>
+
+  ```
+  | Event | Payload | Notes |
+  |-------|---------|-------|
+  | `stage` | `{stage: "context" \| "thinking" \| "drafting" \| "saving", message}` | Pipeline moved to a new stage. Always starts with `context`; stages only move forward; `thinking` is skipped when the model emits no reasoning. |
+  | `thinking` | `{delta}` | Model reasoning text as it arrives (native PydanticAI `ThinkingPart` deltas; `<think>` tags and `reasoning_content` are converted by PydanticAI). Zero or more. |
+  | `draft` | `{recipe: RecipeDraft}` | Full snapshot of the partially written recipe (not a diff), at most ~10/s. `RecipeDraft` is `RecipeLLM` with every field optional and `null` fields omitted; lists grow and their last element may be incomplete. |
+  | `complete` | `{recipe: Recipe}` | Terminal. Saved recipe, identical to `GET /recipes/{id}`. |
+  | `error` | `{message, retryable}` | Terminal. `message` is user-safe (details are logged server-side). |
+  | `ping` | `{}` | Keep-alive after ~15s without other frames. Ignore. |
+
+  Typical order: `stage(context)` → `stage(thinking)` → `thinking`* → `stage(drafting)` →
+  `draft`+ → `stage(saving)` → `complete`. If the client disconnects, the model run is
+  cancelled and nothing is saved.
+- **Errors before the stream starts**: 401 (missing/invalid token), 422 (invalid body),
+  503 `{"detail": "Recipe generation isn't available right now."}` when no LLM provider can be
+  resolved (only possible in production, or when `LLM_PROVIDER` names a provider without a key).
+- **In-stream `error` messages**:
+  | Cause | `retryable` |
+  |-------|-------------|
+  | Provider 429 / 5xx / network failure / timeout (`RECIPE_GENERATION_TIMEOUT_SECONDS`, default 120) | `true` |
+  | Model output failed validation after retries | `true` |
+  | Database error while saving | `true` |
+  | Provider 401/403 (bad server credentials) | `false` |
+- **Example**:
+  ```
+  event: stage
+  data: {"stage":"context","message":"Reading your preferences and kitchen"}
+
+  event: stage
+  data: {"stage":"thinking","message":"Thinking through the recipe"}
+
+  event: thinking
+  data: {"delta":"The brief is "}
+
+  event: stage
+  data: {"stage":"drafting","message":"Writing the recipe"}
+
+  event: draft
+  data: {"recipe":{"name":"Thai Basil Tofu Stir-Fry","description":"Pad krapow-sty"}}
+
+  event: stage
+  data: {"stage":"saving","message":"Saving to your recipes"}
+
+  event: complete
+  data: {"recipe":{"id":42,"name":"Thai Basil Tofu Stir-Fry", ...}}
+  ```
+- **Providers**: `LLM_PROVIDER` = `auto` (default) | `grok` | `together` | `demo`. `auto`
+  prefers Grok, then Together, then the offline `demo` model when `ENVIRONMENT` is not
+  production. `GET /health` reports the resolved `llm_provider` / `llm_model`.
 
 ### GET `/recipes/`
 Get user's recipes (simple list).
@@ -115,10 +151,25 @@ Get paginated recipes with search and filters.
   | `page` | int (>=1) | 1 | Page number |
   | `page_size` | int (1-100) | 12 | Items per page |
   | `q` | string | — | Search name/description |
-  | `tags` | string[] | — | Filter by tags |
-  | `sort` | `created_at` \| `name` | `created_at` | Sort field |
+  | `tags` | string[] | — | Filter by tags (all must match) |
+  | `cuisine` | string | — | Case-insensitive exact cuisine match |
+  | `favorites` | bool | `false` | Only recipes the user liked or rated 4+ |
+  | `sort` | `created_at` \| `name` \| `total_minutes` | `created_at` | Sort field (ties broken by `id`) |
   | `order` | `asc` \| `desc` | `desc` | Sort direction |
 - **Response**: `PaginatedRecipes` (`{items, page, page_size, total, total_pages}`)
+
+### GET `/recipes/facets`
+Cuisine and tag counts across all of the user's recipes, most common first (labels are
+grouped case-insensitively). Useful for filter chips.
+
+- **Response**:
+  ```json
+  {
+    "cuisines": [{"value": "Thai", "count": 3}],
+    "tags": [{"value": "quick", "count": 5}, {"value": "vegan", "count": 2}],
+    "total": 7
+  }
+  ```
 
 ### GET `/recipes/{recipe_id}`
 Get a specific recipe.
@@ -137,6 +188,12 @@ Delete a recipe and associated feedback/meal plan items.
 
 - **Response**: `{"detail": "Recipe deleted successfully"}`
 
+### GET `/recipes/{recipe_id}/feedback`
+Get the current user's feedback for a recipe.
+
+- **Response**: `RecipeFeedback`, or `null` if none has been left
+- **Errors**: 404 if the recipe is not found or not owned by user
+
 ### POST `/recipes/{recipe_id}/feedback`
 Add or update feedback for a recipe.
 
@@ -148,9 +205,41 @@ Add or update feedback for a recipe.
     "notes": "Delicious!"
   }
   ```
-  All fields optional.
+  `liked` is required; `rating` (1-5) and `notes` are optional.
 - **Response**: `RecipeFeedback`
-- **Notes**: Upserts — updates existing feedback if already given
+- **Notes**: Upserts — replaces existing feedback if already given
+
+### DELETE `/recipes/{recipe_id}/feedback`
+Remove the current user's feedback (no-op if there is none).
+
+- **Response**: 204
+
+### `Recipe` schema
+```json
+{
+  "id": 42,
+  "user_id": 1,
+  "name": "Thai Basil Tofu Stir-Fry",
+  "description": "string | null",
+  "cuisine": "Thai",
+  "difficulty": "easy",
+  "instructions": ["..."],
+  "ingredients": [{"name": "firm tofu", "quantity": 300, "unit": "g", "notes": null}],
+  "prep_time_minutes": 10,
+  "cook_time_minutes": 15,
+  "total_minutes": 25,
+  "servings": 2,
+  "tags": ["vegetarian"],
+  "nutrition": {"calories": 450, "protein_g": 25, "carbs_g": 50, "fat_g": 15, "fiber_g": 3, "sugar_g": 4, "sodium_mg": 700},
+  "source": "ai_generated",
+  "source_urls": [],
+  "image_url": null,
+  "created_at": "2026-10-14T04:22:39",
+  "feedback": null
+}
+```
+`total_minutes` is `prep + cook` (null when both are null). `feedback` is the current user's
+`RecipeFeedback` or `null`, embedded on every endpoint that returns `Recipe`.
 
 ---
 
@@ -497,4 +586,4 @@ Reset all preferences to defaults.
 | 422 | Unprocessable Entity (Pydantic validation) |
 | 429 | Too Many Requests (rate limited) |
 | 500 | Internal Server Error |
-| 503 | Service Unavailable (SMTP down) |
+| 503 | Service Unavailable (SMTP down, or no LLM provider configured) |

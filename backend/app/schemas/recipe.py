@@ -60,19 +60,6 @@ class RecipeUpdate(BaseModel):
     tags: list[str] | None = None
 
 
-class Recipe(RecipeBase):
-    id: int
-    user_id: int
-    nutrition: NutritionFacts
-    source: str
-    source_urls: list[str] = []  # Changed from source_url to support multiple sources
-    image_url: str | None = None
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
-
-
 class RecipeFeedbackCreate(BaseModel):
     liked: bool
     rating: int | None = Field(default=None, ge=1, le=5)
@@ -88,6 +75,38 @@ class RecipeFeedback(RecipeFeedbackCreate):
 
     class Config:
         from_attributes = True
+
+
+class Recipe(RecipeBase):
+    id: int
+    user_id: int
+    nutrition: NutritionFacts
+    source: str | None = None
+    source_urls: list[str] = []  # Changed from source_url to support multiple sources
+    image_url: str | None = None
+    created_at: datetime
+    cuisine: str | None = None
+    difficulty: str | None = None
+    total_minutes: int | None = Field(
+        default=None, description="prep + cook minutes; null when neither is known"
+    )
+    feedback: RecipeFeedback | None = Field(
+        default=None, description="The current user's feedback on this recipe"
+    )
+
+    class Config:
+        from_attributes = True
+
+
+class RecipeFacet(BaseModel):
+    value: str
+    count: int
+
+
+class RecipeFacets(BaseModel):
+    cuisines: list[RecipeFacet]
+    tags: list[RecipeFacet]
+    total: int
 
 
 class RecipeGenerationRequest(BaseModel):

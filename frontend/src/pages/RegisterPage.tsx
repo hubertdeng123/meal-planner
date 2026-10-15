@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  ExclamationCircleIcon,
-  SparklesIcon,
-  HungryHelperLogo,
+  CheckIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  CheckCircleIcon,
+  ExclamationCircleIcon,
+  SparklesIcon,
 } from '../components/ui/AppIcons';
+import { AuthLayout } from '../components/AuthLayout';
+import { Spinner } from '../components/ui/PageLoader';
 import authService from '../services/auth.service';
 import { useAuth } from '../hooks/useAuth';
 import type { UserCreate, UserPreferences, APIError } from '../types';
@@ -31,23 +32,18 @@ const COMMON_DIETARY_RESTRICTIONS = [
   'Nut-Free',
 ];
 
-const STEP_META = [
-  {
-    title: 'Account Details',
-    subtitle: 'Set up your personal kitchen credentials',
-    shortLabel: 'Account',
-  },
-  {
-    title: 'Taste Profile',
-    subtitle: 'Tell us your favorite cuisines and dietary needs (optional)',
-    shortLabel: 'Taste Profile',
-  },
-  {
-    title: 'Dietary Rules & Pace',
-    subtitle: 'Choose your ideal weeknight cooking rhythm (optional)',
-    shortLabel: 'Dietary Rules',
-  },
+const STEP_TITLES = ['Create your account', 'Taste profile', 'Fine-tune it'];
+const STEP_SUBTITLES = [
+  'It takes less than a minute.',
+  'Tell us your flavor compass (optional).',
+  'Optional tweaks for extra finesse.',
 ];
+
+const COMPLEXITY_OPTIONS = [
+  { value: 'simple', label: 'Simple', hint: '15-30 min' },
+  { value: 'medium', label: 'Medium', hint: '30-60 min' },
+  { value: 'complex', label: 'Ambitious', hint: '60+ min' },
+] as const;
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -119,24 +115,7 @@ export default function RegisterPage() {
     setStep(2);
   };
 
-  const handleSkipToRegistration = async () => {
-    setError('');
-    setLoading(true);
-
-    try {
-      await authService.register(userData, preferences);
-      await authService.login({ email: userData.email, password: userData.password });
-      login();
-      navigate('/dashboard');
-    } catch (err: unknown) {
-      const apiError = err as APIError;
-      setError(apiError.response?.data?.detail || 'Registration failed. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleFinalSubmit = async () => {
+  const completeRegistration = async () => {
     setError('');
     setLoading(true);
 
@@ -164,78 +143,49 @@ export default function RegisterPage() {
     return array.includes(item) ? array.filter(i => i !== item) : [...array, item];
   };
 
-  const renderProgressBar = () => {
-    const currentMeta = STEP_META[step - 1];
-    return (
-      <div className="mb-8 border-b border-[#E7E0D6] pb-6">
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[#C84B31]">
-            Step {step} of {STEP_META.length}
-          </span>
-          <span className="text-xs font-medium tabular-nums text-[#78716C]">
-            {Math.round((step / STEP_META.length) * 100)}% Complete
-          </span>
-        </div>
+  const renderStepper = () => (
+    <ol className="mb-8 flex items-center gap-2" aria-label="Sign-up progress">
+      {STEP_TITLES.map((title, index) => {
+        const number = index + 1;
+        const isDone = number < step;
+        const isCurrent = number === step;
+        return (
+          <li key={title} className="flex flex-1 items-center gap-2">
+            <span
+              className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-colors ${
+                isDone
+                  ? 'bg-primary text-white'
+                  : isCurrent
+                    ? 'bg-stone-900 text-white'
+                    : 'bg-stone-200 text-stone-500'
+              }`}
+              aria-current={isCurrent ? 'step' : undefined}
+            >
+              {isDone ? <CheckIcon className="h-3.5 w-3.5" /> : number}
+            </span>
+            {index < STEP_TITLES.length - 1 && (
+              <span
+                className={`h-px flex-1 transition-colors ${isDone ? 'bg-primary' : 'bg-stone-200'}`}
+              />
+            )}
+          </li>
+        );
+      })}
+    </ol>
+  );
 
-        {/* Visual Step Progress Bar */}
-        <div className="w-full bg-[#F3EFE6] rounded-full h-2 overflow-hidden">
-          <div
-            className="h-2 rounded-full bg-[#C84B31] transition-all duration-300"
-            style={{
-              width: `${(step / STEP_META.length) * 100}%`,
-            }}
-          />
-        </div>
-
-        {/* Step Pill Indicators */}
-        <div className="mt-4 grid grid-cols-3 gap-2">
-          {STEP_META.map((item, idx) => {
-            const stepNumber = idx + 1;
-            const isCurrent = step === stepNumber;
-            const isDone = step > stepNumber;
-            return (
-              <div
-                key={item.shortLabel}
-                className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-medium transition-colors ${
-                  isCurrent
-                    ? 'border-[#C84B31]/40 bg-[#F9F1EA] text-[#1C1917]'
-                    : isDone
-                      ? 'border-[#3F624D]/30 bg-[#ECF5F0] text-[#2F6F4E]'
-                      : 'border-[#E7E0D6] bg-[#FAF7F2] text-[#78716C]'
-                }`}
-              >
-                <span
-                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold tabular-nums ${
-                    isCurrent
-                      ? 'bg-[#C84B31] text-white'
-                      : isDone
-                        ? 'bg-[#2F6F4E] text-white'
-                        : 'bg-[#E7E0D6] text-[#57534E]'
-                  }`}
-                >
-                  {stepNumber}
-                </span>
-                <span className="truncate">{item.shortLabel}</span>
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="mt-6">
-          <h2 className="font-display text-2xl sm:text-3xl font-semibold text-[#1C1917]">
-            {currentMeta.title}
-          </h2>
-          <p className="mt-1.5 text-sm text-[#57534E]">{currentMeta.subtitle}</p>
-        </div>
-      </div>
-    );
-  };
+  const chipClass = (selected: boolean) =>
+    `relative flex cursor-pointer items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-sm font-medium transition-all ${
+      selected
+        ? 'border-primary bg-primary-soft text-primary-ink'
+        : 'border-stone-200 bg-white text-stone-700 hover:border-stone-300'
+    }`;
 
   const renderAccountDetails = () => (
     <form onSubmit={handleUserDataSubmit} className="space-y-5">
       <div>
-        <label htmlFor="email" className="block text-sm font-semibold text-[#1C1917] mb-2">
-          Email Address
+        <label htmlFor="email" className="label">
+          Email address
         </label>
         <input
           type="email"
@@ -245,13 +195,13 @@ export default function RegisterPage() {
           required
           value={userData.email}
           onChange={handleUserDataChange}
+          className="input py-3"
           placeholder="you@example.com"
-          className="input"
         />
       </div>
 
       <div>
-        <label htmlFor="username" className="block text-sm font-semibold text-[#1C1917] mb-2">
+        <label htmlFor="username" className="label">
           Username
         </label>
         <input
@@ -262,13 +212,13 @@ export default function RegisterPage() {
           required
           value={userData.username}
           onChange={handleUserDataChange}
-          placeholder="How should we greet you?"
-          className="input"
+          className="input py-3"
+          placeholder="homecook"
         />
       </div>
 
       <div>
-        <label htmlFor="password" className="block text-sm font-semibold text-[#1C1917] mb-2">
+        <label htmlFor="password" className="label">
           Password
         </label>
         <input
@@ -279,41 +229,29 @@ export default function RegisterPage() {
           required
           value={userData.password}
           onChange={handleUserDataChange}
-          placeholder="Create a password"
-          className="input"
+          className="input py-3"
         />
-        <p className="mt-1.5 text-xs text-[#78716C]">Minimum 6 characters</p>
+        <p className="helper-text">Minimum 6 characters</p>
       </div>
 
-      <div className="pt-2">
-        <button type="submit" className="w-full btn-primary py-3 text-base">
-          Continue to Taste Profile
-          <ChevronRightIcon className="ml-1.5 h-5 w-5" />
-        </button>
-      </div>
+      <button type="submit" className="btn-primary btn-lg w-full">
+        Continue
+        <ChevronRightIcon className="h-4 w-4" />
+      </button>
     </form>
   );
 
   const renderBasicPreferences = () => (
     <div className="space-y-7">
-      {/* Cuisines */}
-      <div>
-        <label className="block text-sm font-semibold text-[#1C1917] mb-3">
-          What cuisines make you happy?{' '}
-          <span className="font-normal text-[#78716C]">(Pick any)</span>
-        </label>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <fieldset>
+        <legend className="label">
+          What cuisines make you happy? <span className="font-normal text-stone-500">Pick any</span>
+        </legend>
+        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
           {TOP_CUISINES.map(cuisine => {
             const isSelected = preferences.food_preferences.cuisines.includes(cuisine);
             return (
-              <label
-                key={cuisine}
-                className={`relative flex min-h-[48px] items-center justify-center rounded-2xl border px-4 py-3 cursor-pointer transition-all duration-150 ${
-                  isSelected
-                    ? 'border-[#C84B31] bg-[#F9F1EA] text-[#B83B22] shadow-xs'
-                    : 'border-[#E7E0D6] bg-white text-[#1C1917] hover:border-[#D6CEC2] hover:bg-[#FAF7F2]'
-                }`}
-              >
+              <label key={cuisine} className={chipClass(isSelected)}>
                 <input
                   type="checkbox"
                   checked={isSelected}
@@ -328,33 +266,23 @@ export default function RegisterPage() {
                   }
                   className="sr-only"
                 />
-                {isSelected && (
-                  <CheckCircleIcon className="absolute top-2 right-2 h-4 w-4 text-[#C84B31]" />
-                )}
-                <span className="text-sm font-semibold">{cuisine}</span>
+                {isSelected && <CheckIcon className="h-3.5 w-3.5" />}
+                {cuisine}
               </label>
             );
           })}
         </div>
-      </div>
+      </fieldset>
 
-      {/* Dietary Restrictions */}
-      <div>
-        <label className="block text-sm font-semibold text-[#1C1917] mb-3">
-          Any dietary restrictions? <span className="font-normal text-[#78716C]">(Optional)</span>
-        </label>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+      <fieldset>
+        <legend className="label">
+          Any dietary restrictions? <span className="font-normal text-stone-500">Optional</span>
+        </legend>
+        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
           {COMMON_DIETARY_RESTRICTIONS.map(restriction => {
             const isSelected = preferences.dietary_restrictions.includes(restriction);
             return (
-              <label
-                key={restriction}
-                className={`relative flex min-h-[48px] items-center justify-center rounded-2xl border px-4 py-3 cursor-pointer transition-all duration-150 ${
-                  isSelected
-                    ? 'border-[#3F624D] bg-[#ECF5F0] text-[#2F6F4E] shadow-xs'
-                    : 'border-[#E7E0D6] bg-white text-[#1C1917] hover:border-[#D6CEC2] hover:bg-[#FAF7F2]'
-                }`}
-              >
+              <label key={restriction} className={chipClass(isSelected)}>
                 <input
                   type="checkbox"
                   checked={isSelected}
@@ -366,41 +294,31 @@ export default function RegisterPage() {
                   }
                   className="sr-only"
                 />
-                {isSelected && (
-                  <CheckCircleIcon className="absolute top-2 right-2 h-4 w-4 text-[#2F6F4E]" />
-                )}
-                <span className="text-sm font-semibold">{restriction}</span>
+                {isSelected && <CheckIcon className="h-3.5 w-3.5" />}
+                {restriction}
               </label>
             );
           })}
         </div>
-      </div>
+      </fieldset>
 
-      <div className="flex flex-col sm:flex-row gap-3 pt-2">
-        <button
-          type="button"
-          onClick={() => setStep(1)}
-          className="btn-secondary flex items-center justify-center py-3"
-        >
-          <ChevronLeftIcon className="mr-1.5 h-5 w-5" />
+      <div className="flex gap-3 pt-2">
+        <button type="button" onClick={() => setStep(1)} className="btn-secondary btn-lg">
+          <ChevronLeftIcon className="h-4 w-4" />
           Back
         </button>
-        <button
-          type="button"
-          onClick={() => setStep(3)}
-          className="flex-1 btn-primary flex items-center justify-center py-3"
-        >
+        <button type="button" onClick={() => setStep(3)} className="btn-primary btn-lg flex-1">
           Continue
-          <ChevronRightIcon className="ml-1.5 h-5 w-5" />
+          <ChevronRightIcon className="h-4 w-4" />
         </button>
       </div>
 
-      <div className="text-center pt-1">
+      <div className="text-center">
         <button
           type="button"
-          onClick={handleSkipToRegistration}
+          onClick={completeRegistration}
           disabled={loading}
-          className="text-sm font-semibold text-[#C84B31] hover:text-[#B83B22] underline underline-offset-4 transition-colors"
+          className="text-sm font-medium text-stone-500 underline-offset-4 hover:text-stone-800 hover:underline"
         >
           {loading ? 'Setting things up...' : 'Skip for now, finish later'}
         </button>
@@ -410,39 +328,27 @@ export default function RegisterPage() {
 
   const renderOptionalPreferences = () => (
     <div className="space-y-6">
-      {/* Info box */}
-      <div className="rounded-2xl border border-[#3F624D]/25 bg-[#ECF5F0] p-4">
-        <div className="flex items-start gap-3">
-          <SparklesIcon className="h-5 w-5 text-[#2F6F4E] mt-0.5 shrink-0" />
-          <div>
-            <p className="text-sm font-semibold text-[#1C1917]">
-              You can customize all preferences anytime
-            </p>
-            <p className="text-sm text-[#57534E] mt-1">
-              Skip this step and fine-tune your full culinary profile in Settings whenever you like.
-            </p>
-          </div>
+      <div className="flex items-start gap-3 rounded-xl border border-primary/15 bg-primary-soft p-4">
+        <SparklesIcon className="mt-0.5 h-5 w-5 flex-shrink-0 text-primary" />
+        <div>
+          <p className="text-sm font-semibold text-primary-ink">
+            You can customize everything later
+          </p>
+          <p className="mt-0.5 text-sm text-primary-ink opacity-80">
+            We'll start with easy defaults. Fine-tune ingredients, nutrition, and schedule in
+            Settings.
+          </p>
         </div>
       </div>
 
-      {/* Meal Complexity Preference */}
-      <div>
-        <label className="block text-sm font-semibold text-[#1C1917] mb-3">
-          How ambitious are you feeling on weeknights?
-        </label>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {(['simple', 'medium', 'complex'] as const).map(complexity => {
+      <fieldset>
+        <legend className="label">How ambitious are you feeling?</legend>
+        <div className="mt-2 grid grid-cols-3 gap-2">
+          {COMPLEXITY_OPTIONS.map(option => {
             const isSelected =
-              preferences.food_type_rules.meal_complexity_preference === complexity;
+              preferences.food_type_rules.meal_complexity_preference === option.value;
             return (
-              <label
-                key={complexity}
-                className={`relative flex flex-col items-center justify-center rounded-2xl border px-4 py-4 cursor-pointer transition-all duration-150 ${
-                  isSelected
-                    ? 'border-[#C84B31] bg-[#F9F1EA] shadow-xs'
-                    : 'border-[#E7E0D6] bg-white hover:border-[#D6CEC2] hover:bg-[#FAF7F2]'
-                }`}
-              >
+              <label key={option.value} className={`${chipClass(isSelected)} flex-col py-3.5`}>
                 <input
                   type="radio"
                   name="complexity"
@@ -452,114 +358,96 @@ export default function RegisterPage() {
                       ...prev,
                       food_type_rules: {
                         ...prev.food_type_rules,
-                        meal_complexity_preference: complexity,
+                        meal_complexity_preference: option.value,
                       },
                     }))
                   }
                   className="sr-only"
                 />
-                <span className="text-sm font-semibold capitalize text-[#1C1917]">
-                  {complexity}
-                </span>
-                <span className="text-xs text-[#57534E] mt-1 text-center tabular-nums">
-                  {complexity === 'simple' && '15–30 min'}
-                  {complexity === 'medium' && '30–60 min'}
-                  {complexity === 'complex' && '60+ min'}
-                </span>
+                <span className="font-semibold">{option.label}</span>
+                <span className="text-xs font-normal opacity-70">{option.hint}</span>
               </label>
             );
           })}
         </div>
-      </div>
+      </fieldset>
 
-      {/* Action buttons */}
-      <div className="flex flex-col gap-3 pt-3">
+      <div className="flex gap-3 pt-2">
         <button
           type="button"
-          onClick={handleFinalSubmit}
+          onClick={() => setStep(2)}
+          className="btn-secondary btn-lg"
           disabled={loading}
-          className="w-full btn-primary flex items-center justify-center py-3 text-base"
+        >
+          <ChevronLeftIcon className="h-4 w-4" />
+          Back
+        </button>
+        <button
+          type="button"
+          onClick={completeRegistration}
+          disabled={loading}
+          className="btn-primary btn-lg flex-1"
         >
           {loading ? (
             <>
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2" />
+              <Spinner className="h-4 w-4" />
               Setting things up...
             </>
           ) : (
             <>
               Create account
-              <ChevronRightIcon className="ml-1.5 h-5 w-5" />
+              <ChevronRightIcon className="h-4 w-4" />
             </>
           )}
         </button>
-
-        <button
-          type="button"
-          onClick={() => setStep(2)}
-          className="btn-secondary flex items-center justify-center py-2.5"
-          disabled={loading}
-        >
-          <ChevronLeftIcon className="mr-1.5 h-5 w-5" />
-          Back
-        </button>
-
-        <button
-          type="button"
-          onClick={handleSkipToRegistration}
-          disabled={loading}
-          className="w-full py-3 px-4 rounded-2xl border border-dashed border-[#D6CEC2] bg-[#FAF7F2] text-sm font-semibold text-[#57534E] hover:border-[#78716C] hover:bg-white hover:text-[#1C1917] transition-all"
-        >
-          Skip for now — I'll finish in Settings
-        </button>
       </div>
+
+      <button
+        type="button"
+        onClick={completeRegistration}
+        disabled={loading}
+        className="w-full rounded-xl border border-dashed border-stone-300 px-4 py-3 text-sm font-medium text-stone-600 transition-colors hover:border-stone-400 hover:bg-white"
+      >
+        Skip for now - I'll finish in Settings
+      </button>
     </div>
   );
 
   return (
-    <div className="app-shell flex min-h-screen items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-2xl w-full">
-        {/* Editorial Brand Header */}
-        <div className="text-center mb-8">
-          <Link to="/login" className="inline-flex items-center gap-3 mb-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#C84B31] text-white shadow-xs">
-              <HungryHelperLogo size={28} />
-            </div>
-            <span className="font-display text-3xl font-semibold text-[#1C1917]">
-              Hungry Helper
-            </span>
-          </Link>
-          <p className="text-sm sm:text-base text-[#57534E]">
-            Your bespoke culinary concierge — set up your kitchen in three quick steps.
-          </p>
-        </div>
-
-        {/* Main Onboarding Card */}
-        <div className="surface p-6 sm:p-10">
-          {renderProgressBar()}
-
-          {error && (
-            <div className="mb-6 rounded-2xl border border-[#B91C1C]/25 bg-[#FEE2E2]/70 p-4 flex items-start gap-3">
-              <ExclamationCircleIcon className="h-5 w-5 text-[#B91C1C] mt-0.5 shrink-0" />
-              <p className="text-sm font-medium text-[#B91C1C]">{error}</p>
-            </div>
-          )}
-
-          {step === 1 && renderAccountDetails()}
-          {step === 2 && renderBasicPreferences()}
-          {step === 3 && renderOptionalPreferences()}
-        </div>
-
-        {/* Footer */}
-        <p className="text-center text-sm text-[#57534E] mt-6">
+    <AuthLayout
+      footer={
+        <p>
           Already have an account?{' '}
-          <Link
-            to="/login"
-            className="font-semibold text-[#C84B31] hover:text-[#B83B22] transition-colors"
-          >
+          <Link to="/login" className="link">
             Sign in
           </Link>
         </p>
+      }
+    >
+      {renderStepper()}
+
+      <div className="mb-7">
+        <p className="eyebrow mb-2">
+          Step {step} of {STEP_TITLES.length}
+        </p>
+        <h1 className="font-display text-[2rem] font-semibold leading-tight text-stone-900">
+          {STEP_TITLES[step - 1]}
+        </h1>
+        <p className="mt-1.5 text-stone-600">{STEP_SUBTITLES[step - 1]}</p>
       </div>
-    </div>
+
+      {error && (
+        <div className="mb-6 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-3.5 animate-shake">
+          <ExclamationCircleIcon className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-500" />
+          <p className="text-sm text-red-700">{error}</p>
+        </div>
+      )}
+
+      <div key={step} className="animate-slide-in-right">
+        {step === 1 && renderAccountDetails()}
+        {step === 2 && renderBasicPreferences()}
+        {step === 3 && renderOptionalPreferences()}
+      </div>
+    </AuthLayout>
   );
 }

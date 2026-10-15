@@ -1,777 +1,601 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   ArchiveBoxIcon,
-  ArrowRightIcon,
+  CheckIcon,
   ExclamationTriangleIcon,
   PencilIcon,
   PlusIcon,
   SparklesIcon,
   TrashIcon,
+  XMarkIcon,
 } from '../components/ui/AppIcons';
-
-import { EmptyState } from '../components/ui/EmptyState';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
+import { EmptyState } from '../components/ui/EmptyState';
+import { ErrorState } from '../components/ui/ErrorState';
 import { ModalShell } from '../components/ui/ModalShell';
-import { PageHeader } from '../components/ui/PageHeader';
-import { ToolbarRow } from '../components/ui/ToolbarRow';
-import { KitchenSubNav } from '../components/ui/KitchenSubNav';
+import { OverflowMenu } from '../components/ui/OverflowMenu';
+import { SearchInput } from '../components/ui/SearchInput';
+import { SegmentedControl } from '../components/ui/SegmentedControl';
+import { SkeletonGrid } from '../components/ui/Skeletons';
 import { useToast } from '../contexts/ToastContext';
 import pantryService from '../services/pantry.service';
-import type { PantryItem, PantryItemCreate, PantryItemUpdate } from '../types';
-import { formatLocalDate, parseLocalIsoDate } from '../utils/date';
+import type { PantryItem, PantryItemUpdate } from '../types';
+import { addDaysIso, todayIso } from '../utils/date';
+import { formatItemAmount, parseQuickAdd } from '../utils/grocery';
+import { expiryLabel, expiryState, generateHref, type ExpiryState } from '../utils/pantry';
 
 type PantryViewMode = 'use_soon' | 'recently_updated' | 'expiry_order';
 
-interface ExpiryDetails {
-  state: 'expired' | 'soon' | 'normal' | 'none';
-  diffDays: number | null;
-  badgeLabel: string;
-}
+const PAGE_SIZE = 24;
 
-function getExpiryDetails(item: PantryItem): ExpiryDetails {
-  if (!item.expires_at) {
-    return { state: 'none', diffDays: null, badgeLabel: 'Fresh' };
-  }
-  const expiryDate = parseLocalIsoDate(item.expires_at.slice(0, 10));
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const diffMs = expiryDate.getTime() - today.getTime();
-  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+const VIEW_QUERY: Record<
+  PantryViewMode,
+  { sort: 'expires_at' | 'updated_at'; order: 'asc' | 'desc' }
+> = {
+  use_soon: { sort: 'expires_at', order: 'asc' },
+  recently_updated: { sort: 'updated_at', order: 'desc' },
+  expiry_order: { sort: 'expires_at', order: 'asc' },
+};
 
-  if (diffDays < 0) {
-    return { state: 'expired', diffDays, badgeLabel: 'Expired' };
-  }
-  if (diffDays === 0) {
-    return { state: 'soon', diffDays: 0, badgeLabel: 'Expires today' };
-  }
-  if (diffDays === 1) {
-    return { state: 'soon', diffDays: 1, badgeLabel: 'Tomorrow' };
-  }
-  if (diffDays <= 3) {
-    return { state: 'soon', diffDays, badgeLabel: `Expires in ${diffDays}d` };
-  }
-  return { state: 'normal', diffDays, badgeLabel: 'Fresh' };
-}
+const KEEPS_FOR = [
+  { value: '', label: 'No date' },
+  { value: '3', label: '3 days' },
+  { value: '7', label: '1 week' },
+  { value: '14', label: '2 weeks' },
+  { value: '30', label: '1 month' },
+  { value: '180', label: '6 months' },
+];
+
+const STATE_STYLES: Record<ExpiryState, { bar: string; text: string }> = {
+  expired: { bar: 'bg-red-500', text: 'text-red-700' },
+  soon: { bar: 'bg-amber-400', text: 'text-amber-700' },
+  fresh: { bar: 'bg-primary', text: 'text-stone-500' },
+  none: { bar: 'bg-stone-200', text: 'text-stone-400' },
+};
 
 export default function PantryPage() {
   const navigate = useNavigate();
   const { addToast } = useToast();
   const [items, setItems] = useState<PantryItem[]>([]);
-  const [totalCount, setTotalCount] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [refreshing, setRefreshing] = useState(false);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [searchInput, setSearchInput] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [query, setQuery] = useState('');
   const [viewMode, setViewMode] = useState<PantryViewMode>('recently_updated');
-  const [selectedCategory, setSelectedCategory] = useState<string>('All Categories');
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [creating, setCreating] = useState(false);
-  const [editingItem, setEditingItem] = useState<PantryItem | null>(null);
-  const [editForm, setEditForm] = useState<PantryItemUpdate>({
-    name: '',
-    quantity: undefined,
-    unit: '',
-    category: 'Pantry',
-    expires_at: undefined,
-  });
-  const [savingEdit, setSavingEdit] = useState(false);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [draft, setDraft] = useState('');
+  const [keepsFor, setKeepsFor] = useState('');
+  const [adding, setAdding] = useState(false);
+  const [selected, setSelected] = useState<Set<number>>(() => new Set());
+  const [editing, setEditing] = useState<PantryItem | null>(null);
   const [itemToDelete, setItemToDelete] = useState<PantryItem | null>(null);
-  const [newItem, setNewItem] = useState<PantryItemCreate>({
-    name: '',
-    quantity: undefined,
-    unit: '',
-    category: 'Pantry',
-  });
-  const hasLoadedOnceRef = useRef(false);
-  const latestRequestIdRef = useRef(0);
+  const [deleting, setDeleting] = useState(false);
+  const latestRequest = useRef(0);
+  const loadedOnce = useRef(false);
+  const quickAddRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setPage(1);
-      setSearchQuery(searchInput.trim());
-    }, 250);
+    const timer = setTimeout(() => setQuery(searchInput.trim()), 250);
     return () => clearTimeout(timer);
   }, [searchInput]);
 
-  const { sort, order, showExpiringOnly } = useMemo(() => {
-    if (viewMode === 'use_soon') {
-      return {
-        sort: 'expires_at' as const,
-        order: 'asc' as const,
-        showExpiringOnly: true,
-      };
-    }
-    if (viewMode === 'expiry_order') {
-      return {
-        sort: 'expires_at' as const,
-        order: 'asc' as const,
-        showExpiringOnly: false,
-      };
-    }
-    return {
-      sort: 'updated_at' as const,
-      order: 'desc' as const,
-      showExpiringOnly: false,
-    };
-  }, [viewMode]);
-
-  const loadItems = useCallback(async () => {
-    const requestId = latestRequestIdRef.current + 1;
-    latestRequestIdRef.current = requestId;
-
-    if (hasLoadedOnceRef.current) {
-      setIsRefreshing(true);
-    } else {
-      setLoading(true);
-    }
-
-    try {
-      const data = await pantryService.getPantryItems({
-        page,
-        pageSize: 12,
-        q: searchQuery || undefined,
-        sort,
-        order,
-      });
-      if (requestId !== latestRequestIdRef.current) return;
-      setItems(data.items);
-      setTotalCount(data.total ?? data.items.length);
-      setTotalPages(data.total_pages);
-    } catch (error) {
-      if (requestId !== latestRequestIdRef.current) return;
-      console.error('Failed to load pantry items:', error);
-      addToast('Could not load pantry items.', 'error');
-    } finally {
-      if (requestId === latestRequestIdRef.current) {
-        hasLoadedOnceRef.current = true;
-        setLoading(false);
-        setIsRefreshing(false);
+  const load = useCallback(
+    async (targetPage: number) => {
+      const requestId = ++latestRequest.current;
+      if (loadedOnce.current) setRefreshing(true);
+      else setStatus('loading');
+      const { sort, order } = VIEW_QUERY[viewMode];
+      try {
+        const data = await pantryService.getPantryItems({
+          page: targetPage,
+          pageSize: PAGE_SIZE,
+          q: query || undefined,
+          sort,
+          order,
+        });
+        if (requestId !== latestRequest.current) return;
+        setItems(current => (targetPage === 1 ? data.items : [...current, ...data.items]));
+        setPage(targetPage);
+        setTotalPages(data.total_pages);
+        setStatus('ready');
+        loadedOnce.current = true;
+      } catch (error) {
+        if (requestId !== latestRequest.current) return;
+        console.error('Failed to load pantry items:', error);
+        if (loadedOnce.current) addToast('Could not refresh the pantry.', 'error');
+        else setStatus('error');
+      } finally {
+        if (requestId === latestRequest.current) setRefreshing(false);
       }
-    }
-  }, [addToast, order, page, searchQuery, sort]);
+    },
+    [addToast, query, viewMode]
+  );
 
   useEffect(() => {
-    void loadItems();
-  }, [loadItems]);
+    void load(1);
+  }, [load]);
 
-  const handleCreate = async () => {
-    if (!newItem.name.trim()) return;
-    setCreating(true);
+  const visible = useMemo(
+    () =>
+      viewMode === 'use_soon'
+        ? items.filter(item => ['expired', 'soon'].includes(expiryState(item)))
+        : items,
+    [items, viewMode]
+  );
+  const counts = useMemo(() => {
+    let expired = 0;
+    let soon = 0;
+    for (const item of items) {
+      const state = expiryState(item);
+      if (state === 'expired') expired += 1;
+      if (state === 'soon') soon += 1;
+    }
+    return { expired, soon };
+  }, [items]);
+  const selectedNames = items.filter(item => selected.has(item.id)).map(item => item.name);
+
+  const toggleSelected = (itemId: number) =>
+    setSelected(current => {
+      const next = new Set(current);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+
+  const quickAdd = async (event: FormEvent) => {
+    event.preventDefault();
+    const parsed = parseQuickAdd(draft);
+    if (!parsed) return;
+    setAdding(true);
     try {
-      await pantryService.createPantryItem({
-        ...newItem,
-        name: newItem.name.trim(),
+      const created = await pantryService.createPantryItem({
+        ...parsed,
+        expires_at: keepsFor ? addDaysIso(todayIso(), Number(keepsFor)) : undefined,
       });
-      addToast('Pantry item added.', 'success');
-      setShowCreateModal(false);
-      setNewItem({ name: '', quantity: undefined, unit: '', category: 'Pantry' });
-      await loadItems();
+      setDraft('');
+      setItems(current => [created, ...current]);
     } catch (error) {
-      console.error('Failed to create pantry item:', error);
-      addToast('Could not add pantry item.', 'error');
+      console.error('Failed to add pantry item:', error);
+      addToast('Could not add that item. Try again?', 'error');
     } finally {
-      setCreating(false);
+      setAdding(false);
+      quickAddRef.current?.focus();
     }
   };
 
-  const openEditModal = (item: PantryItem) => {
-    setEditingItem(item);
-    setEditForm({
-      name: item.name,
-      quantity: item.quantity,
-      unit: item.unit || '',
-      category: item.category || 'Pantry',
-      expires_at: item.expires_at ? item.expires_at.slice(0, 10) : undefined,
-    });
-  };
-
-  const handleUpdate = async () => {
-    if (!editingItem || !editForm.name?.trim()) return;
-    setSavingEdit(true);
+  const saveEdit = async (item: PantryItem, updates: PantryItemUpdate) => {
     try {
-      const payload: PantryItemUpdate = {
-        ...editForm,
-        name: editForm.name.trim(),
-      };
-      if (typeof pantryService.updatePantryItem === 'function') {
-        const updated = await pantryService.updatePantryItem(editingItem.id, payload);
-        setItems(prev => prev.map(i => (i.id === editingItem.id ? updated : i)));
-      } else {
-        setItems(prev =>
-          prev.map(i =>
-            i.id === editingItem.id
-              ? {
-                  ...i,
-                  name: payload.name || i.name,
-                  quantity: payload.quantity,
-                  unit: payload.unit,
-                  category: payload.category,
-                  expires_at: payload.expires_at,
-                }
-              : i
-          )
-        );
-      }
-      addToast('Pantry item updated.', 'success');
-      setEditingItem(null);
+      const saved = await pantryService.updatePantryItem(item.id, updates);
+      setItems(current => current.map(entry => (entry.id === item.id ? saved : entry)));
+      setEditing(null);
     } catch (error) {
       console.error('Failed to update pantry item:', error);
-      addToast('Could not update pantry item.', 'error');
-    } finally {
-      setSavingEdit(false);
+      addToast('Could not save that change. Try again?', 'error');
     }
   };
 
   const handleDelete = async () => {
     if (!itemToDelete) return;
-    setDeletingId(itemToDelete.id);
+    setDeleting(true);
     try {
       await pantryService.deletePantryItem(itemToDelete.id);
-      setItems(prev => prev.filter(item => item.id !== itemToDelete.id));
-      setTotalCount(prev => Math.max(0, prev - 1));
-      addToast('Pantry item deleted.', 'success');
+      setItems(current => current.filter(item => item.id !== itemToDelete.id));
+      setSelected(current => {
+        const next = new Set(current);
+        next.delete(itemToDelete.id);
+        return next;
+      });
+      addToast(`Removed ${itemToDelete.name}.`, 'success');
       setItemToDelete(null);
     } catch (error) {
       console.error('Failed to delete pantry item:', error);
-      addToast('Could not delete pantry item.', 'error');
+      addToast('Could not remove that item. Try again?', 'error');
     } finally {
-      setDeletingId(null);
+      setDeleting(false);
     }
   };
 
-  const expiringItems = useMemo(() => {
-    return items.filter(item => {
-      const { state } = getExpiryDetails(item);
-      return state === 'soon' || state === 'expired';
-    });
-  }, [items]);
-
-  const expiringSoonCount = expiringItems.length;
-
-  const availableCategories = useMemo(() => {
-    const categories = new Set<string>();
-    items.forEach(item => {
-      categories.add(item.category || 'Uncategorized');
-    });
-    return ['All Categories', ...Array.from(categories)];
-  }, [items]);
-
-  const activeCategory = availableCategories.includes(selectedCategory)
-    ? selectedCategory
-    : 'All Categories';
-
-  const visibleItems = useMemo(() => {
-    return items.filter(item => {
-      if (showExpiringOnly) {
-        const { state } = getExpiryDetails(item);
-        if (state !== 'soon' && state !== 'expired') return false;
-      }
-      if (activeCategory !== 'All Categories') {
-        const itemCategory = item.category || 'Uncategorized';
-        if (itemCategory !== activeCategory) return false;
-      }
-      return true;
-    });
-  }, [items, showExpiringOnly, activeCategory]);
-
-  const handleCookWithExpiring = () => {
-    if (expiringItems.length === 0) return;
-    const params = new URLSearchParams();
-    expiringItems.forEach(item => {
-      params.append('use', item.name);
-    });
-    navigate(`/generate?${params.toString()}`);
-  };
-
-  const getViewModeButtonClass = (mode: PantryViewMode) =>
-    [
-      'rounded-full border px-4 py-2 text-sm font-semibold transition-colors duration-150',
-      'focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[color:var(--primary-soft)]',
-      viewMode === mode
-        ? 'border-[#C84B31]/30 bg-[#F9F1EA] text-[#9A3412] shadow-2xs'
-        : 'border-[#D6CEC2] bg-white text-[#57534E] hover:bg-[#FAF7F2] hover:text-[#1C1917]',
-    ].join(' ');
-
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div
-          className="animate-spin rounded-full h-12 w-12 border-b-2"
-          style={{ borderBottomColor: 'var(--primary)' }}
-        />
-      </div>
-    );
-  }
+  const atRisk = counts.expired + counts.soon;
 
   return (
-    <div>
-      <KitchenSubNav
-        pantryCount={totalCount || items.length}
-        expiringCount={expiringSoonCount}
-        actions={
-          <Link to="/grocery" className="btn-ghost text-xs">
-            <span>View Shopping Lists</span>
-            <ArrowRightIcon className="h-3.5 w-3.5" />
-          </Link>
-        }
-      />
+    <div className="mx-auto max-w-5xl">
+      <header className="mb-5">
+        <h1 className="page-title">Pantry</h1>
+        <p className="page-subtitle">What you have on hand. Recipes and plans use these first.</p>
+      </header>
 
-      <PageHeader
-        badge={<span className="badge">Kitchen &amp; Shop</span>}
-        title="Pantry"
-        subtitle="Track staples and fresh produce so weekly plans and AI recipes prioritize what you already have on hand."
-        actions={
-          <button className="btn-primary" onClick={() => setShowCreateModal(true)}>
+      <form
+        onSubmit={quickAdd}
+        className="card flex flex-col gap-2 p-3 sm:flex-row sm:items-center"
+      >
+        <label htmlFor="pantry-quick-add" className="sr-only">
+          Add to pantry
+        </label>
+        <input
+          id="pantry-quick-add"
+          ref={quickAddRef}
+          className="input h-11 flex-1"
+          placeholder="Add to pantry, e.g. 2 cans chickpeas"
+          value={draft}
+          onChange={event => setDraft(event.target.value)}
+          disabled={adding}
+          autoComplete="off"
+        />
+        <div className="flex gap-2">
+          <label htmlFor="pantry-keeps-for" className="sr-only">
+            Keeps for
+          </label>
+          <select
+            id="pantry-keeps-for"
+            className="input h-11 w-auto flex-1 sm:flex-none"
+            value={keepsFor}
+            onChange={event => setKeepsFor(event.target.value)}
+          >
+            {KEEPS_FOR.map(option => (
+              <option key={option.value} value={option.value}>
+                {option.value ? `Keeps ${option.label}` : option.label}
+              </option>
+            ))}
+          </select>
+          <button type="submit" className="btn-primary h-11" disabled={adding || !draft.trim()}>
             <PlusIcon className="h-4 w-4" />
-            <span>Add pantry item</span>
+            Add
           </button>
-        }
-      />
+        </div>
+      </form>
 
-      {/* Batch Expiry Triage Banner */}
-      {expiringSoonCount > 0 && (
-        <div className="mb-6 rounded-3xl border border-[#B45309]/30 bg-[#FEF3C7]/75 p-5 sm:p-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-start gap-3.5">
-              <div className="icon-container-premium icon-container-amber shrink-0">
-                <ExclamationTriangleIcon className="h-5 w-5 text-[#B45309]" />
-              </div>
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="eyebrow !text-[#92400E]">Expiry Triage</span>
-                  <span className="rounded-full bg-[#B45309]/15 px-2.5 py-0.5 text-xs font-semibold text-[#92400E] tabular-nums">
-                    {expiringSoonCount} {expiringSoonCount === 1 ? 'item' : 'items'} within 3 days
-                  </span>
-                </div>
-                <h2 className="mt-1 font-display text-lg sm:text-xl font-semibold text-[#1C1917]">
-                  Put expiring ingredients to work tonight
-                </h2>
-                <p className="mt-1 text-sm text-[#57534E]">
-                  Ready to use soon: {expiringItems.map(item => item.name).join(', ')}.
-                </p>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2.5 sm:shrink-0">
-              <button type="button" onClick={handleCookWithExpiring} className="btn-primary">
-                <SparklesIcon className="h-4 w-4" />
-                <span>Cook with expiring items</span>
-              </button>
-            </div>
-          </div>
+      {atRisk > 0 && viewMode !== 'use_soon' && (
+        <div className="surface-warm mt-4 flex flex-wrap items-center gap-3 rounded-2xl px-4 py-3">
+          <ExclamationTriangleIcon className="h-5 w-5 text-amber-600" />
+          <p className="flex-1 text-sm text-stone-700">
+            {counts.expired > 0 && (
+              <span className="font-semibold text-red-700">{counts.expired} expired</span>
+            )}
+            {counts.expired > 0 && counts.soon > 0 && ' · '}
+            {counts.soon > 0 && (
+              <span className="font-semibold text-amber-700">
+                {counts.soon} to use in the next 3 days
+              </span>
+            )}
+          </p>
+          <button
+            type="button"
+            className="btn-secondary btn-sm"
+            onClick={() => setViewMode('use_soon')}
+          >
+            Show them
+          </button>
         </div>
       )}
 
-      <ToolbarRow helper="Pantry items are prioritized in planning and recipe prompts">
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center">
-            <div className="flex-1">
-              <input
-                value={searchInput}
-                onChange={e => setSearchInput(e.target.value)}
-                className="input"
-                placeholder="Search pantry items"
-              />
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                className={getViewModeButtonClass('use_soon')}
-                aria-pressed={viewMode === 'use_soon'}
-                onClick={() => {
-                  setPage(1);
-                  setViewMode('use_soon');
-                }}
-              >
-                Use soon
-              </button>
-              <button
-                type="button"
-                className={getViewModeButtonClass('recently_updated')}
-                aria-pressed={viewMode === 'recently_updated'}
-                onClick={() => {
-                  setPage(1);
-                  setViewMode('recently_updated');
-                }}
-              >
-                Recently updated
-              </button>
-              <button
-                type="button"
-                className={getViewModeButtonClass('expiry_order')}
-                aria-pressed={viewMode === 'expiry_order'}
-                onClick={() => {
-                  setPage(1);
-                  setViewMode('expiry_order');
-                }}
-              >
-                Expiry order
-              </button>
-            </div>
-            {isRefreshing && <span className="sr-only">Updating pantry</span>}
-          </div>
-
-          {/* Category Filter Pills */}
-          {availableCategories.length > 1 && (
-            <div
-              role="group"
-              aria-label="Filter pantry by category"
-              className="flex items-center gap-1.5 overflow-x-auto pt-1"
-            >
-              {availableCategories.map(category => {
-                const isSelected = activeCategory === category;
-                return (
-                  <button
-                    key={category}
-                    type="button"
-                    aria-pressed={isSelected}
-                    onClick={() => setSelectedCategory(category)}
-                    className={`shrink-0 rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
-                      isSelected
-                        ? 'border-[#1C1917] bg-[#1C1917] text-white'
-                        : 'border-[#E7E0D6] bg-white text-[#57534E] hover:border-[#D6CEC2] hover:text-[#1C1917]'
-                    }`}
-                  >
-                    {category}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </ToolbarRow>
-
-      {visibleItems.length === 0 && !searchQuery ? (
-        <EmptyState
-          icon={<ArchiveBoxIcon className="h-12 w-12" />}
-          title="Your pantry is empty"
-          description="Add ingredients you have on hand and we’ll prioritize them in planning."
-          action={
-            <button className="btn-primary" onClick={() => setShowCreateModal(true)}>
-              <PlusIcon className="h-4 w-4" />
-              <span>Add first item</span>
-            </button>
-          }
+      <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <SegmentedControl
+          label="Sort pantry"
+          value={viewMode}
+          onChange={setViewMode}
+          className="overflow-x-auto"
+          options={[
+            { value: 'use_soon', label: 'Use soon' },
+            { value: 'recently_updated', label: 'Recently updated' },
+            { value: 'expiry_order', label: 'Expiry order' },
+          ]}
         />
-      ) : visibleItems.length === 0 ? (
-        <EmptyState
-          title="No pantry items matched"
-          description="Try another search term or category filter."
-          variant="compact"
-          action={
-            <button
-              className="btn-secondary"
-              onClick={() => {
-                setSearchInput('');
-                setSearchQuery('');
-                setSelectedCategory('All Categories');
-              }}
-            >
-              Clear search
-            </button>
-          }
+        <SearchInput
+          value={searchInput}
+          onChange={setSearchInput}
+          placeholder="Search pantry"
+          className="sm:ml-auto sm:max-w-xs"
         />
-      ) : (
-        <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {visibleItems.map(item => {
-            const expiry = getExpiryDetails(item);
-            const quantityText = [item.quantity, item.unit].filter(Boolean).join(' ') || 'Not set';
-            const expiryDateText = item.expires_at
-              ? formatLocalDate(item.expires_at.slice(0, 10))
-              : 'No expiry set';
+        {refreshing && <span className="sr-only">Updating pantry</span>}
+      </div>
 
-            const badgeClasses =
-              expiry.state === 'expired'
-                ? 'border-[#B91C1C]/25 bg-[#FEE2E2] text-[#991B1B]'
-                : expiry.state === 'soon'
-                  ? 'border-[#B45309]/25 bg-[#FEF3C7] text-[#92400E]'
-                  : 'border-[#3F624D]/25 bg-[#ECF5F0] text-[#2F6F4E]';
-
-            return (
-              <div key={item.id} className="card card-hover flex flex-col justify-between p-5">
-                <div>
-                  {/* Top: Item name, category badge, and expiry status badge */}
-                  <div className="flex items-start justify-between gap-3">
+      <div className="mt-5">
+        {status === 'loading' ? (
+          <SkeletonGrid count={6} variant="card" testId="pantry-loading" />
+        ) : status === 'error' ? (
+          <ErrorState
+            title="Couldn't load your pantry"
+            description="Check your connection and try again."
+            onRetry={() => void load(1)}
+          />
+        ) : visible.length === 0 ? (
+          query ? (
+            <EmptyState
+              variant="compact"
+              title="Nothing matches"
+              description={`No pantry items called "${query}".`}
+              action={
+                <button type="button" className="btn-secondary" onClick={() => setSearchInput('')}>
+                  Clear search
+                </button>
+              }
+            />
+          ) : viewMode === 'use_soon' && items.length > 0 ? (
+            <EmptyState
+              variant="compact"
+              title="Nothing to rush"
+              description="No items expire in the next 3 days."
+            />
+          ) : (
+            <EmptyState
+              icon={<ArchiveBoxIcon className="h-10 w-10" />}
+              title="Your pantry is empty"
+              description="Add what you have on hand and we'll cook with it first."
+              action={
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => quickAddRef.current?.focus()}
+                >
+                  Add your first item
+                </button>
+              }
+            />
+          )
+        ) : (
+          <ul
+            className={`grid gap-3 sm:grid-cols-2 lg:grid-cols-3 ${refreshing ? 'opacity-60' : ''}`}
+          >
+            {visible.map(item => {
+              const state = expiryState(item);
+              const styles = STATE_STYLES[state];
+              const amount = formatItemAmount(item);
+              const isSelected = selected.has(item.id);
+              return (
+                <li
+                  key={item.id}
+                  className={`card relative overflow-hidden p-4 pl-5 transition ${
+                    isSelected ? 'ring-2 ring-primary' : ''
+                  }`}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`absolute inset-y-0 left-0 w-1.5 ${styles.bar}`}
+                  />
+                  <div className="flex items-start gap-3">
+                    <button
+                      type="button"
+                      role="checkbox"
+                      aria-checked={isSelected}
+                      aria-label={`Select ${item.name}`}
+                      onClick={() => toggleSelected(item.id)}
+                      className={`mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md border-[1.5px] transition focus:outline-none focus-visible:ring-4 focus-visible:ring-primary-soft ${
+                        isSelected
+                          ? 'border-primary bg-primary text-white'
+                          : 'border-stone-300 bg-white'
+                      }`}
+                    >
+                      {isSelected && <CheckIcon className="h-4 w-4" />}
+                    </button>
                     <div className="min-w-0 flex-1">
-                      <h3 className="font-display text-lg font-semibold text-[#1C1917] truncate">
+                      <h2 className="truncate text-base font-semibold text-stone-900">
                         {item.name}
-                      </h3>
-                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                        <span className="inline-flex items-center rounded-full border border-[#E7E0D6] bg-[#FAF7F2] px-2.5 py-0.5 text-xs font-medium text-[#57534E]">
-                          {item.category || 'Uncategorized'}
-                        </span>
-                        <span
-                          className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold tabular-nums ${badgeClasses}`}
-                        >
-                          {expiry.badgeLabel}
-                        </span>
-                      </div>
+                      </h2>
+                      <p className="mt-0.5 text-sm text-stone-500">
+                        {[amount, item.category].filter(Boolean).join(' · ') || 'No amount'}
+                      </p>
+                      <p className={`mt-2 text-sm font-medium ${styles.text}`}>
+                        {expiryLabel(item)}
+                      </p>
                     </div>
+                    <OverflowMenu
+                      label={`Actions for ${item.name}`}
+                      buttonClassName="icon-button-muted -mr-1 -mt-1 h-9 w-9"
+                      items={[
+                        { label: 'Edit', icon: PencilIcon, onSelect: () => setEditing(item) },
+                        {
+                          label: 'Remove',
+                          icon: TrashIcon,
+                          tone: 'danger',
+                          onSelect: () => setItemToDelete(item),
+                        },
+                      ]}
+                    />
                   </div>
-
-                  {/* Middle: Compact quantity & expiry metadata strip */}
-                  <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-2xl border border-[#E7E0D6] bg-[#FAF7F2] px-3.5 py-2.5 text-xs text-[#57534E] tabular-nums">
-                    <div>
-                      <span className="font-semibold text-[#78716C]">Quantity:</span>{' '}
-                      <span className="font-semibold text-[#1C1917]">{quantityText}</span>
-                    </div>
-                    <span className="text-[#D6CEC2]" aria-hidden="true">
-                      •
-                    </span>
-                    <div>
-                      <span className="font-semibold text-[#78716C]">Expires:</span>{' '}
-                      <span className="font-medium text-[#1C1917]">{expiryDateText}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Bottom action bar */}
-                <div className="mt-4 pt-3.5 border-t border-[#E7E0D6]/80 flex items-center justify-between gap-2">
                   <button
                     type="button"
-                    className="btn-ghost !px-3 !py-1.5 text-xs !text-[#C84B31] hover:!bg-[#F9F1EA]"
-                    onClick={() => navigate(`/generate?use=${encodeURIComponent(item.name)}`)}
+                    className="btn-ghost btn-sm mt-3 -ml-2"
+                    onClick={() => navigate(generateHref([item.name]))}
                   >
+                    <SparklesIcon className="h-4 w-4" />
                     Use in recipe
                   </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
 
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      className="icon-button-muted"
-                      onClick={() => openEditModal(item)}
-                      title={`Edit ${item.name}`}
-                      aria-label={`Edit ${item.name}`}
-                    >
-                      <PencilIcon className="h-4 w-4" />
-                    </button>
-                    <button
-                      type="button"
-                      className="icon-button-danger"
-                      disabled={deletingId === item.id}
-                      onClick={() => setItemToDelete(item)}
-                      title={`Delete ${item.name}`}
-                      aria-label={`Delete ${item.name}`}
-                    >
-                      <TrashIcon className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {totalPages > 1 && (
-        <div className="mt-8 flex items-center justify-center gap-3">
+      {page < totalPages && status === 'ready' && (
+        <div className="mt-6 flex justify-center">
           <button
+            type="button"
             className="btn-secondary"
-            disabled={page === 1}
-            onClick={() => setPage(prev => Math.max(1, prev - 1))}
+            disabled={refreshing}
+            onClick={() => void load(page + 1)}
           >
-            Previous
-          </button>
-          <span className="text-sm font-medium text-[#57534E] tabular-nums">
-            Page {page} of {totalPages}
-          </span>
-          <button
-            className="btn-secondary"
-            disabled={page === totalPages}
-            onClick={() => setPage(prev => Math.min(totalPages, prev + 1))}
-          >
-            Next
+            {refreshing ? 'Loading…' : 'Show more'}
           </button>
         </div>
       )}
 
-      {/* Create Modal */}
-      {showCreateModal && (
-        <ModalShell
-          size="sm"
-          title="Add pantry item"
-          onClose={() => setShowCreateModal(false)}
-          footer={
-            <>
-              <button className="btn-secondary" onClick={() => setShowCreateModal(false)}>
-                Cancel
-              </button>
-              <button
-                className="btn-primary"
-                disabled={creating || !newItem.name.trim()}
-                onClick={handleCreate}
-              >
-                {creating ? 'Adding...' : 'Add item'}
-              </button>
-            </>
-          }
-        >
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-[#1C1917] mb-1">Name *</label>
-              <input
-                className="input"
-                value={newItem.name}
-                onChange={e => setNewItem(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="e.g., Spinach"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-[#1C1917] mb-1">Quantity</label>
-                <input
-                  type="number"
-                  className="input"
-                  value={newItem.quantity || ''}
-                  onChange={e =>
-                    setNewItem(prev => ({
-                      ...prev,
-                      quantity: e.target.value ? Number(e.target.value) : undefined,
-                    }))
-                  }
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[#1C1917] mb-1">Unit</label>
-                <input
-                  className="input"
-                  value={newItem.unit || ''}
-                  onChange={e => setNewItem(prev => ({ ...prev, unit: e.target.value }))}
-                  placeholder="cups"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-[#1C1917] mb-1">Category</label>
-              <input
-                className="input"
-                value={newItem.category || ''}
-                onChange={e => setNewItem(prev => ({ ...prev, category: e.target.value }))}
-                placeholder="Pantry"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-[#1C1917] mb-1">Expiry date</label>
-              <input
-                className="input"
-                type="date"
-                value={newItem.expires_at ? newItem.expires_at.slice(0, 10) : ''}
-                onChange={e =>
-                  setNewItem(prev => ({
-                    ...prev,
-                    expires_at: e.target.value || undefined,
-                  }))
-                }
-              />
-            </div>
+      {selectedNames.length > 0 && (
+        <div className="fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 flex justify-center px-4 animate-slide-in-up lg:bottom-6 lg:pl-[var(--sidebar-width)]">
+          <div
+            role="region"
+            aria-label="Selected pantry items"
+            className="flex w-full max-w-md items-center gap-2 rounded-2xl bg-stone-900 p-2 pl-4 text-white shadow-xl"
+          >
+            <span className="flex-1 text-sm font-medium">{selectedNames.length} selected</span>
+            <button
+              type="button"
+              onClick={() => setSelected(new Set())}
+              aria-label="Clear selection"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-white/70 hover:bg-white/10 hover:text-white"
+            >
+              <XMarkIcon className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate(generateHref(selectedNames))}
+              className="btn-accent"
+            >
+              <SparklesIcon className="h-4 w-4" />
+              Cook with {selectedNames.length === 1 ? 'this' : 'these'}
+            </button>
           </div>
-        </ModalShell>
+        </div>
       )}
 
-      {/* Edit Modal */}
-      {editingItem && (
-        <ModalShell
-          size="sm"
-          title="Edit pantry item"
-          onClose={() => setEditingItem(null)}
-          footer={
-            <>
-              <button className="btn-secondary" onClick={() => setEditingItem(null)}>
-                Cancel
-              </button>
-              <button
-                className="btn-primary"
-                disabled={savingEdit || !editForm.name?.trim()}
-                onClick={handleUpdate}
-              >
-                {savingEdit ? 'Saving...' : 'Save changes'}
-              </button>
-            </>
-          }
-        >
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-[#1C1917] mb-1">Name *</label>
-              <input
-                className="input"
-                value={editForm.name || ''}
-                onChange={e => setEditForm(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="e.g., Spinach"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-[#1C1917] mb-1">Quantity</label>
-                <input
-                  type="number"
-                  className="input"
-                  value={editForm.quantity ?? ''}
-                  onChange={e =>
-                    setEditForm(prev => ({
-                      ...prev,
-                      quantity: e.target.value ? Number(e.target.value) : undefined,
-                    }))
-                  }
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[#1C1917] mb-1">Unit</label>
-                <input
-                  className="input"
-                  value={editForm.unit || ''}
-                  onChange={e => setEditForm(prev => ({ ...prev, unit: e.target.value }))}
-                  placeholder="cups"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-[#1C1917] mb-1">Category</label>
-              <input
-                className="input"
-                value={editForm.category || ''}
-                onChange={e => setEditForm(prev => ({ ...prev, category: e.target.value }))}
-                placeholder="Pantry"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-[#1C1917] mb-1">Expiry date</label>
-              <input
-                className="input"
-                type="date"
-                value={editForm.expires_at ? editForm.expires_at.slice(0, 10) : ''}
-                onChange={e =>
-                  setEditForm(prev => ({
-                    ...prev,
-                    expires_at: e.target.value || undefined,
-                  }))
-                }
-              />
-            </div>
-          </div>
-        </ModalShell>
+      {editing && (
+        <EditPantryItemDialog
+          item={editing}
+          onClose={() => setEditing(null)}
+          onSave={updates => saveEdit(editing, updates)}
+        />
       )}
 
       <ConfirmDialog
         isOpen={Boolean(itemToDelete)}
-        title="Delete pantry item?"
-        description={
-          itemToDelete
-            ? `"${itemToDelete.name}" will be removed from your pantry inventory.`
-            : 'This item will be removed from your pantry inventory.'
-        }
-        confirmLabel="Delete item"
+        title="Remove from pantry?"
+        description={itemToDelete ? `${itemToDelete.name} will be removed from your pantry.` : ''}
+        confirmLabel="Remove"
         tone="danger"
-        loading={deletingId !== null}
+        loading={deleting}
         onCancel={() => {
-          if (!deletingId) {
-            setItemToDelete(null);
-          }
+          if (!deleting) setItemToDelete(null);
         }}
         onConfirm={handleDelete}
       />
     </div>
+  );
+}
+
+function EditPantryItemDialog({
+  item,
+  onSave,
+  onClose,
+}: {
+  item: PantryItem;
+  onSave: (updates: PantryItemUpdate) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [name, setName] = useState(item.name);
+  const [quantity, setQuantity] = useState(item.quantity ? String(item.quantity) : '');
+  const [unit, setUnit] = useState(item.unit ?? '');
+  const [category, setCategory] = useState(item.category ?? '');
+  const [expires, setExpires] = useState(item.expires_at?.slice(0, 10) ?? '');
+  const [saving, setSaving] = useState(false);
+
+  const submit = async () => {
+    if (!name.trim()) return;
+    setSaving(true);
+    const parsed = Number(quantity);
+    await onSave({
+      name: name.trim(),
+      quantity: quantity.trim() && Number.isFinite(parsed) && parsed > 0 ? parsed : undefined,
+      unit: unit.trim() || undefined,
+      category: category.trim() || undefined,
+      expires_at: expires || undefined,
+    });
+    setSaving(false);
+  };
+
+  return (
+    <ModalShell
+      size="sm"
+      title={`Edit ${item.name}`}
+      onClose={onClose}
+      footer={
+        <>
+          <button type="button" className="btn-secondary" onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            type="submit"
+            form="pantry-edit-form"
+            className="btn-primary"
+            disabled={saving || !name.trim()}
+          >
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+        </>
+      }
+    >
+      <form
+        id="pantry-edit-form"
+        className="space-y-4"
+        onSubmit={event => {
+          event.preventDefault();
+          void submit();
+        }}
+      >
+        <div>
+          <label htmlFor="pantry-edit-name" className="label">
+            Name
+          </label>
+          <input
+            id="pantry-edit-name"
+            className="input"
+            value={name}
+            onChange={event => setName(event.target.value)}
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label htmlFor="pantry-edit-qty" className="label">
+              Quantity
+            </label>
+            <input
+              id="pantry-edit-qty"
+              className="input"
+              inputMode="decimal"
+              value={quantity}
+              onChange={event => setQuantity(event.target.value)}
+            />
+          </div>
+          <div>
+            <label htmlFor="pantry-edit-unit" className="label">
+              Unit
+            </label>
+            <input
+              id="pantry-edit-unit"
+              className="input"
+              value={unit}
+              onChange={event => setUnit(event.target.value)}
+            />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label htmlFor="pantry-edit-category" className="label">
+              Category
+            </label>
+            <input
+              id="pantry-edit-category"
+              className="input"
+              value={category}
+              onChange={event => setCategory(event.target.value)}
+              placeholder="Produce"
+            />
+          </div>
+          <div>
+            <label htmlFor="pantry-edit-expires" className="label">
+              Expires
+            </label>
+            <input
+              id="pantry-edit-expires"
+              type="date"
+              className="input"
+              value={expires}
+              onChange={event => setExpires(event.target.value)}
+            />
+          </div>
+        </div>
+      </form>
+    </ModalShell>
   );
 }

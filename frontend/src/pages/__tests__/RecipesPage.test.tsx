@@ -48,7 +48,7 @@ describe('RecipesPage', () => {
 
     render(<RecipesPage />);
 
-    expect(screen.getByTestId('loading-spinner')).toBeInTheDocument();
+    expect(screen.getByTestId('recipes-loading')).toBeInTheDocument();
   });
 
   it('renders recipes when loaded successfully', async () => {
@@ -96,9 +96,19 @@ describe('RecipesPage', () => {
     render(<RecipesPage />);
 
     await waitFor(() => {
-      // Since the component doesn't show error state, check that it shows empty state
-      expect(screen.getByText('No recipes yet...yet')).toBeInTheDocument();
+      expect(screen.getByText("Couldn't load your recipes")).toBeInTheDocument();
     });
+    expect(screen.queryByText('No recipes yet...yet')).not.toBeInTheDocument();
+
+    mockGetRecipes.mockResolvedValue({
+      items: [{ ...mockRecipe, id: 3, name: 'Recovered Recipe' }],
+      page: 1,
+      page_size: 12,
+      total: 1,
+      total_pages: 1,
+    });
+    await user.click(screen.getByRole('button', { name: /Try again/ }));
+    expect(await screen.findByText('Recovered Recipe')).toBeInTheDocument();
   });
 
   it('navigates to generate recipe page when clicking generate button', async () => {
@@ -167,9 +177,14 @@ describe('RecipesPage', () => {
 
     const deleteButton = screen.getByTitle('Delete recipe');
     await user.click(deleteButton);
+    expect(mockDeleteRecipe).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Delete' }));
 
     await waitFor(() => {
       expect(mockDeleteRecipe).toHaveBeenCalledWith(1);
+    });
+    await waitFor(() => {
+      expect(screen.queryByText('Recipe to Delete')).not.toBeInTheDocument();
     });
   });
 
@@ -192,10 +207,12 @@ describe('RecipesPage', () => {
 
     const deleteButton = screen.getByTitle('Delete recipe');
     await user.click(deleteButton);
+    await user.click(screen.getByRole('button', { name: 'Delete' }));
 
     await waitFor(() => {
-      expect(screen.getByText('Recipe to Delete')).toBeInTheDocument();
+      expect(mockDeleteRecipe).toHaveBeenCalledWith(1);
     });
+    expect(screen.getByText('Recipe to Delete')).toBeInTheDocument();
   });
 
   it('navigates to recipe detail when recipe card is clicked', async () => {
@@ -260,9 +277,10 @@ describe('RecipesPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Minimal Recipe')).toBeInTheDocument();
-      expect(screen.getByText('0 min')).toBeInTheDocument(); // No prep/cook time
-      expect(screen.getByText('1 servings')).toBeInTheDocument();
+      expect(screen.getByText('1 serving')).toBeInTheDocument();
     });
+    // Unknown cook time is hidden rather than shown as "0 min".
+    expect(screen.queryByText('0 min')).not.toBeInTheDocument();
   });
 
   it('shows loading state for individual recipe deletion', async () => {
@@ -284,6 +302,7 @@ describe('RecipesPage', () => {
 
     const deleteButton = screen.getByTitle('Delete recipe');
     await user.click(deleteButton);
+    await user.click(screen.getByRole('button', { name: 'Delete' }));
 
     // Should show loading spinner while deleting
     expect(deleteButton).toBeDisabled();

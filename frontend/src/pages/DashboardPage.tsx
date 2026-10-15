@@ -1,506 +1,437 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowRightIcon,
-  CalendarMealIcon,
+  CalendarDaysIcon,
+  ChevronRightIcon,
   ClockIcon,
-  FireStatsIcon,
   PantryIcon,
-  RecipeBookIcon,
-  ShoppingCartCheckIcon,
-  SparkleWandIcon,
+  PlayIcon,
+  ShoppingBagIcon,
+  SparklesIcon,
 } from '../components/ui/AppIcons';
-import { EmptyState } from '../components/ui/EmptyState';
-import { SectionCard } from '../components/ui/SectionCard';
-import { StatPill } from '../components/ui/StatPill';
+import { ErrorState } from '../components/ui/ErrorState';
+import { RecipeCover } from '../components/ui/RecipeCover';
+import { useCurrentUser } from '../hooks/useCurrentUser';
 import dashboardService from '../services/dashboard.service';
-import type { DashboardActionItem, DashboardSummary } from '../types';
-import { parseLocalIsoDate } from '../utils/date';
+import mealPlanService from '../services/mealPlan.service';
+import recipeService from '../services/recipe.service';
+import type { DashboardSummary, MealPlan, Recipe } from '../types';
+import {
+  daysFromToday,
+  formatLocalDate,
+  getDateRange,
+  getWeekRange,
+  todayIso,
+} from '../utils/date';
+import { PLAN_MEAL_TYPES, indexItems, slotKey } from '../utils/mealPlan';
+import { formatMinutes } from '../utils/recipe';
 
-function getGreeting() {
+function greeting(): string {
   const hour = new Date().getHours();
   if (hour < 12) return 'Good morning';
   if (hour < 17) return 'Good afternoon';
   return 'Good evening';
 }
 
-function actionTone(impact: DashboardActionItem['impact']) {
-  if (impact === 'high') {
-    return {
-      badge: 'border-[#B91C1C]/25 bg-[#FEE2E2] text-[#991B1B]',
-      dot: 'bg-[#991B1B]',
-      label: 'High impact',
-    };
-  }
-  if (impact === 'medium') {
-    return {
-      badge: 'border-[#B45309]/25 bg-[#FEF3C7] text-[#92400E]',
-      dot: 'bg-[#92400E]',
-      label: 'Medium impact',
-    };
-  }
-  return {
-    badge: 'border-[#E7E0D6] bg-[#F3EFE6] text-[#57534E]',
-    dot: 'bg-[#78716C]',
-    label: 'Low impact',
-  };
+function expiryLabel(expiresAt: string): string {
+  const days = daysFromToday(expiresAt);
+  if (days < 0) return 'Expired';
+  if (days === 0) return 'Today';
+  if (days === 1) return 'Tomorrow';
+  return `${days} days`;
 }
 
-function formatShortDate(value: string) {
-  const date = /^\d{4}-\d{2}-\d{2}$/.test(value) ? parseLocalIsoDate(value) : new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  }).format(date);
+interface TodayData {
+  summary: DashboardSummary;
+  plan: MealPlan | null;
+  tonight: Recipe | null;
 }
 
-function titleCaseMealType(value: string) {
-  return value.charAt(0).toUpperCase() + value.slice(1);
+async function loadToday(): Promise<TodayData> {
+  const summary = await dashboardService.getDashboardSummary();
+  const planId = summary.plan_continuity.active_plan_id;
+  let plan: MealPlan | null = null;
+  let tonight: Recipe | null = null;
+  if (planId) {
+    try {
+      plan = await mealPlanService.getMealPlan(planId);
+      const dinner = indexItems(plan.items).get(slotKey(todayIso(), 'dinner'));
+      if (dinner?.recipe_id) {
+        tonight = await recipeService.getRecipe(dinner.recipe_id);
+      }
+    } catch (error) {
+      console.error('Failed to load plan context:', error);
+    }
+  }
+  return { summary, plan, tonight };
 }
 
 export default function DashboardPage() {
-  const [summary, setSummary] = useState<DashboardSummary | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const user = useCurrentUser();
+  const [data, setData] = useState<TodayData | null>(null);
+  const [failed, setFailed] = useState(false);
 
-  useEffect(() => {
-    const loadSummary = async () => {
-      setLoading(true);
-      setError('');
-      try {
-        const data = await dashboardService.getDashboardSummary();
-        setSummary(data);
-      } catch (loadError) {
-        console.error('Failed to load dashboard summary:', loadError);
-        setError('Could not load your dashboard right now.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    void loadSummary();
+  const load = useCallback(async () => {
+    setFailed(false);
+    setData(null);
+    try {
+      setData(await loadToday());
+    } catch (error) {
+      console.error('Failed to load dashboard summary:', error);
+      setFailed(true);
+    }
   }, []);
 
-  const todayLabel = useMemo(
-    () =>
-      new Intl.DateTimeFormat('en-US', {
-        weekday: 'long',
-        month: 'short',
-        day: 'numeric',
-      }).format(new Date()),
-    []
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const today = todayIso();
+  const header = (
+    <header className="mb-6 sm:mb-8">
+      <p className="eyebrow">
+        {formatLocalDate(today, { weekday: 'long', month: 'long', day: 'numeric' })}
+      </p>
+      <h1 className="page-title mt-1">
+        {greeting()}
+        {user?.username ? `, ${user.username}` : ''}
+      </h1>
+    </header>
   );
 
-  if (loading) {
+  if (failed) {
     return (
-      <div className="space-y-6">
-        <div className="h-64 rounded-3xl border border-[#E7E0D6] bg-[#F3EFE6]/70 animate-pulse" />
-        <div className="grid gap-6 lg:grid-cols-2">
-          <div className="h-72 rounded-3xl border border-[#E7E0D6] bg-[#F3EFE6]/70 animate-pulse" />
-          <div className="h-72 rounded-3xl border border-[#E7E0D6] bg-[#F3EFE6]/70 animate-pulse" />
-        </div>
+      <div className="mx-auto max-w-5xl">
+        {header}
+        <ErrorState
+          title="Couldn't load your day"
+          description="Check your connection and try again."
+          onRetry={() => void load()}
+        />
       </div>
     );
   }
 
-  if (error || !summary) {
+  if (!data) {
     return (
-      <EmptyState
-        title="Dashboard unavailable"
-        description={error || 'Something went wrong while loading your dashboard.'}
-        action={
-          <Link className="btn-primary" to="/generate">
-            Generate a recipe
-          </Link>
-        }
-      />
+      <div className="mx-auto max-w-5xl">
+        {header}
+        <DashboardSkeleton />
+      </div>
     );
   }
 
-  const primaryAction = summary.today_brief.primary_action;
-  const secondaryActions = summary.action_queue.slice(1, 3);
-  const topExpiringItems = summary.pantry_risk.top_items;
-  const useAllExpiringHref =
-    topExpiringItems.length >= 2
-      ? `/generate?use=${topExpiringItems.map(item => encodeURIComponent(item.name)).join('&use=')}`
-      : null;
+  const { summary, plan, tonight } = data;
+  const nextUp = summary.action_queue
+    .filter(action => action.cta.href !== summary.today_brief.primary_action.href)
+    .slice(0, 3);
+  const recentRecipes = summary.recent_context.recent_recipes.slice(0, 4);
+  const shopping = summary.recent_context.recent_grocery_list;
 
   return (
-    <div className="space-y-8">
-      {/* Organic-Modern Editorial Masthead */}
-      <section className="surface relative overflow-hidden p-6 sm:p-8 lg:p-10">
-        <div className="grid gap-8 xl:grid-cols-[1.25fr_0.75fr] xl:items-start">
-          <div className="space-y-6">
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="badge">Today's Kitchen</span>
-              <span className="eyebrow">Daily decision cockpit</span>
-              <span className="text-xs text-[#D6CEC2]" aria-hidden="true">
-                •
-              </span>
-              <span className="text-xs font-medium text-[#57534E]">{todayLabel}</span>
-            </div>
+    <div className="mx-auto max-w-5xl animate-fade-in">
+      {header}
 
-            <div className="space-y-3">
-              <h1 className="font-display text-3xl font-semibold leading-[1.12] tracking-tight text-[#1C1917] sm:text-4xl lg:text-[2.65rem]">
-                {getGreeting()}. {summary.today_brief.headline}
-              </h1>
-              <p className="max-w-2xl text-base leading-relaxed text-[#57534E]">
-                {summary.today_brief.subline}
-              </p>
-            </div>
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        <div className="space-y-5">
+          <TonightCard summary={summary} tonight={tonight} />
+          <WeekStrip plan={plan} completion={summary.plan_continuity.completion_percent} />
+        </div>
 
-            <div className="flex flex-wrap items-center gap-3 pt-1">
-              <Link to={primaryAction.href} className="btn-primary">
-                <SparkleWandIcon size={18} className="text-white" />
-                {primaryAction.label}
-              </Link>
-              {secondaryActions.map(action => (
-                <Link key={action.id} to={action.cta.href} className="btn-secondary">
-                  {action.cta.label}
-                </Link>
-              ))}
-            </div>
-
-            {/* 3-Metric Quick Summary Strip */}
-            <div className="grid grid-cols-1 gap-3 border-t border-[#E7E0D6] pt-6 sm:grid-cols-3">
-              <div className="rounded-2xl border border-[#E7E0D6] bg-[#FAF7F2] px-4 py-3.5">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#78716C]">
-                  Week Coverage
-                </p>
-                <div className="mt-1 flex items-baseline justify-between gap-2">
-                  <span className="font-display text-2xl font-semibold tabular-nums text-[#1C1917]">
-                    {summary.plan_continuity.completion_percent}%
-                  </span>
-                  <span className="text-xs font-medium tabular-nums text-[#57534E]">
-                    {summary.plan_continuity.open_slots} open
-                  </span>
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-[#E7E0D6] bg-[#FAF7F2] px-4 py-3.5">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#78716C]">
-                  Pantry Expiring Soon
-                </p>
-                <div className="mt-1 flex items-baseline justify-between gap-2">
-                  <span
-                    className={`font-display text-2xl font-semibold tabular-nums ${
-                      summary.pantry_risk.expiring_3d_count > 0
-                        ? 'text-[#B45309]'
-                        : 'text-[#2F6F4E]'
-                    }`}
-                  >
-                    {summary.pantry_risk.expiring_3d_count}
-                  </span>
-                  <span className="text-xs font-medium text-[#57534E]">
-                    {summary.pantry_risk.expiring_3d_count === 1 ? 'item in 3d' : 'items in 3d'}
-                  </span>
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-[#E7E0D6] bg-[#FAF7F2] px-4 py-3.5">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#78716C]">
-                  Shopping Progress
-                </p>
-                <div className="mt-1 flex items-baseline justify-between gap-2">
-                  <span className="font-display text-2xl font-semibold tabular-nums text-[#1C1917]">
-                    {summary.recent_context.recent_grocery_list
-                      ? summary.recent_context.recent_grocery_list.unchecked_count
-                      : 0}
-                  </span>
-                  <span className="text-xs font-medium text-[#57534E]">
-                    {summary.recent_context.recent_grocery_list ? 'remaining' : 'no active list'}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Right now Priority Queue */}
-          <div className="bg-[#FAF7F2] border border-[#E7E0D6] rounded-2xl p-5">
-            <div className="flex items-center justify-between border-b border-[#E7E0D6] pb-3.5">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#78716C]">
-                  Right now
-                </p>
-                <p className="mt-0.5 text-xs text-[#57534E]">Recommended kitchen priorities</p>
-              </div>
-              <div className="icon-container-premium icon-container-orange icon-container-sm">
-                <FireStatsIcon size={18} />
-              </div>
-            </div>
-
-            <div className="mt-4 space-y-3">
-              {summary.action_queue.map(action => {
-                const tone = actionTone(action.impact);
-                return (
-                  <div
-                    key={action.id}
-                    className="rounded-2xl border border-[#E7E0D6] bg-white p-4 transition-all duration-150 hover:border-[#D6CEC2]"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-[#1C1917]">{action.title}</p>
-                        <p className="mt-1 text-xs leading-relaxed text-[#57534E]">
-                          {action.rationale}
-                        </p>
-                      </div>
-                      <span
-                        className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${tone.badge}`}
-                      >
-                        <span className={`h-1.5 w-1.5 rounded-full ${tone.dot}`} />
-                        {tone.label}
-                      </span>
-                    </div>
+        <div className="space-y-5">
+          {nextUp.length > 0 && (
+            <section aria-labelledby="next-up-heading" className="card p-5">
+              <h2 id="next-up-heading" className="section-title">
+                Next up
+              </h2>
+              <ul className="-mx-2 mt-2">
+                {nextUp.map(action => (
+                  <li key={action.id}>
                     <Link
                       to={action.cta.href}
-                      className="mt-3 inline-flex items-center text-xs font-semibold uppercase tracking-[0.08em] text-[#C84B31] hover:text-[#B83B22]"
+                      className="flex items-center gap-3 rounded-xl px-2 py-3 transition hover:bg-stone-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-primary-soft"
                     >
-                      {action.cta.label}
-                      <ArrowRightIcon className="ml-1.5 h-3.5 w-3.5" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-semibold text-stone-900">
+                          {action.title}
+                        </span>
+                        <span className="block text-sm text-stone-500">{action.rationale}</span>
+                      </span>
+                      <ChevronRightIcon className="h-4 w-4 flex-shrink-0 text-stone-400" />
                     </Link>
-                  </div>
-                );
-              })}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          <section aria-labelledby="pantry-heading" className="card p-5">
+            <div className="flex items-center gap-3">
+              <span className="icon-tile-sm icon-tile-amber">
+                <PantryIcon className="h-4 w-4" />
+              </span>
+              <h2 id="pantry-heading" className="section-title flex-1">
+                Use soon
+              </h2>
+              <Link to="/pantry" className="text-sm font-medium text-primary hover:underline">
+                Pantry
+              </Link>
             </div>
+            {summary.pantry_risk.top_items.length > 0 ? (
+              <>
+                <ul className="mt-3 space-y-2">
+                  {summary.pantry_risk.top_items.map(item => {
+                    const days = daysFromToday(item.expires_at);
+                    return (
+                      <li
+                        key={item.name}
+                        className="flex items-center justify-between gap-3 text-sm"
+                      >
+                        <span className="font-medium text-stone-800">{item.name}</span>
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                            days <= 0 ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'
+                          }`}
+                        >
+                          {expiryLabel(item.expires_at)}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+                {summary.pantry_risk.expiring_3d_count > summary.pantry_risk.top_items.length && (
+                  <p className="helper-text mt-2">
+                    +{summary.pantry_risk.expiring_3d_count - summary.pantry_risk.top_items.length}{' '}
+                    more this week
+                  </p>
+                )}
+                <Link
+                  to={summary.pantry_risk.cta.href}
+                  className="btn-secondary btn-sm mt-4 w-full"
+                >
+                  <SparklesIcon className="h-4 w-4" />
+                  Cook with these
+                </Link>
+              </>
+            ) : (
+              <p className="helper-text mt-2">Nothing is about to expire. Nice.</p>
+            )}
+          </section>
+
+          {shopping && shopping.unchecked_count > 0 && (
+            <Link
+              to={shopping.href}
+              className="card card-hover flex items-center gap-3 p-4 focus:outline-none focus-visible:ring-4 focus-visible:ring-primary-soft"
+            >
+              <span className="icon-tile-sm">
+                <ShoppingBagIcon className="h-4 w-4" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold text-stone-900">Resume shopping</span>
+                <span className="block text-sm text-stone-500">
+                  {shopping.unchecked_count} item{shopping.unchecked_count === 1 ? '' : 's'} left on
+                  your list
+                </span>
+              </span>
+              <ChevronRightIcon className="h-4 w-4 text-stone-400" />
+            </Link>
+          )}
+        </div>
+      </div>
+
+      <section aria-labelledby="recent-heading" className="mt-8">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 id="recent-heading" className="section-title">
+            Recently made
+          </h2>
+          {recentRecipes.length > 0 && (
+            <Link to="/recipes" className="text-sm font-medium text-primary hover:underline">
+              All recipes
+            </Link>
+          )}
+        </div>
+        {recentRecipes.length > 0 ? (
+          <ul className="stagger grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {recentRecipes.map(recipe => (
+              <li key={recipe.id}>
+                <Link
+                  to={`/recipes/${recipe.id}`}
+                  className="group block overflow-hidden rounded-2xl border border-stone-200 bg-white transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-4 focus-visible:ring-primary-soft"
+                >
+                  <RecipeCover name={recipe.name} size="sm" className="h-20" />
+                  <span className="block p-3">
+                    <span className="line-clamp-2 text-sm font-semibold text-stone-900">
+                      {recipe.name}
+                    </span>
+                    {recipe.total_minutes > 0 && (
+                      <span className="mt-1 flex items-center gap-1 text-xs text-stone-500">
+                        <ClockIcon className="h-3.5 w-3.5" />
+                        {formatMinutes(recipe.total_minutes)}
+                      </span>
+                    )}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="rounded-2xl border border-dashed border-stone-300 px-6 py-8 text-center">
+            <p className="text-sm text-stone-600">Recipes you make will show up here.</p>
+            <Link to="/generate" className="btn-primary btn-sm mt-3">
+              Make your first recipe
+            </Link>
           </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function TonightCard({ summary, tonight }: { summary: DashboardSummary; tonight: Recipe | null }) {
+  if (tonight) {
+    const minutes = tonight.total_minutes ?? 0;
+    return (
+      <section
+        aria-labelledby="tonight-heading"
+        className="surface-warm overflow-hidden rounded-3xl sm:flex"
+      >
+        <RecipeCover
+          name={tonight.name}
+          imageUrl={tonight.image_url}
+          className="h-32 sm:h-auto sm:w-48 sm:flex-shrink-0"
+        />
+        <div className="p-5 sm:p-6">
+          <p className="eyebrow">Tonight's dinner</p>
+          <h2
+            id="tonight-heading"
+            className="mt-1 font-display text-2xl font-semibold text-stone-900"
+          >
+            {tonight.name}
+          </h2>
+          {minutes > 0 && (
+            <p className="mt-1 flex items-center gap-1.5 text-sm text-stone-600">
+              <ClockIcon className="h-4 w-4" />
+              {formatMinutes(minutes)}
+            </p>
+          )}
+          <Link to={`/recipes/${tonight.id}`} className="btn-primary mt-4">
+            <PlayIcon className="h-4 w-4" />
+            Get cooking
+          </Link>
         </div>
       </section>
+    );
+  }
 
-      {/* Plan Continuity & Interactive Pantry Triage */}
-      <section className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-        <SectionCard
-          title="Plan continuity"
-          subtitle="Keep this week realistic and complete"
-          className="p-6"
-          action={
-            summary.plan_continuity.active_plan_id ? (
-              <Link
-                to={`/meal-plans/${summary.plan_continuity.active_plan_id}`}
-                className="btn-secondary text-sm"
-              >
-                Open plan
-              </Link>
-            ) : (
-              <Link to="/meal-plans" className="btn-secondary text-sm">
-                View planner
-              </Link>
-            )
-          }
-        >
-          <div className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <StatPill
-                label="Completion"
-                value={`${summary.plan_continuity.completion_percent}%`}
-                tone="success"
-              />
-              <StatPill
-                label="Open slots"
-                value={summary.plan_continuity.open_slots}
-                tone={summary.plan_continuity.open_slots > 0 ? 'warm' : 'default'}
-              />
-            </div>
+  const { headline, subline, primary_action: action } = summary.today_brief;
+  return (
+    <section aria-labelledby="tonight-heading" className="surface-warm rounded-3xl p-5 sm:p-7">
+      <p className="eyebrow">Today</p>
+      <h2 id="tonight-heading" className="mt-1 font-display text-2xl font-semibold text-stone-900">
+        {headline}
+      </h2>
+      <p className="mt-1.5 text-[15px] text-stone-600">{subline}</p>
+      <div className="mt-5 flex flex-wrap gap-2">
+        <Link to={action.href} className="btn-primary">
+          {action.label}
+          <ArrowRightIcon className="h-4 w-4" />
+        </Link>
+        {action.href !== '/generate' && (
+          <Link to="/generate" className="btn-secondary">
+            <SparklesIcon className="h-4 w-4" />
+            Make a recipe
+          </Link>
+        )}
+      </div>
+    </section>
+  );
+}
 
-            {summary.plan_continuity.next_slots.length > 0 ? (
-              <div className="space-y-2.5">
-                {summary.plan_continuity.next_slots.map(slot => (
-                  <Link
-                    key={`${slot.date}-${slot.meal_type}`}
-                    to={slot.href}
-                    className="group flex items-center justify-between rounded-2xl border border-[#E7E0D6] bg-[#FAF7F2]/60 px-4 py-3.5 transition-all hover:-translate-y-0.5 hover:border-[#D6CEC2] hover:bg-white"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`icon-container-premium icon-container-sm ${
-                          slot.has_recipe ? 'icon-container-emerald' : 'icon-container-orange'
-                        }`}
-                      >
-                        <CalendarMealIcon size={16} />
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-[#1C1917]">
-                          {titleCaseMealType(slot.meal_type)} • {formatShortDate(slot.date)}
-                        </p>
-                        <p className="mt-0.5 text-xs text-[#57534E]">
-                          {slot.has_recipe
-                            ? 'Assigned recipe in this slot'
-                            : 'Open slot waiting for a recipe'}
-                        </p>
-                      </div>
-                    </div>
-                    <ArrowRightIcon className="h-4 w-4 text-[#78716C] transition-transform group-hover:translate-x-1 group-hover:text-[#1C1917]" />
-                  </Link>
-                ))}
-              </div>
-            ) : (
-              <div className="rounded-2xl border border-dashed border-[#D6CEC2] bg-[#FAF7F2] p-5 text-sm text-[#57534E]">
-                No active plan slots yet. Build a plan to unlock week-level guidance.
-              </div>
-            )}
-          </div>
-        </SectionCard>
+function WeekStrip({ plan, completion }: { plan: MealPlan | null; completion: number }) {
+  const today = todayIso();
+  const range = plan ?? getWeekRange();
+  const dates = getDateRange(range.start_date, range.end_date).slice(0, 7);
+  const filled = indexItems(plan?.items ?? []);
 
-        <SectionCard
-          title="Pantry risk"
-          subtitle="Use expiring ingredients before buying more"
-          className="p-6"
-          action={
-            <div className="flex flex-wrap items-center gap-2">
-              {useAllExpiringHref && (
-                <Link to={useAllExpiringHref} className="btn-primary text-xs px-4 py-2">
-                  <SparkleWandIcon size={14} className="text-white" />
-                  Use all expiring
-                </Link>
-              )}
-              <Link to={summary.pantry_risk.cta.href} className="btn-secondary text-sm">
-                {summary.pantry_risk.cta.label}
-              </Link>
-            </div>
-          }
-        >
-          <div className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <StatPill
-                label="Expiring in 3 days"
-                value={summary.pantry_risk.expiring_3d_count}
-                tone={summary.pantry_risk.expiring_3d_count > 0 ? 'warm' : 'default'}
-              />
-              <StatPill label="Focus" value="Waste prevention" tone="success" />
-            </div>
+  return (
+    <section aria-labelledby="week-heading" className="card p-5">
+      <div className="flex items-center gap-3">
+        <span className="icon-tile-sm">
+          <CalendarDaysIcon className="h-4 w-4" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 id="week-heading" className="section-title truncate">
+            {plan?.name || 'This week'}
+          </h2>
+          {plan && <p className="helper-text mt-0">{completion}% planned</p>}
+        </div>
+        <Link to={plan ? `/meal-plans/${plan.id}` : '/meal-plans'} className="btn-ghost btn-sm">
+          {plan ? 'Open' : 'Plan the week'}
+          <ChevronRightIcon className="h-4 w-4" />
+        </Link>
+      </div>
 
-            {topExpiringItems.length > 0 ? (
-              <div className="space-y-2.5">
-                {topExpiringItems.map(item => (
-                  <div
-                    key={`${item.name}-${item.expires_at}`}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#E7E0D6] bg-[#FAF7F2]/60 px-4 py-3 transition-colors hover:border-[#D6CEC2] hover:bg-white"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="icon-container-premium icon-container-amber icon-container-sm shrink-0">
-                        <PantryIcon size={16} />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-[#1C1917] truncate">{item.name}</p>
-                        <p className="text-xs text-[#B45309] font-medium tabular-nums">
-                          Expires {formatShortDate(item.expires_at)}
-                        </p>
-                      </div>
-                    </div>
-                    <Link
-                      to={`/generate?use=${encodeURIComponent(item.name)}`}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-[#C84B31]/25 bg-[#F9F1EA] px-3 py-1.5 text-xs font-semibold text-[#9A3412] transition-colors hover:border-[#C84B31] hover:bg-[#C84B31] hover:text-white"
-                    >
-                      <SparkleWandIcon size={14} />
-                      Cook with this
-                    </Link>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="rounded-2xl border border-dashed border-[#D6CEC2] bg-[#FAF7F2] p-5 text-sm text-[#57534E]">
-                Nothing urgent in pantry right now.
-              </div>
-            )}
-          </div>
-        </SectionCard>
-      </section>
-
-      {/* Shopping Continuity & Recent Context */}
-      <section className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
-        <SectionCard
-          title="Shopping continuity"
-          subtitle="Pick up where your latest list left off"
-          className="p-6"
-          action={
-            <Link to="/grocery" className="btn-ghost text-xs">
-              All lists
-            </Link>
-          }
-        >
-          {summary.recent_context.recent_grocery_list ? (
-            <Link
-              to={summary.recent_context.recent_grocery_list.href}
-              className="group flex items-center justify-between rounded-2xl border border-[#E7E0D6] bg-[#FAF7F2]/60 px-4 py-4 transition-all hover:-translate-y-0.5 hover:border-[#D6CEC2] hover:bg-white"
+      <ol className="mt-4 grid grid-cols-7 gap-1.5" aria-label="Days">
+        {dates.map(date => {
+          const isToday = date === today;
+          const isPast = date < today;
+          const count = PLAN_MEAL_TYPES.filter(meal => filled.has(slotKey(date, meal))).length;
+          return (
+            <li
+              key={date}
+              aria-current={isToday ? 'date' : undefined}
+              aria-label={`${formatLocalDate(date, { weekday: 'long' })}: ${count} of ${PLAN_MEAL_TYPES.length} meals planned`}
+              className={`flex flex-col items-center rounded-xl py-2 ${
+                isToday ? 'bg-primary text-white' : isPast ? 'text-stone-400' : 'text-stone-700'
+              }`}
             >
-              <div className="flex items-center gap-3.5">
-                <div className="icon-container-premium icon-container-emerald">
-                  <ShoppingCartCheckIcon size={20} />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-[#1C1917]">Latest grocery list</p>
-                  <p className="mt-0.5 text-xs text-[#57534E] tabular-nums">
-                    {summary.recent_context.recent_grocery_list.unchecked_count} item(s) still
-                    unchecked
-                  </p>
-                </div>
-              </div>
-              <ArrowRightIcon className="h-4 w-4 text-[#78716C] transition-transform group-hover:translate-x-1 group-hover:text-[#1C1917]" />
-            </Link>
-          ) : (
-            <div className="rounded-2xl border border-dashed border-[#D6CEC2] bg-[#FAF7F2] p-5 text-sm text-[#57534E]">
-              No active grocery list yet. Build one from recipes or a meal plan.
-            </div>
-          )}
-        </SectionCard>
+              <span className="text-[11px] font-medium uppercase">
+                {formatLocalDate(date, { weekday: 'narrow' })}
+              </span>
+              <span className="text-base font-semibold tabular-nums">
+                {formatLocalDate(date, { day: 'numeric' })}
+              </span>
+              <span className="mt-1 flex gap-0.5" aria-hidden="true">
+                {PLAN_MEAL_TYPES.map(meal => (
+                  <span
+                    key={meal}
+                    className={`h-1.5 w-1.5 rounded-full ${
+                      filled.has(slotKey(date, meal))
+                        ? isToday
+                          ? 'bg-white'
+                          : 'bg-primary'
+                        : isToday
+                          ? 'bg-white/35'
+                          : 'bg-stone-200'
+                    }`}
+                  />
+                ))}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+      {plan && (
+        <div className="progress-track mt-4" aria-hidden="true">
+          <div className="progress-bar" style={{ width: `${completion}%` }} />
+        </div>
+      )}
+    </section>
+  );
+}
 
-        <SectionCard
-          title="Recent context"
-          subtitle="Continue from your latest saved recipes"
-          className="p-6"
-          action={
-            <Link to="/recipes" className="btn-ghost text-xs">
-              Recipe Vault
-            </Link>
-          }
-        >
-          {summary.recent_context.recent_recipes.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-[#D6CEC2] bg-[#FAF7F2] p-6 text-center">
-              <p className="text-sm text-[#57534E]">No saved recipes yet.</p>
-              <Link to="/generate" className="btn-primary mt-4 inline-flex">
-                Generate first recipe
-              </Link>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {summary.recent_context.recent_recipes.map(recipe => (
-                <Link
-                  key={recipe.id}
-                  to={`/recipes/${recipe.id}`}
-                  className="group flex items-start justify-between gap-4 rounded-2xl border border-[#E7E0D6] bg-[#FAF7F2]/60 px-4 py-3.5 transition-all hover:-translate-y-0.5 hover:border-[#D6CEC2] hover:bg-white"
-                >
-                  <div className="flex items-start gap-3 min-w-0">
-                    <div className="icon-container-premium icon-container-orange icon-container-sm mt-0.5 shrink-0">
-                      <RecipeBookIcon size={16} />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-[#1C1917] truncate">{recipe.name}</p>
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <span className="inline-flex items-center gap-1 rounded-full border border-[#E7E0D6] bg-white px-2.5 py-0.5 text-[11px] font-medium tabular-nums text-[#57534E]">
-                          <ClockIcon className="h-3 w-3 text-[#78716C]" />
-                          {recipe.total_minutes > 0
-                            ? `${recipe.total_minutes} min`
-                            : 'Time not set'}
-                        </span>
-                        {recipe.tags.slice(0, 2).map(tag => (
-                          <span
-                            key={tag}
-                            className="rounded-full border border-[#C84B31]/20 bg-[#F9F1EA] px-2.5 py-0.5 text-[11px] font-semibold text-[#9A3412]"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                  <ArrowRightIcon className="mt-1 h-4 w-4 shrink-0 text-[#78716C] transition-transform group-hover:translate-x-1 group-hover:text-[#1C1917]" />
-                </Link>
-              ))}
-            </div>
-          )}
-        </SectionCard>
-      </section>
+function DashboardSkeleton() {
+  return (
+    <div role="status" aria-label="Loading your day" className="grid gap-5 lg:grid-cols-[3fr_2fr]">
+      <div className="space-y-5">
+        <div className="skeleton h-48 rounded-3xl" />
+        <div className="skeleton h-40 rounded-2xl" />
+      </div>
+      <div className="space-y-5">
+        <div className="skeleton h-44 rounded-2xl" />
+        <div className="skeleton h-36 rounded-2xl" />
+      </div>
     </div>
   );
 }

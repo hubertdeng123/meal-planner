@@ -23,44 +23,30 @@ export function EmptyState({
 
   return (
     <div
-      className={`surface text-center ${isCompact ? 'p-6 sm:p-7' : 'p-10 sm:p-12'} ${className}`.trim()}
+      className={`relative overflow-hidden rounded-2xl border border-dashed border-stone-300 bg-white/60 text-center animate-slide-in-up ${
+        isCompact ? 'px-6 py-10' : 'px-6 py-16 sm:py-20'
+      } ${className}`}
     >
       {icon && (
-        <div className={`flex justify-center text-[#78716C] ${isCompact ? 'mb-4' : 'mb-5'}`}>
-          <div
-            className={`${isCompact ? 'h-12 w-12 rounded-2xl' : 'h-16 w-16 rounded-2xl'} flex items-center justify-center border border-[#E7E0D6] bg-[#FAF7F2] shadow-xs`}
-          >
+        <div className="mb-5 flex justify-center">
+          <div className={`icon-tile ${isCompact ? '' : 'icon-tile-lg'} [&>svg]:h-6 [&>svg]:w-6`}>
             {icon}
           </div>
         </div>
       )}
       <h2
-        className={`font-display ${isCompact ? 'text-xl' : 'text-2xl'} font-semibold text-[#1C1917] tracking-tight animate-slide-in-up opacity-0`}
-        style={{ animationFillMode: 'forwards' }}
+        className={`font-display font-semibold text-stone-900 ${isCompact ? 'text-lg' : 'text-2xl'}`}
       >
         {title}
       </h2>
       {description && (
-        <p
-          className={`mx-auto max-w-md ${isCompact ? 'mt-1.5 text-sm' : 'mt-2.5 text-base'} text-[#57534E] leading-relaxed animate-slide-in-up opacity-0`}
-          style={{ animationDelay: '80ms', animationFillMode: 'forwards' }}
-        >
+        <p className={`mx-auto mt-2 max-w-md text-stone-600 ${isCompact ? 'text-sm' : ''}`}>
           {description}
         </p>
       )}
-      {valueProp && (
-        <p
-          className="mx-auto mt-2 max-w-md text-xs font-medium text-[#78716C] animate-slide-in-up opacity-0"
-          style={{ animationDelay: '130ms', animationFillMode: 'forwards' }}
-        >
-          {valueProp}
-        </p>
-      )}
+      {valueProp && <p className="mx-auto mt-2 max-w-md text-sm text-stone-500">{valueProp}</p>}
       {action && (
-        <div
-          className={`${isCompact ? 'mt-5' : 'mt-7'} flex flex-wrap justify-center gap-3 animate-slide-in-up opacity-0`}
-          style={{ animationDelay: '180ms', animationFillMode: 'forwards' }}
-        >
+        <div className={`${isCompact ? 'mt-5' : 'mt-7'} flex flex-wrap justify-center gap-3`}>
           {action}
         </div>
       )}

@@ -4,6 +4,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './contexts/AuthContextProvider';
 import { ToastProvider } from './contexts/ToastContext';
 import ToastContainer from './components/ui/ToastContainer';
+import { HungryHelperLogo } from './components/ui/AppIcons';
 import { useAuth } from './hooks/useAuth';
 
 const LoginPage = lazy(() => import('./pages/LoginPage'));
@@ -18,19 +19,10 @@ const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const MealPlansPage = lazy(() => import('./pages/MealPlansPage'));
 const MealPlanDetailPage = lazy(() => import('./pages/MealPlanDetailPage'));
 const PantryPage = lazy(() => import('./pages/PantryPage'));
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 
 function RouteFallback() {
-  return (
-    <div className="min-h-[40vh] flex items-center justify-center">
-      <div className="flex items-center gap-3 text-sm font-medium text-[#57534E]">
-        <div
-          className="animate-spin rounded-full h-5 w-5 border-2 border-[#E7E0D6]"
-          style={{ borderTopColor: 'var(--primary)' }}
-        />
-        Loading kitchen...
-      </div>
-    </div>
-  );
+  return <div className="min-h-screen bg-paper" role="status" aria-label="Loading page" />;
 }
 
 function AppRoutes() {
@@ -38,8 +30,12 @@ function AppRoutes() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#FAF7F2]">
-        <div className="animate-spin rounded-full h-10 w-10 border-2 border-[#E7E0D6] border-t-primary" />
+      <div
+        className="flex min-h-screen items-center justify-center bg-paper"
+        role="status"
+        aria-label="Loading"
+      >
+        <HungryHelperLogo size={40} className="animate-pulse motion-reduce:animate-none" />
       </div>
     );
   }
@@ -50,11 +46,11 @@ function AppRoutes() {
         <Routes>
           <Route
             path="/login"
-            element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage />}
+            element={isAuthenticated ? <Navigate to="/dashboard" /> : <LoginPage />}
           />
           <Route
             path="/register"
-            element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <RegisterPage />}
+            element={isAuthenticated ? <Navigate to="/dashboard" /> : <RegisterPage />}
           />
           <Route
             path="/"
@@ -87,7 +83,7 @@ function AppRoutes() {
           <Route
             path="/generate"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute mode="focus">
                 <GenerateRecipePage />
               </ProtectedRoute>
             }
@@ -103,7 +99,7 @@ function AppRoutes() {
           <Route
             path="/grocery/:id"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute mode="focus">
                 <GroceryListDetailPage />
               </ProtectedRoute>
             }
@@ -140,22 +136,13 @@ function AppRoutes() {
               </ProtectedRoute>
             }
           />
-
-          {/* Intuitive Route Aliases & Legacy Redirects */}
-          <Route path="/home" element={<Navigate to="/dashboard" replace />} />
-          <Route path="/recipes/new" element={<Navigate to="/generate" replace />} />
-          <Route path="/recipes/generate" element={<Navigate to="/generate" replace />} />
-          <Route path="/planner" element={<Navigate to="/meal-plans" replace />} />
-          <Route path="/shopping" element={<Navigate to="/grocery" replace />} />
-          <Route path="/grocery-lists" element={<Navigate to="/grocery" replace />} />
-          <Route path="/inventory" element={<Navigate to="/pantry" replace />} />
-          <Route path="/preferences" element={<Navigate to="/settings" replace />} />
-          <Route path="/profile" element={<Navigate to="/settings" replace />} />
-
-          {/* Catch-all 404 fallback */}
           <Route
             path="*"
-            element={<Navigate to={isAuthenticated ? '/dashboard' : '/login'} replace />}
+            element={
+              <ProtectedRoute>
+                <NotFoundPage />
+              </ProtectedRoute>
+            }
           />
         </Routes>
       </Suspense>

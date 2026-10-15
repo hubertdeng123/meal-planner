@@ -124,6 +124,12 @@ export interface Recipe {
   source_urls: string[];
   image_url?: string;
   created_at: string;
+  cuisine?: string | null;
+  difficulty?: string | null;
+  /** prep + cook minutes; null when neither is known. */
+  total_minutes?: number | null;
+  /** The current user's feedback on this recipe, or null when none has been left. */
+  feedback?: RecipeFeedbackResponse | null;
 }
 
 export interface Ingredient {
@@ -168,6 +174,79 @@ export interface RecipeFeedbackResponse extends RecipeFeedback {
   recipe_id: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface IngredientDraft {
+  name?: string;
+  quantity?: number;
+  unit?: string;
+  notes?: string | null;
+}
+
+/**
+ * Partial recipe streamed while the model writes it. Every field is optional; lists grow over
+ * time and their last element may still be incomplete.
+ */
+export interface RecipeDraft {
+  name?: string;
+  description?: string;
+  cuisine?: string;
+  ingredients?: IngredientDraft[];
+  instructions?: string[];
+  prep_time_minutes?: number;
+  cook_time_minutes?: number;
+  servings?: number;
+  tags?: string[];
+  nutrition?: NutritionFacts;
+  source_urls?: string[];
+}
+
+/** Stages the server reports via `event: stage`. */
+export type ServerStreamStage = 'context' | 'thinking' | 'drafting' | 'saving';
+
+/** Client-side lifecycle of a generation, as exposed by `useRecipeStream`. */
+export type StreamStage = 'idle' | ServerStreamStage | 'complete' | 'error';
+
+export interface StreamError {
+  message: string;
+  retryable: boolean;
+}
+
+export interface StreamStagePayload {
+  stage: ServerStreamStage;
+  message: string;
+}
+
+/** One parsed frame of `POST /recipes/generate/stream` (streaming contract v2). */
+export type RecipeStreamEvent =
+  | { event: 'stage'; data: StreamStagePayload }
+  | { event: 'thinking'; data: { delta: string } }
+  | { event: 'draft'; data: { recipe: RecipeDraft } }
+  | { event: 'complete'; data: { recipe: Recipe } }
+  | { event: 'error'; data: StreamError }
+  | { event: 'ping'; data: Record<string, never> };
+
+export interface RecipeStreamState {
+  stage: StreamStage;
+  /** Accumulated reasoning text. */
+  thinking: string;
+  /** Latest partial recipe snapshot. */
+  draft: RecipeDraft | null;
+  /** Final saved recipe. */
+  recipe: Recipe | null;
+  error: StreamError | null;
+  elapsedMs: number;
+}
+
+export interface RecipeFacet {
+  value: string;
+  count: number;
+}
+
+export interface RecipeFacets {
+  cuisines: RecipeFacet[];
+  tags: RecipeFacet[];
+  total: number;
 }
 
 export interface GroceryItem {

@@ -1,4 +1,5 @@
 import { ExclamationTriangleIcon } from './AppIcons';
+
 import { ModalShell } from './ModalShell';
 
 type ConfirmTone = 'danger' | 'default';
@@ -34,21 +35,7 @@ export function ConfirmDialog({
     <ModalShell
       size="sm"
       onClose={loading ? undefined : onCancel}
-      title={
-        <span className="inline-flex items-center gap-2.5">
-          <span
-            className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
-              tone === 'danger' ? 'bg-[#FEE2E2] text-[#B91C1C]' : 'bg-[#FEF3C7] text-[#B45309]'
-            }`}
-          >
-            <ExclamationTriangleIcon
-              className={`h-4 w-4 ${tone === 'danger' ? 'text-[#B91C1C]' : 'text-[#B45309]'}`}
-            />
-          </span>
-          <span>{title}</span>
-        </span>
-      }
-      description={description}
+      hideCloseButton
       footer={
         <>
           <button type="button" className="btn-secondary" disabled={loading} onClick={onCancel}>
@@ -64,6 +51,18 @@ export function ConfirmDialog({
           </button>
         </>
       }
-    />
+    >
+      <div className="flex items-start gap-4 pt-3">
+        <div
+          className={`icon-tile ${tone === 'danger' ? 'bg-red-50 text-red-600' : 'icon-tile-amber'}`}
+        >
+          <ExclamationTriangleIcon className="h-5 w-5" />
+        </div>
+        <div className="min-w-0">
+          <h3 className="text-base font-semibold text-stone-900">{title}</h3>
+          <p className="mt-1 text-sm text-stone-600">{description}</p>
+        </div>
+      </div>
+    </ModalShell>
   );
 }
