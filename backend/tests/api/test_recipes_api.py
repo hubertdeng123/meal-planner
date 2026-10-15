@@ -169,3 +169,161 @@ def test_meal_plan_autofill_and_grocery_generation(
     grocery_data = grocery.json()
     assert grocery_data["meal_plan_id"] == meal_plan_id
     assert isinstance(grocery_data["items"], list)
+
+
+def _add_recipe(db, user, name, **fields):
+    defaults = {
+        "instructions": ["Step 1"],
+        "ingredients": [{"name": "salt", "quantity": 1, "unit": "tsp"}],
+        "servings": 2,
+        "tags": [],
+        "source": "test",
+    }
+    recipe = Recipe(user_id=user.id, name=name, **(defaults | fields))
+    db.add(recipe)
+    db.commit()
+    db.refresh(recipe)
+    return recipe
+
+
+def test_recipe_response_includes_cuisine_difficulty_and_feedback(
+    client, auth_headers, db, test_user
+):
+    recipe = _add_recipe(
+        db,
+        test_user,
+        "Pho",
+        cuisine="Vietnamese",
+        difficulty="medium",
+        prep_time_minutes=20,
+        cook_time_minutes=None,
+    )
+
+    payload = client.get(f"/api/v1/recipes/{recipe.id}", headers=auth_headers).json()
+    assert payload["cuisine"] == "Vietnamese"
+    assert payload["difficulty"] == "medium"
+    assert payload["total_minutes"] == 20
+    assert payload["feedback"] is None
+
+    client.post(
+        f"/api/v1/recipes/{recipe.id}/feedback",
+        headers=auth_headers,
+        json={"liked": True, "rating": 5, "notes": "Rich broth"},
+    )
+
+    payload = client.get(f"/api/v1/recipes/{recipe.id}", headers=auth_headers).json()
+    assert payload["feedback"]["rating"] == 5
+    assert payload["feedback"]["notes"] == "Rich broth"
+
+    listed = client.get("/api/v1/recipes/list", headers=auth_headers).json()
+    assert listed["items"][0]["feedback"]["liked"] is True
+
+
+def test_get_and_delete_feedback(client, auth_headers, test_recipe):
+    url = f"/api/v1/recipes/{test_recipe.id}/feedback"
+
+    empty = client.get(url, headers=auth_headers)
+    assert empty.status_code == 200
+    assert empty.json() is None
+
+    client.post(url, headers=auth_headers, json={"liked": False, "rating": 2})
+    stored = client.get(url, headers=auth_headers).json()
+    assert stored["rating"] == 2
+    assert stored["liked"] is False
+
+    deleted = client.delete(url, headers=auth_headers)
+    assert deleted.status_code == 204
+    assert client.get(url, headers=auth_headers).json() is None
+    assert client.delete(url, headers=auth_headers).status_code == 204
+
+
+def test_feedback_read_is_user_scoped(client, auth_headers):
+    assert (
+        client.get("/api/v1/recipes/999/feedback", headers=auth_headers).status_code
+        == 404
+    )
+    assert (
+        client.delete("/api/v1/recipes/999/feedback", headers=auth_headers).status_code
+        == 404
+    )
+
+
+def test_list_filters_by_cuisine_and_favorites(client, auth_headers, db, test_user):
+    thai = _add_recipe(db, test_user, "Larb", cuisine="Thai")
+    liked = _add_recipe(db, test_user, "Margherita", cuisine="Italian")
+    rated = _add_recipe(db, test_user, "Cacio e Pepe", cuisine="italian")
+    _add_recipe(db, test_user, "Risotto", cuisine="Italian")
+    client.post(
+        f"/api/v1/recipes/{liked.id}/feedback",
+        headers=auth_headers,
+        json={"liked": True},
+    )
+    client.post(
+        f"/api/v1/recipes/{rated.id}/feedback",
+        headers=auth_headers,
+        json={"liked": False, "rating": 4},
+    )
+    client.post(
+        f"/api/v1/recipes/{thai.id}/feedback",
+        headers=auth_headers,
+        json={"liked": False, "rating": 1},
+    )
+
+    italian = client.get(
+        "/api/v1/recipes/list?cuisine=ITALIAN", headers=auth_headers
+    ).json()
+    assert italian["total"] == 3
+
+    favorites = client.get(
+        "/api/v1/recipes/list?favorites=true&sort=name&order=asc", headers=auth_headers
+    ).json()
+    assert [r["name"] for r in favorites["items"]] == ["Cacio e Pepe", "Margherita"]
+    assert favorites["total_pages"] == 1
+
+
+def test_list_sorts_by_total_minutes(client, auth_headers, db, test_user):
+    _add_recipe(db, test_user, "Slow", prep_time_minutes=30, cook_time_minutes=90)
+    _add_recipe(db, test_user, "Fast", prep_time_minutes=5, cook_time_minutes=5)
+    _add_recipe(db, test_user, "Medium", cook_time_minutes=40)
+
+    payload = client.get(
+        "/api/v1/recipes/list?sort=total_minutes&order=asc", headers=auth_headers
+    ).json()
+
+    assert [r["name"] for r in payload["items"]] == ["Fast", "Medium", "Slow"]
+    assert [r["total_minutes"] for r in payload["items"]] == [10, 40, 120]
+
+
+def test_recipe_facets(client, auth_headers, db, test_user):
+    _add_recipe(db, test_user, "A", cuisine="Thai", tags=["quick", "vegan"])
+    _add_recipe(db, test_user, "B", cuisine="thai", tags=["quick"])
+    _add_recipe(db, test_user, "C", cuisine="Italian", tags=["Quick", "dinner"])
+    _add_recipe(db, test_user, "D", cuisine=None, tags=[])
+
+    payload = client.get("/api/v1/recipes/facets", headers=auth_headers).json()
+
+    assert payload["total"] == 4
+    assert payload["cuisines"] == [
+        {"value": "Thai", "count": 2},
+        {"value": "Italian", "count": 1},
+    ]
+    assert payload["tags"][0] == {"value": "quick", "count": 3}
+    assert {t["value"] for t in payload["tags"]} == {"quick", "vegan", "dinner"}
+
+
+def test_delete_recipe_with_feedback(client, auth_headers, test_recipe):
+    client.post(
+        f"/api/v1/recipes/{test_recipe.id}/feedback",
+        headers=auth_headers,
+        json={"liked": True},
+    )
+
+    response = client.delete(f"/api/v1/recipes/{test_recipe.id}", headers=auth_headers)
+
+    assert response.status_code == 200
+    assert (
+        client.get(
+            f"/api/v1/recipes/{test_recipe.id}", headers=auth_headers
+        ).status_code
+        == 404
+    )

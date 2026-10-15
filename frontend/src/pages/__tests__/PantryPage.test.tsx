@@ -3,12 +3,14 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import { render } from '../../test/utils';
+import { addDaysIso, todayIso } from '../../utils/date';
 import PantryPage from '../PantryPage';
 
 vi.mock('../../services/pantry.service', () => ({
   default: {
     getPantryItems: vi.fn(),
     createPantryItem: vi.fn(),
+    updatePantryItem: vi.fn(),
     deletePantryItem: vi.fn(),
   },
 }));
@@ -129,5 +131,80 @@ describe('PantryPage', () => {
       within(spinachCard as HTMLElement).getByRole('button', { name: 'Use in recipe' })
     );
     expect(mockNavigate).toHaveBeenCalledWith('/generate?use=Spinach');
+  });
+
+  describe('kitchen actions', () => {
+    const base = {
+      user_id: 1,
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+    };
+    beforeEach(() => {
+      mockPantryService.getPantryItems.mockResolvedValue({
+        items: [
+          {
+            ...base,
+            id: 1,
+            name: 'Feta',
+            category: 'Dairy',
+            expires_at: addDaysIso(todayIso(), -2),
+          },
+          { ...base, id: 2, name: 'Red onion', quantity: 3, expires_at: addDaysIso(todayIso(), 1) },
+          { ...base, id: 3, name: 'Lentils', quantity: 1, unit: 'kg' },
+        ],
+        page: 1,
+        page_size: 24,
+        total: 3,
+        total_pages: 1,
+      });
+    });
+
+    it('shows expiry as a clear state and summarises what needs using', async () => {
+      render(<PantryPage />);
+
+      expect(await screen.findByText('Expired 2 days ago')).toBeInTheDocument();
+      expect(screen.getByText('Use by tomorrow')).toBeInTheDocument();
+      expect(screen.getByText('No expiry date')).toBeInTheDocument();
+      expect(screen.getByText('1 expired')).toBeInTheDocument();
+      expect(screen.getByText('1 to use in the next 3 days')).toBeInTheDocument();
+      expect(screen.getByText('1 kg')).toBeInTheDocument();
+    });
+
+    it('cooks with several selected items', async () => {
+      const user = userEvent.setup();
+      render(<PantryPage />);
+
+      await user.click(await screen.findByRole('checkbox', { name: 'Select Feta' }));
+      await user.click(screen.getByRole('checkbox', { name: 'Select Red onion' }));
+      const bar = screen.getByRole('region', { name: 'Selected pantry items' });
+      expect(within(bar).getByText('2 selected')).toBeInTheDocument();
+
+      await user.click(within(bar).getByRole('button', { name: /Cook with these/ }));
+      expect(mockNavigate).toHaveBeenCalledWith('/generate?use=Feta,Red%20onion');
+    });
+
+    it('quick-adds an item with a parsed amount and expiry', async () => {
+      const user = userEvent.setup();
+      mockPantryService.createPantryItem.mockResolvedValue({
+        ...base,
+        id: 9,
+        name: 'chickpeas',
+        quantity: 2,
+        unit: 'cans',
+      });
+      render(<PantryPage />);
+
+      await screen.findByText('Lentils');
+      await user.selectOptions(screen.getByLabelText('Keeps for'), '7');
+      await user.type(screen.getByLabelText('Add to pantry'), '2 cans chickpeas{Enter}');
+
+      expect(mockPantryService.createPantryItem).toHaveBeenCalledWith({
+        name: 'chickpeas',
+        quantity: 2,
+        unit: 'cans',
+        expires_at: addDaysIso(todayIso(), 7),
+      });
+      expect(await screen.findByText('chickpeas')).toBeInTheDocument();
+    });
   });
 });

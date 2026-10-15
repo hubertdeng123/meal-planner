@@ -36,8 +36,18 @@ class Settings(BaseSettings):
             )
         return v
 
+    # Deployment environment; production disables the offline demo LLM fallback.
+    ENVIRONMENT: str = "development"
+
+    @property
+    def is_production(self) -> bool:
+        return self.ENVIRONMENT.strip().lower() in {"production", "prod"}
+
+    # LLM provider. "auto" prefers Grok, then Together, then (outside production) "demo",
+    # an offline scripted model for local development and tests.
+    LLM_PROVIDER: Literal["auto", "grok", "together", "demo"] = "auto"
+
     # Together AI LLM configuration
-    LLM_PROVIDER: Literal["auto", "grok", "together"] = "auto"
     TOGETHER_API_KEY: str = ""
     TOGETHER_MODEL: str = "moonshotai/Kimi-K2.5"
     TOGETHER_BASE_URL: str = "https://api.together.xyz/v1"
@@ -50,6 +60,11 @@ class Settings(BaseSettings):
     RECIPE_MAX_TOKENS: int = 8192
     RECIPE_TEMPERATURE: float = 0.2
     RECIPE_STREAM_MAX_ATTEMPTS: int = 1
+    RECIPE_GENERATION_TIMEOUT_SECONDS: float = 120.0
+    RECIPE_STREAM_PING_SECONDS: float = 15.0
+    RECIPE_STREAM_DRAFT_INTERVAL_SECONDS: float = 0.1
+    # Multiplier for the demo model's artificial delays (0 makes it instant).
+    DEMO_LLM_DELAY_SCALE: float = 1.0
 
     # Email settings
     SMTP_HOST: str = "smtp.gmail.com"

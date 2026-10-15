@@ -35,15 +35,7 @@ export function ConfirmDialog({
     <ModalShell
       size="sm"
       onClose={loading ? undefined : onCancel}
-      title={
-        <span className="inline-flex items-center gap-2">
-          <ExclamationTriangleIcon
-            className={`h-5 w-5 ${tone === 'danger' ? 'text-red-600' : 'text-amber-500'}`}
-          />
-          {title}
-        </span>
-      }
-      description={description}
+      hideCloseButton
       footer={
         <>
           <button type="button" className="btn-secondary" disabled={loading} onClick={onCancel}>
@@ -59,6 +51,18 @@ export function ConfirmDialog({
           </button>
         </>
       }
-    />
+    >
+      <div className="flex items-start gap-4 pt-3">
+        <div
+          className={`icon-tile ${tone === 'danger' ? 'bg-red-50 text-red-600' : 'icon-tile-amber'}`}
+        >
+          <ExclamationTriangleIcon className="h-5 w-5" />
+        </div>
+        <div className="min-w-0">
+          <h3 className="text-base font-semibold text-stone-900">{title}</h3>
+          <p className="mt-1 text-sm text-stone-600">{description}</p>
+        </div>
+      </div>
+    </ModalShell>
   );
 }

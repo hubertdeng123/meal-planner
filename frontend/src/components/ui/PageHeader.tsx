@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react';
 
 interface PageHeaderProps {
-  title: string;
-  subtitle?: string;
+  title: ReactNode;
+  subtitle?: ReactNode;
+  eyebrow?: ReactNode;
   badge?: ReactNode;
   center?: boolean;
   actions?: ReactNode;
@@ -13,6 +14,7 @@ interface PageHeaderProps {
 export function PageHeader({
   title,
   subtitle,
+  eyebrow,
   badge,
   center = false,
   actions,
@@ -20,28 +22,29 @@ export function PageHeader({
   noMargin = false,
 }: PageHeaderProps) {
   const margin = noMargin ? '' : 'mb-8';
-  const baseClasses = `${margin} ${className}`;
 
   if (center) {
     return (
-      <div className={`text-center ${baseClasses}`}>
-        {badge && <div className="flex justify-center">{badge}</div>}
+      <header className={`text-center ${margin} ${className}`}>
+        {badge && <div className="mb-3 flex justify-center">{badge}</div>}
+        {eyebrow && <p className="eyebrow mb-2">{eyebrow}</p>}
         <h1 className="page-title">{title}</h1>
-        {subtitle && <p className="page-subtitle">{subtitle}</p>}
-      </div>
+        {subtitle && <p className="page-subtitle mx-auto">{subtitle}</p>}
+      </header>
     );
   }
 
   return (
-    <div className={baseClasses}>
-      <div className="sm:flex sm:items-start sm:justify-between gap-4">
-        <div className="sm:flex-auto">
-          {badge}
-          <h1 className="page-title">{title}</h1>
-          {subtitle && <p className="page-subtitle">{subtitle}</p>}
-        </div>
-        {actions && <div className="mt-4 sm:mt-0 sm:flex-none">{actions}</div>}
+    <header
+      className={`flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between ${margin} ${className}`}
+    >
+      <div className="min-w-0">
+        {badge && <div className="mb-3">{badge}</div>}
+        {eyebrow && <p className="eyebrow mb-2">{eyebrow}</p>}
+        <h1 className="page-title">{title}</h1>
+        {subtitle && <p className="page-subtitle">{subtitle}</p>}
       </div>
-    </div>
+      {actions && <div className="flex flex-shrink-0 flex-wrap items-center gap-2">{actions}</div>}
+    </header>
   );
 }

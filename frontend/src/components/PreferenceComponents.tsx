@@ -1,8 +1,9 @@
-import { useState } from 'react';
-import type { UserPreferences, IngredientRules } from '../types';
-import PreferenceCheckboxList from './ui/PreferenceCheckboxList';
-import PreferenceRadioGroup from './ui/PreferenceRadioGroup';
-import PreferenceNumberInput from './ui/PreferenceNumberInput';
+import type { ReactNode } from 'react';
+import type { IngredientRules, UserPreferences } from '../types';
+import { ChipInput } from './ui/ChipInput';
+import { ChoiceChips, MultiChoiceChips } from './ui/ChoiceChips';
+import { PreferenceNumberInput } from './ui/PreferenceNumberInput';
+import { PreferenceToggle } from './ui/PreferenceToggle';
 
 const CUISINES = [
   'Italian',
@@ -22,7 +23,6 @@ const CUISINES = [
   'German',
   'British',
 ];
-
 const DIETARY_RESTRICTIONS = [
   'Vegetarian',
   'Vegan',
@@ -38,7 +38,6 @@ const DIETARY_RESTRICTIONS = [
   'Diabetic',
   'Heart-Healthy',
 ];
-
 const PROTEINS = [
   'Chicken',
   'Beef',
@@ -53,7 +52,6 @@ const PROTEINS = [
   'Lentils',
   'Eggs',
 ];
-
 const COOKING_METHODS = [
   'Grilling',
   'Baking',
@@ -68,7 +66,6 @@ const COOKING_METHODS = [
   'Air frying',
   'Deep frying',
 ];
-
 const COMMON_INGREDIENTS = [
   'Garlic',
   'Onion',
@@ -78,22 +75,11 @@ const COMMON_INGREDIENTS = [
   'Spinach',
   'Broccoli',
   'Carrots',
-  'Olive oil',
-  'Coconut oil',
-  'Herbs (basil, oregano)',
-  'Spices (cumin, paprika)',
   'Ginger',
   'Lemon',
+  'Cilantro',
+  'Coconut milk',
 ];
-
-const SPICE_LEVELS = [
-  { value: 'none', label: 'No Spice', description: 'Very mild, no heat' },
-  { value: 'mild', label: 'Mild', description: 'Gentle warmth, kid-friendly' },
-  { value: 'medium', label: 'Medium', description: 'Noticeable heat, comfortable for most' },
-  { value: 'hot', label: 'Hot', description: 'Spicy, for those who enjoy heat' },
-  { value: 'very_hot', label: 'Very Hot', description: 'Very spicy, for heat lovers' },
-];
-
 const FLAVOR_PROFILES = [
   'Savory',
   'Sweet',
@@ -108,7 +94,6 @@ const FLAVOR_PROFILES = [
   'Light & Clean',
   'Bold & Robust',
 ];
-
 const NUTRITIONAL_NEEDS = [
   'High-protein',
   'Low-carb',
@@ -120,7 +105,6 @@ const NUTRITIONAL_NEEDS = [
   'Immune-boosting',
   'Energy-boosting',
 ];
-
 const HEALTH_CONDITIONS = [
   'Diabetes',
   'Heart disease',
@@ -131,9 +115,7 @@ const HEALTH_CONDITIONS = [
   'Food allergies',
   'Celiac disease',
 ];
-
 const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-
 const ETHICAL_CHOICES = [
   'Organic',
   'Local/Seasonal',
@@ -142,7 +124,6 @@ const ETHICAL_CHOICES = [
   'Grass-fed',
   'Free-range',
 ];
-
 const RELIGIOUS_DIETARY_LAWS = [
   'Kosher',
   'Halal',
@@ -151,473 +132,299 @@ const RELIGIOUS_DIETARY_LAWS = [
   'Buddhist Vegetarian',
 ];
 
-interface PreferenceComponentProps {
+type SpiceLevel = NonNullable<UserPreferences['food_preferences']['preferred_spice_level']>;
+
+const SPICE_LEVELS: Array<{ value: SpiceLevel; label: string }> = [
+  { value: 'none', label: 'No heat' },
+  { value: 'mild', label: 'Mild' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'hot', label: 'Hot' },
+  { value: 'very_hot', label: 'Very hot' },
+];
+
+const INGREDIENT_GROUPS: Array<{
+  key: keyof IngredientRules;
+  label: string;
+  hint: string;
+  tone: 'primary' | 'danger';
+}> = [
+  { key: 'preferred', label: 'Love', hint: 'Show up more often.', tone: 'primary' },
+  {
+    key: 'must_include',
+    label: 'Use regularly',
+    hint: 'Work these in most weeks.',
+    tone: 'primary',
+  },
+  { key: 'disliked', label: 'Rather not', hint: 'Avoid when there is a choice.', tone: 'danger' },
+  { key: 'must_avoid', label: 'Never', hint: 'Allergies and hard nos.', tone: 'danger' },
+];
+
+interface PreferenceSectionProps {
   preferences: UserPreferences;
   onChange: (preferences: UserPreferences) => void;
 }
 
-export function BasicPreferencesComponent({ preferences, onChange }: PreferenceComponentProps) {
+function Group({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="space-y-6">
-      <PreferenceCheckboxList
-        label="Cuisine crushes"
-        items={CUISINES}
-        selectedItems={preferences.food_preferences.cuisines}
-        onChange={cuisines =>
-          onChange({
-            ...preferences,
-            food_preferences: { ...preferences.food_preferences, cuisines },
-          })
-        }
-      />
-
-      <PreferenceRadioGroup
-        label="Spice level"
-        name="spice_level"
-        options={SPICE_LEVELS}
-        value={preferences.food_preferences.preferred_spice_level}
-        onChange={value =>
-          onChange({
-            ...preferences,
-            food_preferences: {
-              ...preferences.food_preferences,
-              preferred_spice_level:
-                value as UserPreferences['food_preferences']['preferred_spice_level'],
-            },
-          })
-        }
-        columns={2}
-        showDescriptions
-      />
-
-      <PreferenceCheckboxList
-        label="Flavor vibes"
-        items={FLAVOR_PROFILES}
-        selectedItems={preferences.food_preferences.flavor_profiles || []}
-        onChange={flavor_profiles =>
-          onChange({
-            ...preferences,
-            food_preferences: { ...preferences.food_preferences, flavor_profiles },
-          })
-        }
-      />
-
-      <PreferenceCheckboxList
-        label="Dietary Restrictions & Preferences"
-        items={DIETARY_RESTRICTIONS}
-        selectedItems={preferences.dietary_restrictions}
-        onChange={dietary_restrictions => onChange({ ...preferences, dietary_restrictions })}
-      />
-    </div>
+    <fieldset className="space-y-5 border-t border-stone-100 pt-5 first:border-t-0 first:pt-0">
+      <legend className="sr-only">{title}</legend>
+      {children}
+    </fieldset>
   );
 }
 
-export function IngredientRulesComponent({ preferences, onChange }: PreferenceComponentProps) {
-  const [newIngredient, setNewIngredient] = useState('');
-  const [newReason, setNewReason] = useState('');
-  const [activeCategory, setActiveCategory] = useState<keyof IngredientRules>('preferred');
-
-  const categories = [
-    { key: 'preferred' as const, title: 'Preferred', description: 'Love to see more often' },
-    { key: 'must_include' as const, title: 'Must Include', description: 'Should be regular' },
-    { key: 'disliked' as const, title: 'Disliked', description: 'Prefer to avoid' },
-    { key: 'must_avoid' as const, title: 'Must Avoid', description: 'Cannot/will not eat' },
-  ];
-
-  const addIngredientRule = (
-    category: keyof IngredientRules,
-    ingredient: string,
-    reason: string
-  ) => {
-    if (!ingredient.trim()) return;
-    onChange({
-      ...preferences,
-      ingredient_rules: {
-        ...preferences.ingredient_rules,
-        [category]: [
-          ...preferences.ingredient_rules[category],
-          { ingredient: ingredient.trim(), reason: reason.trim() || 'Personal preference' },
-        ],
-      },
-    });
-  };
-
-  const removeIngredientRule = (category: keyof IngredientRules, index: number) => {
-    onChange({
-      ...preferences,
-      ingredient_rules: {
-        ...preferences.ingredient_rules,
-        [category]: preferences.ingredient_rules[category].filter((_, i) => i !== index),
-      },
-    });
-  };
+export function TastePreferences({ preferences, onChange }: PreferenceSectionProps) {
+  const food = preferences.food_preferences;
+  const types = preferences.food_type_rules;
+  const setFood = (patch: Partial<typeof food>) =>
+    onChange({ ...preferences, food_preferences: { ...food, ...patch } });
+  const setTypes = (patch: Partial<typeof types>) =>
+    onChange({ ...preferences, food_type_rules: { ...types, ...patch } });
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap gap-2">
-        {categories.map(category => (
-          <button
-            key={category.key}
-            onClick={() => setActiveCategory(category.key)}
-            className={`px-3 py-2 rounded text-sm font-medium transition-all ${
-              activeCategory === category.key
-                ? 'bg-primary-soft text-primary-hover border-2 border-primary/30'
-                : 'bg-slate-100 text-gray-600 border-2 border-transparent hover:bg-slate-200'
-            }`}
-          >
-            {category.title}
-          </button>
-        ))}
-      </div>
-
-      <div className="border rounded-lg p-4">
-        <h3 className="font-medium text-gray-900 mb-2">
-          {categories.find(c => c.key === activeCategory)?.title} Ingredients
-        </h3>
-        <p className="text-sm text-gray-600 mb-4">
-          {categories.find(c => c.key === activeCategory)?.description}
-        </p>
-
-        <div className="flex gap-2 mb-4">
-          <input
-            type="text"
-            placeholder="Ingredient name"
-            value={newIngredient}
-            onChange={e => setNewIngredient(e.target.value)}
-            className="flex-1 input text-sm"
-          />
-          <input
-            type="text"
-            placeholder="Reason (optional)"
-            value={newReason}
-            onChange={e => setNewReason(e.target.value)}
-            className="flex-1 input text-sm"
-          />
-          <button
-            onClick={() => {
-              addIngredientRule(activeCategory, newIngredient, newReason);
-              setNewIngredient('');
-              setNewReason('');
-            }}
-            disabled={!newIngredient.trim()}
-            className="btn-primary text-sm px-3 py-2 disabled:opacity-50"
-          >
-            Add
-          </button>
-        </div>
-
-        <div className="space-y-2 max-h-48 overflow-y-auto">
-          {(preferences.ingredient_rules?.[activeCategory] || []).map((item, index) => (
-            <div key={index} className="flex items-center justify-between bg-slate-50 p-2 rounded">
-              <div>
-                <span className="font-medium text-sm">{item.ingredient}</span>
-                {item.reason && <span className="text-gray-500 text-sm ml-2">({item.reason})</span>}
-              </div>
-              <button
-                onClick={() => removeIngredientRule(activeCategory, index)}
-                className="text-red-500 hover:text-red-700 text-sm"
-              >
-                Remove
-              </button>
-            </div>
-          ))}
-          {(preferences.ingredient_rules?.[activeCategory] || []).length === 0 && (
-            <p className="text-gray-500 text-sm italic">Nothing here yet</p>
-          )}
-        </div>
-
-        <div className="mt-4">
-          <h4 className="font-medium text-gray-900 mb-2">Quick picks:</h4>
-          <div className="flex flex-wrap gap-1">
-            {COMMON_INGREDIENTS.slice(0, 8).map(ingredient => (
-              <button
-                key={ingredient}
-                onClick={() => addIngredientRule(activeCategory, ingredient, 'Common ingredient')}
-                className="px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded text-xs text-gray-700 transition-colors"
-              >
-                + {ingredient}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export function FoodTypeRulesComponent({ preferences, onChange }: PreferenceComponentProps) {
-  return (
-    <div className="space-y-6">
-      <PreferenceCheckboxList
-        label="Protein picks"
-        items={PROTEINS}
-        selectedItems={preferences.food_type_rules.protein_preferences}
-        onChange={protein_preferences =>
-          onChange({
-            ...preferences,
-            food_type_rules: { ...preferences.food_type_rules, protein_preferences },
-          })
-        }
-      />
-
-      <PreferenceCheckboxList
-        label="Cooking methods you like"
-        items={COOKING_METHODS}
-        selectedItems={preferences.food_type_rules.cooking_methods_preferred}
-        onChange={cooking_methods_preferred =>
-          onChange({
-            ...preferences,
-            food_type_rules: { ...preferences.food_type_rules, cooking_methods_preferred },
-          })
-        }
-      />
-
-      <div>
-        <PreferenceRadioGroup
-          label="Meal complexity"
-          name="meal_complexity"
+    <div className="space-y-5">
+      <Group title="Flavour">
+        <MultiChoiceChips
+          label="Cuisines you love"
+          options={CUISINES}
+          values={food.cuisines}
+          onChange={cuisines => setFood({ cuisines })}
+        />
+        <ChoiceChips
+          label="Spice level"
+          size="sm"
+          options={SPICE_LEVELS}
+          value={food.preferred_spice_level ?? 'medium'}
+          onChange={preferred_spice_level => setFood({ preferred_spice_level })}
+        />
+        <MultiChoiceChips
+          label="Flavours"
+          options={FLAVOR_PROFILES}
+          values={food.flavor_profiles ?? []}
+          onChange={flavor_profiles => setFood({ flavor_profiles })}
+        />
+      </Group>
+      <Group title="Diet">
+        <MultiChoiceChips
+          label="Dietary needs"
+          options={DIETARY_RESTRICTIONS}
+          values={preferences.dietary_restrictions}
+          onChange={dietary_restrictions => onChange({ ...preferences, dietary_restrictions })}
+        />
+        <MultiChoiceChips
+          label="Proteins"
+          options={PROTEINS}
+          values={types.protein_preferences}
+          onChange={protein_preferences => setTypes({ protein_preferences })}
+        />
+      </Group>
+      <Group title="Cooking">
+        <MultiChoiceChips
+          label="Cooking methods you enjoy"
+          options={COOKING_METHODS}
+          values={types.cooking_methods_preferred}
+          onChange={cooking_methods_preferred => setTypes({ cooking_methods_preferred })}
+        />
+        <ChoiceChips
+          label="Recipe complexity"
+          size="sm"
           options={[
-            { value: 'simple', label: 'Simple' },
-            { value: 'medium', label: 'Medium' },
-            { value: 'complex', label: 'Complex' },
+            { value: 'simple', label: 'Simple', hint: 'few steps' },
+            { value: 'medium', label: 'Balanced' },
+            { value: 'complex', label: 'Ambitious', hint: 'new techniques' },
           ]}
-          value={preferences.food_type_rules.meal_complexity_preference}
-          onChange={value =>
-            onChange({
-              ...preferences,
-              food_type_rules: {
-                ...preferences.food_type_rules,
-                meal_complexity_preference:
-                  value as UserPreferences['food_type_rules']['meal_complexity_preference'],
-              },
-            })
-          }
+          value={types.meal_complexity_preference}
+          onChange={meal_complexity_preference => setTypes({ meal_complexity_preference })}
         />
-        <p className="text-xs text-gray-500 mt-2">
-          Simple: Basic recipes. Medium: Balanced complexity. Complex: Advanced techniques.
-        </p>
-      </div>
+      </Group>
     </div>
   );
 }
 
-export function NutritionalRulesComponent({ preferences, onChange }: PreferenceComponentProps) {
-  const updateNutritionalRules = (updates: Partial<typeof preferences.nutritional_rules>) => {
+export function IngredientPreferences({ preferences, onChange }: PreferenceSectionProps) {
+  const rules = preferences.ingredient_rules;
+
+  const setGroup = (key: keyof IngredientRules, names: string[]) => {
+    const reasons = new Map(rules[key].map(rule => [rule.ingredient.toLowerCase(), rule.reason]));
     onChange({
       ...preferences,
-      nutritional_rules: { ...preferences.nutritional_rules, ...updates },
+      ingredient_rules: {
+        ...rules,
+        [key]: names.map(ingredient => ({
+          ingredient,
+          reason: reasons.get(ingredient.toLowerCase()) ?? 'Personal preference',
+        })),
+      },
     });
   };
 
+  const used = new Set(
+    INGREDIENT_GROUPS.flatMap(group => rules[group.key].map(rule => rule.ingredient.toLowerCase()))
+  );
+  const suggestions = COMMON_INGREDIENTS.filter(item => !used.has(item.toLowerCase()));
+
   return (
-    <div className="space-y-6">
-      <PreferenceNumberInput
-        label="Daily Calorie Target (optional)"
-        placeholder="e.g., 2000"
-        value={preferences.nutritional_rules.daily_calorie_target}
-        onChange={daily_calorie_target => updateNutritionalRules({ daily_calorie_target })}
-      />
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Daily Calorie Range (optional)
-        </label>
-        <div className="grid grid-cols-2 gap-3">
-          <PreferenceNumberInput
-            label="Minimum"
-            placeholder="e.g., 1800"
-            value={preferences.nutritional_rules.daily_calorie_range?.min}
-            onChange={min =>
-              updateNutritionalRules({
-                daily_calorie_range: {
-                  min: min || 0,
-                  max: preferences.nutritional_rules.daily_calorie_range?.max || 0,
-                },
-              })
-            }
-          />
-          <PreferenceNumberInput
-            label="Maximum"
-            placeholder="e.g., 2200"
-            value={preferences.nutritional_rules.daily_calorie_range?.max}
-            onChange={max =>
-              updateNutritionalRules({
-                daily_calorie_range: {
-                  min: preferences.nutritional_rules.daily_calorie_range?.min || 0,
-                  max: max || 0,
-                },
-              })
-            }
-          />
-        </div>
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Daily Macro Targets (grams, optional)
-        </label>
-        <div className="grid grid-cols-3 gap-3">
-          <PreferenceNumberInput
-            label="Protein (g)"
-            placeholder="120"
-            value={preferences.nutritional_rules.macro_targets?.protein_g}
-            onChange={protein_g =>
-              updateNutritionalRules({
-                macro_targets: { ...preferences.nutritional_rules.macro_targets, protein_g },
-              })
-            }
-          />
-          <PreferenceNumberInput
-            label="Carbs (g)"
-            placeholder="200"
-            value={preferences.nutritional_rules.macro_targets?.carbs_g}
-            onChange={carbs_g =>
-              updateNutritionalRules({
-                macro_targets: { ...preferences.nutritional_rules.macro_targets, carbs_g },
-              })
-            }
-          />
-          <PreferenceNumberInput
-            label="Fat (g)"
-            placeholder="67"
-            value={preferences.nutritional_rules.macro_targets?.fat_g}
-            onChange={fat_g =>
-              updateNutritionalRules({
-                macro_targets: { ...preferences.nutritional_rules.macro_targets, fat_g },
-              })
-            }
-          />
-        </div>
-        <p className="text-xs text-gray-500 mt-1">Target grams per day for each macronutrient</p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <PreferenceNumberInput
-          label="Max Sodium (mg/day)"
-          placeholder="2300"
-          value={preferences.nutritional_rules.max_sodium_mg}
-          onChange={max_sodium_mg => updateNutritionalRules({ max_sodium_mg })}
+    <div className="grid gap-5 sm:grid-cols-2">
+      {INGREDIENT_GROUPS.map((group, index) => (
+        <ChipInput
+          key={group.key}
+          label={group.label}
+          hint={group.hint}
+          tone={group.tone}
+          values={rules[group.key].map(rule => rule.ingredient)}
+          onChange={names => setGroup(group.key, names)}
+          placeholder="Add an ingredient"
+          suggestions={index === 0 ? suggestions.slice(0, 8) : undefined}
+          suggestionsLabel="Try"
         />
-        <PreferenceNumberInput
-          label="Min Fiber (g/day)"
-          placeholder="25"
-          value={preferences.nutritional_rules.min_fiber_g}
-          onChange={min_fiber_g => updateNutritionalRules({ min_fiber_g })}
-        />
-        <PreferenceNumberInput
-          label="Max Sugar (g/day)"
-          placeholder="50"
-          value={preferences.nutritional_rules.max_sugar_g}
-          onChange={max_sugar_g => updateNutritionalRules({ max_sugar_g })}
-        />
-      </div>
-
-      <PreferenceCheckboxList
-        label="Special Nutritional Needs"
-        items={NUTRITIONAL_NEEDS}
-        selectedItems={preferences.nutritional_rules.special_nutritional_needs}
-        onChange={special_nutritional_needs =>
-          updateNutritionalRules({ special_nutritional_needs })
-        }
-      />
+      ))}
     </div>
   );
 }
 
-export function SchedulingRulesComponent({ preferences, onChange }: PreferenceComponentProps) {
-  const updateSchedulingRules = (updates: Partial<typeof preferences.scheduling_rules>) => {
-    onChange({
-      ...preferences,
-      scheduling_rules: { ...preferences.scheduling_rules, ...updates },
-    });
-  };
+export function RoutinePreferences({ preferences, onChange }: PreferenceSectionProps) {
+  const rules = preferences.scheduling_rules;
+  const set = (patch: Partial<typeof rules>) =>
+    onChange({ ...preferences, scheduling_rules: { ...rules, ...patch } });
 
   return (
-    <div className="space-y-6">
-      <PreferenceCheckboxList
-        label="Best cooking days"
-        items={DAYS_OF_WEEK}
-        selectedItems={preferences.scheduling_rules.preferred_cooking_days}
-        onChange={preferred_cooking_days => updateSchedulingRules({ preferred_cooking_days })}
-        columns={4}
+    <div className="space-y-5">
+      <MultiChoiceChips
+        label="Days you usually cook"
+        options={DAYS_OF_WEEK}
+        values={rules.preferred_cooking_days}
+        onChange={preferred_cooking_days => set({ preferred_cooking_days })}
       />
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid gap-4 sm:grid-cols-2">
         <PreferenceNumberInput
-          label="Max Prep Time - Weekdays (minutes)"
-          placeholder="e.g., 30"
-          value={preferences.scheduling_rules.max_prep_time_weekdays}
-          onChange={max_prep_time_weekdays => updateSchedulingRules({ max_prep_time_weekdays })}
+          label="Weeknight time limit"
+          unit="min"
+          placeholder="30"
+          value={rules.max_prep_time_weekdays}
+          onChange={max_prep_time_weekdays => set({ max_prep_time_weekdays })}
         />
         <PreferenceNumberInput
-          label="Max Prep Time - Weekends (minutes)"
-          placeholder="e.g., 60"
-          value={preferences.scheduling_rules.max_prep_time_weekends}
-          onChange={max_prep_time_weekends => updateSchedulingRules({ max_prep_time_weekends })}
+          label="Weekend time limit"
+          unit="min"
+          placeholder="60"
+          value={rules.max_prep_time_weekends}
+          onChange={max_prep_time_weekends => set({ max_prep_time_weekends })}
         />
       </div>
-
-      <div>
-        <label className="flex items-center space-x-2 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={preferences.scheduling_rules.batch_cooking_preference}
-            onChange={e => updateSchedulingRules({ batch_cooking_preference: e.target.checked })}
-            className="rounded border-gray-300 text-primary focus:ring-primary-soft"
-          />
-          <span className="text-sm font-medium text-gray-700">I prefer batch cooking</span>
-        </label>
-      </div>
-
-      <PreferenceRadioGroup
-        label="How do you feel about leftovers?"
-        name="leftover_tolerance"
+      <ChoiceChips
+        label="Leftovers"
+        size="sm"
         options={[
-          { value: 'low', label: 'Low' },
-          { value: 'medium', label: 'Medium' },
-          { value: 'high', label: 'High' },
+          { value: 'low', label: 'Fresh every night' },
+          { value: 'medium', label: 'Now and then' },
+          { value: 'high', label: 'Happy to repeat' },
         ]}
-        value={preferences.scheduling_rules.leftover_tolerance}
-        onChange={value =>
-          updateSchedulingRules({
-            leftover_tolerance: value as UserPreferences['scheduling_rules']['leftover_tolerance'],
-          })
-        }
+        value={rules.leftover_tolerance}
+        onChange={leftover_tolerance => set({ leftover_tolerance })}
+      />
+      <PreferenceToggle
+        label="Batch cooking"
+        description="Favour recipes that scale up and keep well."
+        checked={rules.batch_cooking_preference}
+        onChange={batch_cooking_preference => set({ batch_cooking_preference })}
       />
     </div>
   );
 }
 
-export function DietaryRulesComponent({ preferences, onChange }: PreferenceComponentProps) {
-  const updateDietaryRules = (updates: Partial<typeof preferences.dietary_rules>) => {
-    onChange({
-      ...preferences,
-      dietary_rules: { ...preferences.dietary_rules, ...updates },
-    });
-  };
+export function NutritionPreferences({ preferences, onChange }: PreferenceSectionProps) {
+  const rules = preferences.nutritional_rules;
+  const dietary = preferences.dietary_rules;
+  const set = (patch: Partial<typeof rules>) =>
+    onChange({ ...preferences, nutritional_rules: { ...rules, ...patch } });
+  const setDietary = (patch: Partial<typeof dietary>) =>
+    onChange({ ...preferences, dietary_rules: { ...dietary, ...patch } });
+  const macros = rules.macro_targets ?? {};
 
   return (
-    <div className="space-y-6">
-      <PreferenceCheckboxList
-        label="Health Conditions (helps suggest appropriate recipes)"
-        items={HEALTH_CONDITIONS}
-        selectedItems={preferences.dietary_rules.health_conditions}
-        onChange={health_conditions => updateDietaryRules({ health_conditions })}
-      />
-
-      <PreferenceCheckboxList
-        label="Ethical Food Choices"
-        items={ETHICAL_CHOICES}
-        selectedItems={preferences.dietary_rules.ethical_choices}
-        onChange={ethical_choices => updateDietaryRules({ ethical_choices })}
-      />
-
-      <PreferenceCheckboxList
-        label="Religious Dietary Laws"
-        items={RELIGIOUS_DIETARY_LAWS}
-        selectedItems={preferences.dietary_rules.religious_dietary_laws}
-        onChange={religious_dietary_laws => updateDietaryRules({ religious_dietary_laws })}
-      />
+    <div className="space-y-5">
+      <Group title="Targets">
+        <div className="grid gap-4 sm:grid-cols-4">
+          <PreferenceNumberInput
+            label="Calories"
+            unit="kcal"
+            placeholder="2000"
+            value={rules.daily_calorie_target}
+            onChange={daily_calorie_target => set({ daily_calorie_target })}
+          />
+          <PreferenceNumberInput
+            label="Protein"
+            unit="g"
+            placeholder="120"
+            value={macros.protein_g}
+            onChange={protein_g => set({ macro_targets: { ...macros, protein_g } })}
+          />
+          <PreferenceNumberInput
+            label="Carbs"
+            unit="g"
+            placeholder="200"
+            value={macros.carbs_g}
+            onChange={carbs_g => set({ macro_targets: { ...macros, carbs_g } })}
+          />
+          <PreferenceNumberInput
+            label="Fat"
+            unit="g"
+            placeholder="67"
+            value={macros.fat_g}
+            onChange={fat_g => set({ macro_targets: { ...macros, fat_g } })}
+          />
+        </div>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <PreferenceNumberInput
+            label="Max sodium"
+            unit="mg"
+            placeholder="2300"
+            value={rules.max_sodium_mg}
+            onChange={max_sodium_mg => set({ max_sodium_mg })}
+          />
+          <PreferenceNumberInput
+            label="Min fibre"
+            unit="g"
+            placeholder="25"
+            value={rules.min_fiber_g}
+            onChange={min_fiber_g => set({ min_fiber_g })}
+          />
+          <PreferenceNumberInput
+            label="Max sugar"
+            unit="g"
+            placeholder="50"
+            value={rules.max_sugar_g}
+            onChange={max_sugar_g => set({ max_sugar_g })}
+          />
+        </div>
+        <p className="helper-text mt-0">Daily amounts. Leave blank for no target.</p>
+        <MultiChoiceChips
+          label="Goals"
+          options={NUTRITIONAL_NEEDS}
+          values={rules.special_nutritional_needs}
+          onChange={special_nutritional_needs => set({ special_nutritional_needs })}
+        />
+      </Group>
+      <Group title="Health and values">
+        <MultiChoiceChips
+          label="Health considerations"
+          options={HEALTH_CONDITIONS}
+          values={dietary.health_conditions}
+          onChange={health_conditions => setDietary({ health_conditions })}
+        />
+        <MultiChoiceChips
+          label="Sourcing"
+          options={ETHICAL_CHOICES}
+          values={dietary.ethical_choices}
+          onChange={ethical_choices => setDietary({ ethical_choices })}
+        />
+        <MultiChoiceChips
+          label="Religious dietary laws"
+          options={RELIGIOUS_DIETARY_LAWS}
+          values={dietary.religious_dietary_laws}
+          onChange={religious_dietary_laws => setDietary({ religious_dietary_laws })}
+        />
+      </Group>
     </div>
   );
 }

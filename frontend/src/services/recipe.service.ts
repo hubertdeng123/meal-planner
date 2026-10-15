@@ -1,74 +1,50 @@
 import { api } from './api';
+import { readSSE } from './sse';
 import type {
-  Ingredient,
-  NutritionFacts,
   PaginatedResponse,
   Recipe,
+  RecipeFacets,
   RecipeFeedback,
   RecipeFeedbackResponse,
   RecipeGenerationRequest,
+  RecipeStreamEvent,
+  StreamError,
 } from '../types';
 
-export interface StreamRecipeMetadata {
-  prep_time: number;
-  cook_time: number;
-  servings: number;
+const STREAM_EVENTS = new Set<RecipeStreamEvent['event']>([
+  'stage',
+  'thinking',
+  'draft',
+  'complete',
+  'error',
+  'ping',
+]);
+
+/** Failure of the stream transport itself (HTTP error, dropped connection, missing auth). */
+export class RecipeStreamError extends Error implements StreamError {
+  readonly retryable: boolean;
+  readonly status?: number;
+
+  constructor(message: string, retryable: boolean, status?: number) {
+    super(message);
+    this.name = 'RecipeStreamError';
+    this.retryable = retryable;
+    this.status = status;
+  }
 }
 
-export interface StreamMessage {
-  type:
-    | 'status'
-    | 'thinking_start'
-    | 'thinking'
-    | 'thinking_end'
-    | 'tool_started'
-    | 'tool_completed'
-    | 'recipe_start'
-    | 'recipe_name'
-    | 'recipe_description'
-    | 'recipe_metadata'
-    | 'ingredients_start'
-    | 'ingredient'
-    | 'instructions_start'
-    | 'instruction'
-    | 'nutrition'
-    | 'complete'
-    | 'error';
-  message?: string;
-  chunk?: string;
-  content?: string | StreamRecipeMetadata | Ingredient | NutritionFacts;
-  step?: number;
-  recipe_id?: number;
-  thinking_length?: number;
-  // Tool event fields
-  tool_name?: string;
-  icon?: string;
-  title?: string;
-  description?: string;
+/** True for fetch/stream aborts, including `DOMException`s from another realm. */
+export function isAbortError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    (error as { name?: unknown }).name === 'AbortError'
+  );
 }
 
-export interface StreamCallbacks {
-  onStatus?: (message: string) => void;
-  onThinkingStart?: () => void;
-  onThinking?: (content: string) => void;
-  onThinkingEnd?: () => void;
-  onToolStarted?: (toolName: string, icon: string, title: string, description: string) => void;
-  onToolCompleted?: (toolName: string) => void;
-  onRecipeStart?: () => void;
-  onRecipeName?: (name: string) => void;
-  onRecipeDescription?: (description: string) => void;
-  onRecipeMetadata?: (metadata: StreamRecipeMetadata) => void;
-  onIngredientsStart?: () => void;
-  onIngredient?: (ingredient: Ingredient) => void;
-  onInstructionsStart?: () => void;
-  onInstruction?: (step: number, content: string) => void;
-  onNutrition?: (nutrition: NutritionFacts) => void;
-  onComplete?: (recipeId: number, message?: string, thinkingLength?: number) => void;
-  onError?: (error: string) => void;
-}
-
-export interface GenerateRecipeStreamOptions {
+export interface StreamRecipeOptions {
   signal?: AbortSignal;
+  onEvent: (event: RecipeStreamEvent) => void;
 }
 
 export interface RecipeListParams {
@@ -76,153 +52,137 @@ export interface RecipeListParams {
   pageSize?: number;
   q?: string;
   tags?: string[];
-  sort?: 'created_at' | 'name';
+  cuisine?: string;
+  /** Only recipes the user liked or rated 4+. */
+  favorites?: boolean;
+  sort?: 'created_at' | 'name' | 'total_minutes';
   order?: 'asc' | 'desc';
 }
 
-class RecipeService {
-  async generateRecipeStream(
-    request: RecipeGenerationRequest,
-    callbacks: StreamCallbacks,
-    options: GenerateRecipeStreamOptions = {}
-  ): Promise<void> {
+async function readErrorDetail(response: Response): Promise<string | null> {
+  try {
+    const text = await response.text();
+    if (!text) {
+      return null;
+    }
     try {
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        throw new Error('No authentication token found. Please log in.');
-      }
+      const body = JSON.parse(text) as { detail?: unknown };
+      return typeof body.detail === 'string' ? body.detail : null;
+    } catch {
+      return null;
+    }
+  } catch {
+    return null;
+  }
+}
 
-      const response = await fetch(`${api.defaults.baseURL}/recipes/generate/stream`, {
+async function toHttpError(response: Response): Promise<RecipeStreamError> {
+  const detail = await readErrorDetail(response);
+  switch (response.status) {
+    case 401:
+      return new RecipeStreamError('Your session has expired. Please log in again.', false, 401);
+    case 422:
+      return new RecipeStreamError(
+        detail ?? 'Some of the recipe options are invalid.',
+        false,
+        response.status
+      );
+    case 429:
+      return new RecipeStreamError(
+        detail ?? 'Too many requests. Wait a moment and try again.',
+        true,
+        response.status
+      );
+    case 503:
+      return new RecipeStreamError(
+        detail ?? 'Recipe generation is unavailable right now.',
+        false,
+        response.status
+      );
+    default:
+      return new RecipeStreamError(
+        detail ?? `Recipe generation failed (HTTP ${response.status}).`,
+        response.status >= 500,
+        response.status
+      );
+  }
+}
+
+function parseStreamEvent(event: string, data: string): RecipeStreamEvent | null {
+  if (!STREAM_EVENTS.has(event as RecipeStreamEvent['event'])) {
+    return null;
+  }
+  try {
+    return { event, data: JSON.parse(data) } as RecipeStreamEvent;
+  } catch {
+    return null;
+  }
+}
+
+class RecipeService {
+  /**
+   * Run `POST /recipes/generate/stream` and report each v2 event through `onEvent`.
+   *
+   * Resolves after a terminal `complete` or `error` event. Rejects with `RecipeStreamError`
+   * for transport failures, or with the fetch `AbortError` when `signal` aborts.
+   */
+  async streamRecipe(
+    request: RecipeGenerationRequest,
+    { signal, onEvent }: StreamRecipeOptions
+  ): Promise<void> {
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      throw new RecipeStreamError('You need to log in to generate recipes.', false, 401);
+    }
+
+    let response: Response;
+    try {
+      response = await fetch(`${api.defaults.baseURL}/recipes/generate/stream`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Accept: 'text/event-stream',
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(request),
-        signal: options.signal,
+        signal,
       });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+    } catch (error) {
+      if (isAbortError(error) || signal?.aborted) {
+        throw error;
       }
+      throw new RecipeStreamError('Could not reach the server. Check your connection.', true);
+    }
 
-      const reader = response.body?.getReader();
-      if (!reader) {
-        throw new Error('Response body is not readable');
-      }
+    if (!response.ok) {
+      throw await toHttpError(response);
+    }
+    if (!response.body) {
+      throw new RecipeStreamError('The server sent an empty response.', true);
+    }
 
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-
-        if (done) {
-          break;
+    try {
+      for await (const message of readSSE(response.body)) {
+        const event = parseStreamEvent(message.event, message.data);
+        if (!event) {
+          continue;
         }
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-
-        // Keep the last incomplete line in the buffer
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data: StreamMessage = JSON.parse(line.substring(6));
-              this.handleStreamMessage(data, callbacks);
-            } catch (e) {
-              console.error('Failed to parse streaming payload', e);
-            }
-          }
+        onEvent(event);
+        if (event.event === 'complete' || event.event === 'error') {
+          return;
         }
       }
     } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        callbacks.onError?.('Request cancelled');
-        return;
+      if (isAbortError(error) || signal?.aborted) {
+        throw error;
       }
-      console.error('Recipe stream failed', error);
-      callbacks.onError?.(error instanceof Error ? error.message : 'Unknown streaming error');
+      throw new RecipeStreamError('The connection was interrupted. Please try again.', true);
     }
-  }
 
-  private handleStreamMessage(data: StreamMessage, callbacks: StreamCallbacks) {
-    switch (data.type) {
-      case 'status':
-        callbacks.onStatus?.(data.message || '');
-        break;
-      case 'thinking_start':
-        callbacks.onThinkingStart?.();
-        break;
-      case 'thinking':
-        callbacks.onThinking?.(typeof data.content === 'string' ? data.content : '');
-        break;
-      case 'thinking_end':
-        callbacks.onThinkingEnd?.();
-        break;
-      case 'tool_started':
-        callbacks.onToolStarted?.(
-          data.tool_name || '',
-          data.icon || '🔧',
-          data.title || '',
-          data.description || ''
-        );
-        break;
-      case 'tool_completed':
-        callbacks.onToolCompleted?.(data.tool_name || '');
-        break;
-      case 'recipe_start':
-        callbacks.onRecipeStart?.();
-        break;
-      case 'recipe_name':
-        callbacks.onRecipeName?.(typeof data.content === 'string' ? data.content : '');
-        break;
-      case 'recipe_description':
-        callbacks.onRecipeDescription?.(typeof data.content === 'string' ? data.content : '');
-        break;
-      case 'recipe_metadata':
-        if (data.content && typeof data.content === 'object') {
-          callbacks.onRecipeMetadata?.(data.content as StreamRecipeMetadata);
-        }
-        break;
-      case 'ingredients_start':
-        callbacks.onIngredientsStart?.();
-        break;
-      case 'ingredient':
-        if (data.content && typeof data.content === 'object') {
-          callbacks.onIngredient?.(data.content as Ingredient);
-        }
-        break;
-      case 'instructions_start':
-        callbacks.onInstructionsStart?.();
-        break;
-      case 'instruction':
-        callbacks.onInstruction?.(
-          data.step || 0,
-          typeof data.content === 'string' ? data.content : ''
-        );
-        break;
-      case 'nutrition':
-        if (data.content && typeof data.content === 'object') {
-          callbacks.onNutrition?.(data.content as NutritionFacts);
-        }
-        break;
-      case 'complete':
-        callbacks.onComplete?.(
-          data.recipe_id || 0,
-          data.message || 'Complete',
-          data.thinking_length
-        );
-        break;
-      case 'error':
-        callbacks.onError?.(data.message || 'Unknown error');
-        break;
-      default:
-        console.warn('Unknown stream message type', data.type);
+    if (signal?.aborted) {
+      throw new DOMException('The operation was aborted.', 'AbortError');
     }
+    throw new RecipeStreamError('The connection closed before the recipe was finished.', true);
   }
 
   async getRecipes(skip = 0, limit = 20): Promise<Recipe[]> {
@@ -242,10 +202,18 @@ class RecipeService {
         page_size: params.pageSize ?? 12,
         q: params.q || undefined,
         tags: params.tags && params.tags.length > 0 ? params.tags : undefined,
+        cuisine: params.cuisine || undefined,
+        favorites: params.favorites || undefined,
         sort: params.sort ?? 'created_at',
         order: params.order ?? 'desc',
       },
     });
+    return response.data;
+  }
+
+  /** Cuisine and tag counts across all of the user's recipes, for filter chips. */
+  async getFacets(): Promise<RecipeFacets> {
+    const response = await api.get<RecipeFacets>('/recipes/facets');
     return response.data;
   }
 
@@ -258,12 +226,22 @@ class RecipeService {
     await api.delete(`/recipes/${id}`);
   }
 
+  /** The current user's feedback for a recipe, or `null` if they haven't left any. */
+  async getFeedback(recipeId: number): Promise<RecipeFeedbackResponse | null> {
+    const response = await api.get<RecipeFeedbackResponse | null>(`/recipes/${recipeId}/feedback`);
+    return response.data ?? null;
+  }
+
   async addFeedback(recipeId: number, feedback: RecipeFeedback): Promise<RecipeFeedbackResponse> {
     const response = await api.post<RecipeFeedbackResponse>(
       `/recipes/${recipeId}/feedback`,
       feedback
     );
     return response.data;
+  }
+
+  async deleteFeedback(recipeId: number): Promise<void> {
+    await api.delete(`/recipes/${recipeId}/feedback`);
   }
 }
 

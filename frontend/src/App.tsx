@@ -4,6 +4,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './contexts/AuthContextProvider';
 import { ToastProvider } from './contexts/ToastContext';
 import ToastContainer from './components/ui/ToastContainer';
+import { HungryHelperLogo } from './components/ui/AppIcons';
 import { useAuth } from './hooks/useAuth';
 
 const LoginPage = lazy(() => import('./pages/LoginPage'));
@@ -18,19 +19,10 @@ const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const MealPlansPage = lazy(() => import('./pages/MealPlansPage'));
 const MealPlanDetailPage = lazy(() => import('./pages/MealPlanDetailPage'));
 const PantryPage = lazy(() => import('./pages/PantryPage'));
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 
 function RouteFallback() {
-  return (
-    <div className="min-h-[40vh] flex items-center justify-center">
-      <div className="flex items-center gap-3 text-sm text-stone-500">
-        <div
-          className="animate-spin rounded-full h-5 w-5 border-b-2"
-          style={{ borderBottomColor: 'var(--primary)' }}
-        ></div>
-        Loading page...
-      </div>
-    </div>
-  );
+  return <div className="min-h-screen bg-paper" role="status" aria-label="Loading page" />;
 }
 
 function AppRoutes() {
@@ -38,8 +30,12 @@ function AppRoutes() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div
+        className="flex min-h-screen items-center justify-center bg-paper"
+        role="status"
+        aria-label="Loading"
+      >
+        <HungryHelperLogo size={40} className="animate-pulse motion-reduce:animate-none" />
       </div>
     );
   }
@@ -137,6 +133,14 @@ function AppRoutes() {
             element={
               <ProtectedRoute>
                 <SettingsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="*"
+            element={
+              <ProtectedRoute>
+                <NotFoundPage />
               </ProtectedRoute>
             }
           />

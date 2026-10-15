@@ -1,123 +1,162 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ClockIcon, UserGroupIcon, TrashIcon, BoltIcon } from '../components/ui/AppIcons';
-import recipeService from '../services/recipe.service';
-import type { Recipe } from '../types';
+import recipeService, { type RecipeListParams } from '../services/recipe.service';
+import type { Recipe, RecipeFacet } from '../types';
 import { PageHeader } from '../components/ui/PageHeader';
 import { EmptyState } from '../components/ui/EmptyState';
-import { ToolbarRow } from '../components/ui/ToolbarRow';
+import { ErrorState } from '../components/ui/ErrorState';
+import { SearchInput } from '../components/ui/SearchInput';
+import { SegmentedControl } from '../components/ui/SegmentedControl';
+import { SkeletonGrid } from '../components/ui/Skeletons';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
+import { Spinner } from '../components/ui/PageLoader';
+import { RecipeCard } from '../components/recipe/RecipeCard';
+import { BoltIcon, HeartIcon, RecipeBookIcon, SparklesIcon } from '../components/ui/AppIcons';
 import { useToast } from '../contexts/ToastContext';
+import { isQuick } from '../utils/recipe';
 
-// Dietary tags that should show as badges
-const DIETARY_BADGES: Record<string, { label: string; className: string }> = {
-  vegetarian: { label: 'Vegetarian', className: 'bg-green-100 text-green-700' },
-  vegan: { label: 'Vegan', className: 'bg-green-100 text-green-700' },
-  'gluten-free': { label: 'GF', className: 'bg-amber-100 text-amber-700' },
-  'dairy-free': { label: 'DF', className: 'bg-blue-100 text-blue-700' },
-  keto: { label: 'Keto', className: 'bg-purple-100 text-purple-700' },
-  paleo: { label: 'Paleo', className: 'bg-orange-100 text-orange-700' },
+type SortKey = 'newest' | 'name' | 'quickest';
+
+const SORTS: Record<SortKey, Pick<RecipeListParams, 'sort' | 'order'>> = {
+  newest: { sort: 'created_at', order: 'desc' },
+  name: { sort: 'name', order: 'asc' },
+  quickest: { sort: 'total_minutes', order: 'asc' },
 };
 
-function getDietaryBadges(tags: string[]): Array<{ label: string; className: string }> {
-  const normalizedTags = tags.map(t => t.toLowerCase());
-  const badges: Array<{ label: string; className: string }> = [];
-
-  for (const [key, badge] of Object.entries(DIETARY_BADGES)) {
-    if (normalizedTags.some(tag => tag.includes(key))) {
-      badges.push(badge);
-      if (badges.length >= 2) break; // Max 2 dietary badges
-    }
-  }
-
-  return badges;
-}
+const PAGE_SIZE = 12;
 
 export default function RecipesPage() {
   const { addToast } = useToast();
   const [recipes, setRecipes] = useState<Recipe[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [deletingIds, setDeletingIds] = useState<Set<number>>(new Set());
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [loadingMore, setLoadingMore] = useState(false);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
+  const [total, setTotal] = useState(0);
   const [searchInput, setSearchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [sort, setSort] = useState<'created_at' | 'name'>('created_at');
-  const [order, setOrder] = useState<'asc' | 'desc'>('desc');
-  const pageSize = 9;
+  const [sortKey, setSortKey] = useState<SortKey>('newest');
+  const [favorites, setFavorites] = useState(false);
+  const [quickOnly, setQuickOnly] = useState(false);
+  const [cuisine, setCuisine] = useState('');
+  const [cuisines, setCuisines] = useState<RecipeFacet[]>([]);
+  const [deletingIds, setDeletingIds] = useState<Set<number>>(new Set());
+  const [pendingDelete, setPendingDelete] = useState<Recipe | null>(null);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setPage(1);
-      setSearchQuery(searchInput.trim());
-    }, 250);
+    const timer = setTimeout(() => setSearchQuery(searchInput.trim()), 250);
     return () => clearTimeout(timer);
   }, [searchInput]);
 
-  const loadRecipes = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await recipeService.getRecipesPaginated({
-        page,
-        pageSize,
+  useEffect(() => {
+    let cancelled = false;
+    const loadFacets = async () => {
+      try {
+        const facets = await recipeService.getFacets();
+        if (!cancelled) setCuisines(facets.cuisines.filter(item => item.value).slice(0, 6));
+      } catch {
+        // Cuisine chips are an enhancement; the vault works without them.
+      }
+    };
+    void loadFacets();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const fetchPage = useCallback(
+    (pageNumber: number) =>
+      recipeService.getRecipesPaginated({
+        page: pageNumber,
+        pageSize: PAGE_SIZE,
         q: searchQuery || undefined,
-        sort,
-        order,
-      });
+        cuisine: cuisine || undefined,
+        favorites: favorites || undefined,
+        ...SORTS[quickOnly ? 'quickest' : sortKey],
+      }),
+    [cuisine, favorites, quickOnly, searchQuery, sortKey]
+  );
+
+  const loadFirstPage = useCallback(async () => {
+    setStatus('loading');
+    try {
+      const data = await fetchPage(1);
       setRecipes(Array.isArray(data?.items) ? data.items : []);
-      setTotalPages(typeof data?.total_pages === 'number' ? data.total_pages : 0);
+      setPage(1);
+      setTotalPages(data?.total_pages ?? 0);
+      setTotal(data?.total ?? 0);
+      setStatus('ready');
     } catch (error) {
       console.error('Failed to load recipes:', error);
-      addToast('Could not load recipes. Try again?', 'error');
-    } finally {
-      setLoading(false);
+      setStatus('error');
     }
-  }, [addToast, order, page, pageSize, searchQuery, sort]);
+  }, [fetchPage]);
 
   useEffect(() => {
-    void loadRecipes();
-  }, [loadRecipes]);
+    void loadFirstPage();
+  }, [loadFirstPage]);
 
-  const handleDelete = async (recipeId: number, event: React.MouseEvent) => {
-    // Prevent the link navigation
-    event.preventDefault();
-    event.stopPropagation();
-
-    setDeletingIds(prev => new Set(prev).add(recipeId));
-
+  const loadMore = async () => {
+    setLoadingMore(true);
     try {
-      await recipeService.deleteRecipe(recipeId);
-      setRecipes(prev => prev.filter(recipe => recipe.id !== recipeId));
+      const data = await fetchPage(page + 1);
+      setRecipes(prev => [
+        ...prev,
+        ...data.items.filter(item => !prev.some(r => r.id === item.id)),
+      ]);
+      setPage(page + 1);
+      setTotalPages(data.total_pages);
+    } catch (error) {
+      console.error('Failed to load more recipes:', error);
+      addToast('Could not load more recipes. Try again?', 'error');
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  const handleDelete = async (recipe: Recipe) => {
+    setPendingDelete(null);
+    setDeletingIds(prev => new Set(prev).add(recipe.id));
+    try {
+      await recipeService.deleteRecipe(recipe.id);
+      setRecipes(prev => prev.filter(item => item.id !== recipe.id));
+      setTotal(prev => Math.max(0, prev - 1));
+      addToast(`Deleted ${recipe.name}.`, 'success');
     } catch (error) {
       console.error('Failed to delete recipe:', error);
       addToast('Could not delete that recipe. Try again?', 'error');
     } finally {
       setDeletingIds(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(recipeId);
-        return newSet;
+        const next = new Set(prev);
+        next.delete(recipe.id);
+        return next;
       });
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div
-          className="animate-spin rounded-full h-12 w-12 border-b-2"
-          style={{ borderBottomColor: 'var(--primary)' }}
-          data-testid="loading-spinner"
-        ></div>
-      </div>
-    );
-  }
+  const hasFilters = Boolean(searchQuery || favorites || quickOnly || cuisine);
+  const clearFilters = () => {
+    setSearchInput('');
+    setSearchQuery('');
+    setFavorites(false);
+    setQuickOnly(false);
+    setCuisine('');
+  };
 
-  if (recipes.length === 0 && !searchQuery) {
+  // The server sorts by total time when "Quick" is on, so the quick recipes are always the
+  // leading run of results and client-side trimming never hides one on a later page.
+  const visible = quickOnly ? recipes.filter(isQuick) : recipes;
+  const exhaustedQuick = quickOnly && visible.length < recipes.length;
+
+  if (status === 'ready' && recipes.length === 0 && !hasFilters) {
     return (
       <EmptyState
+        icon={<RecipeBookIcon />}
         title="No recipes yet...yet"
         description="Kick things off with your first recipe."
         action={
           <Link to="/generate" className="btn-primary">
+            <SparklesIcon className="h-4 w-4" />
             Make a recipe
           </Link>
         }
@@ -125,202 +164,148 @@ export default function RecipesPage() {
     );
   }
 
+  const chipClass = (active: boolean) =>
+    `chip flex-shrink-0 px-3.5 py-1.5 text-sm ${active ? 'chip-active' : ''}`;
+
   return (
     <div>
       <PageHeader
-        title="Recipe Vault"
-        subtitle="Browse and manage your saved recipes"
+        title="Recipes"
+        subtitle={
+          status === 'ready'
+            ? `${total} saved ${total === 1 ? 'recipe' : 'recipes'}, ready when you are.`
+            : 'Everything you’ve cooked up so far.'
+        }
         actions={
           <Link to="/generate" className="btn-primary">
+            <SparklesIcon className="h-4 w-4" />
             New recipe, please
           </Link>
         }
       />
 
-      <ToolbarRow controlsClassName="md:grid-cols-[1fr_auto_auto]">
-        <input
-          value={searchInput}
-          onChange={e => setSearchInput(e.target.value)}
-          className="input"
-          placeholder="Search by recipe name"
-        />
-        <select
-          className="input"
-          value={sort}
-          onChange={e => setSort(e.target.value as 'created_at' | 'name')}
+      <div className="mb-6 space-y-3">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center">
+          <SearchInput
+            value={searchInput}
+            onChange={setSearchInput}
+            placeholder="Search recipes"
+            className="md:max-w-sm"
+          />
+          <SegmentedControl
+            label="Sort recipes"
+            value={quickOnly ? 'quickest' : sortKey}
+            onChange={value => {
+              setQuickOnly(false);
+              setSortKey(value);
+            }}
+            options={[
+              { value: 'newest', label: 'Newest' },
+              { value: 'name', label: 'A–Z' },
+              { value: 'quickest', label: 'Quickest' },
+            ]}
+            className="md:ml-auto"
+          />
+        </div>
+        <div
+          role="group"
+          aria-label="Filters"
+          className="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0"
         >
-          <option value="created_at">Sort by newest</option>
-          <option value="name">Sort by name</option>
-        </select>
-        <button
-          className="btn-secondary"
-          onClick={() => setOrder(prev => (prev === 'desc' ? 'asc' : 'desc'))}
-        >
-          {order === 'desc' ? 'Descending' : 'Ascending'}
-        </button>
-      </ToolbarRow>
-
-      {recipes.length === 0 ? (
-        <EmptyState
-          title="No recipes matched"
-          description="Try another search or clear filters."
-          action={
+          <button
+            type="button"
+            aria-pressed={favorites}
+            onClick={() => setFavorites(value => !value)}
+            className={chipClass(favorites)}
+          >
+            <HeartIcon className="h-3.5 w-3.5" />
+            Favourites
+          </button>
+          <button
+            type="button"
+            aria-pressed={quickOnly}
+            onClick={() => setQuickOnly(value => !value)}
+            className={chipClass(quickOnly)}
+          >
+            <BoltIcon className="h-3.5 w-3.5" />
+            Under 30 min
+          </button>
+          {cuisines.map(item => (
             <button
-              className="btn-secondary"
-              onClick={() => {
-                setSearchInput('');
-                setSearchQuery('');
-                setSort('created_at');
-                setOrder('desc');
-              }}
+              key={item.value}
+              type="button"
+              aria-pressed={cuisine === item.value}
+              onClick={() => setCuisine(value => (value === item.value ? '' : item.value))}
+              className={chipClass(cuisine === item.value)}
             >
+              {item.value}
+              <span className="text-stone-400">{item.count}</span>
+            </button>
+          ))}
+          {hasFilters && (
+            <button type="button" onClick={clearFilters} className="btn-ghost btn-sm flex-shrink-0">
+              Clear
+            </button>
+          )}
+        </div>
+      </div>
+
+      {status === 'loading' ? (
+        <SkeletonGrid variant="recipe" count={6} testId="recipes-loading" />
+      ) : status === 'error' ? (
+        <ErrorState
+          title="Couldn't load your recipes"
+          description="Something went wrong on our side. Your recipes are safe."
+          onRetry={() => void loadFirstPage()}
+        />
+      ) : visible.length === 0 ? (
+        <EmptyState
+          variant="compact"
+          title="Nothing matches"
+          description="Try a different search, or clear the filters."
+          action={
+            <button type="button" className="btn-secondary" onClick={clearFilters}>
               Clear filters
             </button>
           }
         />
       ) : (
-        <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {recipes.map((recipe, index) => (
-            <div
-              key={recipe.id}
-              className="card card-hover overflow-hidden relative opacity-0 animate-slide-in-up"
-              style={{ animationDelay: `${index * 75}ms`, animationFillMode: 'forwards' }}
-            >
-              {/* Delete Button */}
+        <>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 stagger">
+            {visible.map(recipe => (
+              <RecipeCard
+                key={recipe.id}
+                recipe={recipe}
+                deleting={deletingIds.has(recipe.id)}
+                onDelete={() => setPendingDelete(recipe)}
+              />
+            ))}
+          </div>
+          {page < totalPages && !exhaustedQuick && (
+            <div className="mt-10 flex justify-center">
               <button
-                onClick={e => handleDelete(recipe.id, e)}
-                disabled={deletingIds.has(recipe.id)}
-                className="icon-button-danger absolute top-3 right-3 z-10 disabled:opacity-50"
-                title="Delete recipe"
+                type="button"
+                className="btn-secondary"
+                onClick={loadMore}
+                disabled={loadingMore}
               >
-                {deletingIds.has(recipe.id) ? (
-                  <div className="animate-spin h-4 w-4 border-2 border-red-600 border-t-transparent rounded-full"></div>
-                ) : (
-                  <TrashIcon className="h-4 w-4" />
-                )}
+                {loadingMore && <Spinner className="h-4 w-4" />}
+                Show more recipes
               </button>
-
-              {/* Clickable Content */}
-              <Link to={`/recipes/${recipe.id}`} className="group block p-6 pr-12">
-                {/* Quick badges row */}
-                {(() => {
-                  const totalTime =
-                    (recipe.prep_time_minutes || 0) + (recipe.cook_time_minutes || 0);
-                  const isQuick = totalTime > 0 && totalTime <= 30;
-                  const dietaryBadges = getDietaryBadges(recipe.tags);
-
-                  if (isQuick || dietaryBadges.length > 0) {
-                    return (
-                      <div className="flex flex-wrap gap-1.5 mb-2">
-                        {isQuick && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
-                            <BoltIcon className="h-3 w-3 mr-0.5" />
-                            Quick
-                          </span>
-                        )}
-                        {dietaryBadges.map(badge => (
-                          <span
-                            key={badge.label}
-                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${badge.className}`}
-                          >
-                            {badge.label}
-                          </span>
-                        ))}
-                      </div>
-                    );
-                  }
-                  return null;
-                })()}
-
-                <h3
-                  className="text-lg font-semibold text-stone-900 transition-colors"
-                  style={{ '--hover-color': 'var(--primary)' } as React.CSSProperties}
-                >
-                  <span className="group-hover:text-primary" style={{ color: 'inherit' }}>
-                    {recipe.name}
-                  </span>
-                </h3>
-                <p className="mt-2 text-sm text-stone-600 line-clamp-2">{recipe.description}</p>
-                <div className="mt-4 flex items-center text-sm text-stone-500 space-x-4">
-                  <div className="flex items-center">
-                    <ClockIcon className="h-4 w-4 mr-1" />
-                    {(recipe.prep_time_minutes || 0) + (recipe.cook_time_minutes || 0)} min
-                  </div>
-                  <div className="flex items-center">
-                    <UserGroupIcon className="h-4 w-4 mr-1" />
-                    {recipe.servings} servings
-                  </div>
-                </div>
-                <div className="mt-3">
-                  {recipe.source_urls && recipe.source_urls.length > 0 && (
-                    <div
-                      className="flex items-center text-xs mb-2"
-                      style={{ color: 'var(--primary)' }}
-                    >
-                      <svg
-                        className="h-3 w-3 mr-1"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
-                        />
-                      </svg>
-                      <span>
-                        {recipe.source_urls.length === 1
-                          ? 'Web-inspired recipe'
-                          : `Inspired by ${recipe.source_urls.length} sources`}
-                      </span>
-                    </div>
-                  )}
-                  {recipe.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {recipe.tags.slice(0, 3).map(tag => (
-                        <span
-                          key={tag}
-                          className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
-                          style={{
-                            backgroundColor: 'var(--primary-soft)',
-                            color: 'var(--primary-hover)',
-                          }}
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </Link>
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
 
-      {totalPages > 1 && (
-        <div className="mt-8 flex items-center justify-center gap-3">
-          <button
-            className="btn-secondary"
-            disabled={page === 1}
-            onClick={() => setPage(prev => Math.max(1, prev - 1))}
-          >
-            Previous
-          </button>
-          <span className="text-sm text-stone-600">
-            Page {page} of {totalPages}
-          </span>
-          <button
-            className="btn-secondary"
-            disabled={page === totalPages}
-            onClick={() => setPage(prev => Math.min(totalPages, prev + 1))}
-          >
-            Next
-          </button>
-        </div>
-      )}
+      <ConfirmDialog
+        isOpen={Boolean(pendingDelete)}
+        title={`Delete ${pendingDelete?.name ?? 'recipe'}?`}
+        description="This permanently removes the recipe and your notes on it."
+        confirmLabel="Delete"
+        tone="danger"
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={() => pendingDelete && void handleDelete(pendingDelete)}
+      />
     </div>
   );
 }
