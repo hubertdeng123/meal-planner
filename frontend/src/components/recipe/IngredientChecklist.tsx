@@ -71,7 +71,7 @@ export function IngredientChecklist({
                 <span
                   className={`flex-shrink-0 text-sm font-semibold tabular-nums ${
                     isChecked ? 'opacity-40' : ''
-                  } ${dark ? 'text-[#a7e3bf]' : 'text-stone-600'}`}
+                  } ${dark ? 'text-[#f0c7b0]' : 'text-stone-600'}`}
                 >
                   {amount}
                 </span>

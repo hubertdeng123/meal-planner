@@ -131,15 +131,15 @@ export function HungryHelperLogo({ size = 32, className = '' }: AppIconProps) {
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
     >
-      <rect width="32" height="32" rx="9" fill="#1f6f4a" />
-      <path d="M15.6 13.6c-.2-3.9 2.3-6.9 6.6-7.5.1 4.2-2.4 7-6.6 7.5Z" fill="#a7e3bf" />
+      <rect width="32" height="32" rx="10" fill="#a63e24" />
+      <path d="M15.6 13.6c-.2-3.9 2.3-6.9 6.6-7.5.1 4.2-2.4 7-6.6 7.5Z" fill="#f6d7c4" />
       <path
         d="M15.6 13.6c.6-2 1.8-3.6 3.6-4.8"
-        stroke="#1f6f4a"
+        stroke="#a63e24"
         strokeWidth="1"
         strokeLinecap="round"
       />
-      <circle cx="11" cy="11.2" r="2.6" fill="#e2572f" />
+      <circle cx="11" cy="11.2" r="2.6" fill="#f3e1c4" />
       <path d="M6.5 15.2h19a9.5 9.5 0 0 1-19 0Z" fill="#fff" />
       <path d="M12.5 26.2h7" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" />
     </svg>

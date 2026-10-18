@@ -97,7 +97,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
 
 function TabBar() {
   return (
-    <div className="fixed inset-x-0 bottom-0 z-30 border-t border-stone-900/[0.06] bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden">
+    <div className="fixed inset-x-3 bottom-3 z-30 rounded-3xl border border-[#e6d8c8] bg-[#fffdf9]/95 pb-[env(safe-area-inset-bottom)] shadow-lg backdrop-blur-md lg:hidden">
       <ul className="mx-auto grid h-16 max-w-md grid-cols-5 items-stretch px-2">
         {TAB_ITEMS.map(item => {
           if (!item) {
@@ -108,7 +108,7 @@ function TabBar() {
                   aria-label="Make a recipe"
                   className={({ isActive }) =>
                     classNames(
-                      'flex h-12 w-12 -translate-y-3 items-center justify-center rounded-2xl text-white shadow-lg ring-4 ring-paper transition-transform active:scale-95',
+                      'flex h-12 w-12 -translate-y-4 items-center justify-center rounded-full text-white shadow-lg ring-4 ring-[#f3ebdf] transition-transform active:scale-95',
                       isActive ? 'bg-primary-hover' : 'bg-primary'
                     )
                   }
@@ -188,9 +188,12 @@ export default function Layout({ children, mode = 'full' }: LayoutProps) {
       </a>
 
       <nav aria-label="Main">
-        <div className="fixed inset-y-0 left-0 z-30 hidden w-[var(--sidebar-width)] flex-col border-r border-stone-900/[0.06] bg-[#efede6] lg:flex">
+        <div className="fixed bottom-4 left-4 top-4 z-30 hidden w-[var(--sidebar-width)] flex-col rounded-[1.75rem] border border-[#e6d8c8] bg-[#fffdf9] shadow-md lg:flex">
           <div className="px-4 pb-4 pt-5">
             <Brand />
+            <p className="mt-1 px-1 text-[11px] font-medium uppercase tracking-[0.16em] text-stone-500">
+              Editorial kitchen
+            </p>
           </div>
 
           <div className="px-4">
@@ -254,7 +257,7 @@ export default function Layout({ children, mode = 'full' }: LayoutProps) {
         <TabBar />
       </nav>
 
-      <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-stone-900/[0.06] bg-[#f6f5f1]/85 px-4 backdrop-blur-md lg:hidden">
+      <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-[#e6d8c8] bg-[#f3ebdf]/90 px-4 backdrop-blur-md lg:hidden">
         <Brand compact />
         <button
           type="button"
@@ -278,7 +281,7 @@ export default function Layout({ children, mode = 'full' }: LayoutProps) {
             className="absolute inset-0 bg-stone-950/40 animate-fade-in"
             onClick={() => setMobileOpen(false)}
           />
-          <div className="absolute inset-y-0 right-0 flex w-[min(20rem,85vw)] flex-col bg-[#f3f2ec] shadow-xl animate-slide-in-right">
+          <div className="absolute inset-y-0 right-0 flex w-[min(20rem,85vw)] flex-col bg-[#fffdf9] shadow-xl animate-slide-in-right">
             <div className="flex items-center justify-between px-4 pb-3 pt-4">
               <span className="flex items-center gap-3">
                 <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-xs font-semibold text-white">
@@ -327,12 +330,12 @@ export default function Layout({ children, mode = 'full' }: LayoutProps) {
         </div>
       )}
 
-      <div className="lg:pl-[var(--sidebar-width)]">
+      <div className="lg:pl-[calc(var(--sidebar-width)+2rem)]">
         <main
           id="main"
           tabIndex={-1}
           className={classNames(
-            'mx-auto w-full px-4 pb-28 pt-6 animate-fade-in focus:outline-none sm:px-6 lg:px-10 lg:py-10',
+            'mx-auto w-full px-4 pb-32 pt-8 animate-fade-in focus:outline-none sm:px-6 lg:px-12 lg:py-12',
             mode === 'focus' ? 'max-w-5xl' : 'max-w-6xl'
           )}
         >
