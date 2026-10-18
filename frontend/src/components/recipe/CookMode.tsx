@@ -90,11 +90,11 @@ export function CookMode({
       role="dialog"
       aria-modal="true"
       aria-label={`Cook mode: ${title}`}
-      className="fixed inset-0 z-[60] flex flex-col bg-[#173b2b] text-white animate-fade-in focus:outline-none"
+      className="fixed inset-0 z-[60] flex flex-col bg-[#2c241f] text-white animate-fade-in focus:outline-none"
     >
       <header className="flex items-center gap-3 px-4 pt-[calc(1rem+env(safe-area-inset-top))] sm:px-8 sm:pt-6">
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#a7e3bf]">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#f0c7b0]">
             Step {step + 1} of {steps.length}
           </p>
           <p className="truncate text-sm text-white/70">{title}</p>
@@ -132,7 +132,7 @@ export function CookMode({
             aria-label={`Go to step ${index + 1}`}
             aria-current={index === step ? 'step' : undefined}
             className={`h-1.5 flex-1 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 ${
-              index <= step ? 'bg-[#a7e3bf]' : 'bg-white/15 hover:bg-white/25'
+              index <= step ? 'bg-[#f0c7b0]' : 'bg-white/15 hover:bg-white/25'
             }`}
           />
         ))}
@@ -150,7 +150,7 @@ export function CookMode({
         </div>
 
         {showIngredients && (
-          <aside className="absolute inset-0 overflow-y-auto bg-[#173b2b] px-4 py-4 animate-fade-in sm:static sm:w-80 sm:border-l sm:border-white/10 sm:bg-transparent lg:w-96">
+          <aside className="absolute inset-0 overflow-y-auto bg-[#2c241f] px-4 py-4 animate-fade-in sm:static sm:w-80 sm:border-l sm:border-white/10 sm:bg-transparent lg:w-96">
             <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-[0.16em] text-white/60">
               Ingredients
             </p>
@@ -182,7 +182,7 @@ export function CookMode({
         <button
           type="button"
           onClick={handleNext}
-          className="ml-auto inline-flex h-14 flex-1 items-center justify-center gap-2 rounded-2xl bg-white px-6 text-base font-semibold text-[#173b2b] transition hover:bg-[#eaf6ef] focus:outline-none focus-visible:ring-4 focus-visible:ring-white/40 sm:flex-none"
+          className="ml-auto inline-flex h-14 flex-1 items-center justify-center gap-2 rounded-full bg-[#f6efe6] px-6 text-base font-semibold text-[#2c241f] transition hover:bg-white focus:outline-none focus-visible:ring-4 focus-visible:ring-white/40 sm:flex-none"
         >
           {isLast ? (
             <>

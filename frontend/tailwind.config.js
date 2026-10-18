@@ -27,7 +27,14 @@ export default {
         warning: 'var(--warning)',
       },
       fontFamily: {
-        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        sans: [
+          'Plus Jakarta Sans',
+          '-apple-system',
+          'BlinkMacSystemFont',
+          'Segoe UI',
+          'Roboto',
+          'sans-serif',
+        ],
         display: ['Fraunces', 'Georgia', 'Cambria', 'Times New Roman', 'serif'],
       },
       boxShadow: {

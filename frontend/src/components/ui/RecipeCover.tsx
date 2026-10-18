@@ -1,10 +1,10 @@
 const PALETTES = [
-  { bg: '#dfe9dc', ink: '#2f5d43', dot: 'rgba(47,93,67,0.14)' },
-  { bg: '#f6ddd0', ink: '#a3401f', dot: 'rgba(163,64,31,0.13)' },
-  { bg: '#f5e8c4', ink: '#8a5a0b', dot: 'rgba(138,90,11,0.14)' },
-  { bg: '#ebdbe4', ink: '#6b2f52', dot: 'rgba(107,47,82,0.12)' },
-  { bg: '#d9e6ee', ink: '#2a5672', dot: 'rgba(42,86,114,0.13)' },
-  { bg: '#e7e6cf', ink: '#5a5a1e', dot: 'rgba(90,90,30,0.14)' },
+  { bg: '#f6ddd0', ink: '#8c321c', dot: 'rgba(140,50,28,0.14)' },
+  { bg: '#f3e4c8', ink: '#7a4a16', dot: 'rgba(122,74,22,0.14)' },
+  { bg: '#efe2d4', ink: '#6b3a28', dot: 'rgba(107,58,40,0.12)' },
+  { bg: '#e7efe4', ink: '#3d5c45', dot: 'rgba(61,92,69,0.12)' },
+  { bg: '#f8efe2', ink: '#8a5a2b', dot: 'rgba(138,90,43,0.13)' },
+  { bg: '#eadfd2', ink: '#5c4636', dot: 'rgba(92,70,54,0.12)' },
 ];
 
 function hashString(value: string) {
